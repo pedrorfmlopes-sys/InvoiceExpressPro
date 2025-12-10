@@ -1,0 +1,33 @@
+{
+  "name": "invoice-studio",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "start": "npm run build:client && node server/server.js",
+    "dev": "concurrently \"nodemon server/server.js\" \"npm:dev:client\"",
+    "install:all": "npm install && cd client && npm install",
+    "build:client": "cd client && npm run build",
+    "dev:client": "cd client && npm run dev"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^6.9.1",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.4",
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.11"
+  },
+  "description": "## Como usar (Replit) 1) Importe este ZIP para um novo Repl **Node.js**. 2) Defina a variável de ambiente **OPENAI_API_KEY** (Secrets). 3) Clique **Run**. O Repl:    - instala deps do frontend, faz `build`,    - arranca o servidor Express,    - serve o frontend estático em `/`.",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

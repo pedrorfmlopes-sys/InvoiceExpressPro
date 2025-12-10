@@ -1,0 +1,10 @@
+{
+  "items": [
+    "Fatura",
+    "Encomenda",
+    "Proposta",
+    "Recibo",
+    "NotaCredito",
+    "Documento"
+  ]
+}

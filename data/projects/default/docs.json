@@ -1,0 +1,42 @@
+{
+  "rows": [
+    {
+      "id": "00d1734a-5732-4bfb-a21f-9dffa8ab324b",
+      "project": "default",
+      "batchId": "miz9u4f3-iy5cv1erwqb",
+      "docType": "Fatura",
+      "docNumber": "000068/B",
+      "date": "2025-01-17",
+      "dueDate": "2025-03-17",
+      "supplier": "NICOLAZZI s.p.a.",
+      "customer": "GRESIT, LDA",
+      "total": 190.4,
+      "currency": "EUR",
+      "source": "upload+ia",
+      "status": "processado",
+      "filePath": "C:\\Users\\pedro\\OneDrive\\APPS\\GitHub\\InvoiceStudioGRVTY-main\\data\\projects\\default\\archive\\2025\\12\\Fatura-000068_B.pdf",
+      "size": 108199,
+      "createdAt": "2025-12-10T00:28:55.832Z",
+      "meta": {}
+    },
+    {
+      "id": "8e70699b-ba8e-418e-8b71-661a69dd2dff",
+      "project": "default",
+      "batchId": "mizaap9o-y3bx2wvaht",
+      "docType": "Fatura",
+      "docNumber": "000133/B",
+      "date": "2025-01-28",
+      "dueDate": "2025-01-28",
+      "supplier": "NICOLAZZI s.p.a.",
+      "customer": "STONECERAMIC, LDA",
+      "total": 1668.79,
+      "currency": "EUR",
+      "source": "upload+ia",
+      "status": "processado",
+      "filePath": "C:\\Users\\pedro\\OneDrive\\APPS\\GitHub\\InvoiceStudioGRVTY-main\\data\\projects\\default\\archive\\2025\\12\\Fatura-000133_B.pdf",
+      "size": 108345,
+      "createdAt": "2025-12-10T00:41:48.949Z",
+      "meta": {}
+    }
+  ]
+}

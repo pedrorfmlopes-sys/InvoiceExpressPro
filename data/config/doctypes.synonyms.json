@@ -1,0 +1,46 @@
+{
+  "Fatura": [
+    "invoice",
+    "fattura",
+    "factura",
+    "facture",
+    "nota fiscal",
+    "nota",
+    "bill"
+  ],
+  "Encomenda": [
+    "order",
+    "purchase order",
+    "po",
+    "ordem de compra",
+    "pedido"
+  ],
+  "Proposta": [
+    "proposal",
+    "quote",
+    "quotation",
+    "orçamento",
+    "orcamento",
+    "preventivo"
+  ],
+  "Recibo": [
+    "receipt",
+    "recibo",
+    "ricevuta"
+  ],
+  "NotaCredito": [
+    "credit note",
+    "nota de crédito",
+    "nota credito",
+    "nota di credito",
+    "abono",
+    "avoir"
+  ],
+  "Documento": [
+    "document",
+    "doc",
+    "other",
+    "outro",
+    "diverso"
+  ]
+}
