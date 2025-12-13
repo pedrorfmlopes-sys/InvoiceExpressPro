@@ -1,1 +1,31 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.*
+
+# Build Artifacts
+dist/
+client/dist/
+
+# Data & Persistence
+data/
+data/config/secrets.json
+*.sqlite
+*.db
+*.log
+
+# Runtime & Smoke Artifacts
+RUNTIME_ENDPOINT_SMOKE*.txt
+EXPRESS_ROUTES_DUMP*.txt
+MIGRATION_REPORT*.txt
+ENDPOINT_COVERAGE_REPORT*.txt
+ROUTE_PARITY*.txt
+ROUTES_PREFIX_AUDIT*.txt
+PHASE*_CHANGELOG.txt
+smoke_state.json
+
+# OS
+.DS_Store
+Thumbs.db

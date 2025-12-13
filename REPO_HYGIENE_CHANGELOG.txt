@@ -1,0 +1,26 @@
+REPO HYGIENE CHANGELOG
+======================
+
+Updated .gitignore:
+- node_modules/
+- .env, .env.*
+- dist/, client/dist/
+- data/
+- *.sqlite, *.db
+- Logs & Reports (RUNTIME_*, MIGRATION_*, PHASE_*, etc.)
+
+Removed from Git Index (kept local):
+- client/dist/ (Assets, index.html...)
+- data/ (Config, Projects, Excel, JSONs...)
+- .env
+
+Command for verification:
+> git status
+
+Status Summary:
+D  client/dist/...
+D  data/...
+D  .env
+M  .gitignore
+
+Note: These files are marked as 'Deleted' (D) in git because they are now ignored and removed from the index, but they still exist on your disk. You should commit these deletions to stop tracking them in the repo.
