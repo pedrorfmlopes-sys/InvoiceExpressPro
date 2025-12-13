@@ -1,0 +1,46 @@
+Problemas, Riscos e TODOs - Invoice Studio
+
+1. Críticos / Riscos Elevados
+-----------------------------
+[ ] Concorrência na escrita de ficheiros (Race Condition):
+    O backend lê `docs.json`, manipula em memória e escreve de volta. Se dois requests (ex: finalize-bulk e edit) acontecerem ao mesmo tempo, um vai sobrepor o outro e PERDER DADOS.
+    Solução: Implementar queue de escrita ou mutex simples no acesso aos ficheiros JSON.
+
+[ ] Escalabilidade do "Banco de Dados":
+    Carregar `docs.json` (e `XLSX`) inteiro para RAM em cada request. Com 5.000+ faturas, a app vai ficar lenta ou dar crash por memória.
+    Solução: Mudar para SQLite ou manter JSON streams / paginação real.
+
+[ ] Tratamento de Erros "Silencioso":
+    Muitas funções têm `try { ... } catch { }` vazio ou apenas logs, podendo deixar o sistema em estado inconsistente (ex: moveu ficheiro mas falhou ao gravar no JSON).
+
+2. Código e Arquitetura
+-----------------------------
+[ ] "God File" (server.js):
+    Ficheiro com 1300+ linhas misturando rotas, regras de negócio, acesso a ficheiros, configurações e utilitários.
+    Refactor: Separar em `routes/`, `controllers/`, `services/`, `utils/`.
+
+[ ] Lógica Duplicada:
+    Hooks de normalização de path e ensure dirs espalhados em várias rotas.
+
+[ ] Frontend Hook de Dados:
+    `ExploreTab` carrega tudo de uma vez. Falta paginação server-side.
+
+3. Segurança
+-----------------------------
+[ ] Sem Autenticação:
+    Qualquer pessoa na rede local (se a porta estiver aberta) tem acesso total a apagar ficheiros e ler segredos.
+[ ] Path Traversal:
+    Uso de inputs do utilizador para nomes de pastas (`req.body.dir`). Embora haja algum `sanitize`, validação robusta é recomendada.
+
+4. UX / Funcional
+-----------------------------
+[ ] Feedback de Progresso:
+    Se o upload falhar a meio, não há retry automático.
+[ ] Validações:
+    Permite finalizar documentos sem data ou total válidos (apenas avisa, não bloqueia estritamente dependendo do fluxo).
+
+5. TODOs Imediatos (Quick Wins)
+-----------------------------
+1. Extrair funções de I/O de ficheiros para um módulo `storage.js` com locking básico.
+2. Mover lógica de PDF e Excel para serviços dedicados.
+3. Validate de inputs nas rotas críticas (schema validation).

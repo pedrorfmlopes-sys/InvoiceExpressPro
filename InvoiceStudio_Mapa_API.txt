@@ -1,0 +1,66 @@
+Mapa da API - Invoice Studio
+Base URL: /api
+Métodos: GET, POST, PUT, PATCH, DELETE
+
+1. Projetos & Configuração
+--------------------------
+GET  /api/projects                -> Lista projetos existentes.
+POST /api/projects                -> Cria novo projeto.
+DELETE /api/projects/:name        -> Apaga projeto.
+GET  /api/config/secrets          -> Estado das chaves (OpenAI).
+POST /api/config/secrets          -> Define/Limpa API Key.
+GET  /api/config/doctypes         -> Lista tipos de documento configurados.
+GET  /api/templates               -> Lista templates (Teacher).
+POST /api/templates               -> Grava template.
+POST /api/app-logo                -> Upload logo da app.
+
+2. Sistema & Ficheiros
+--------------------------
+GET  /api/health                  -> Checkup básico e caminhos do projeto.
+GET  /api/dirs                    -> Lista subpastas para output Excel.
+POST /api/mkdir                   -> Cria subpasta.
+POST /api/set-output              -> Define caminho de saída do Excel.
+
+3. Processamento (Upload/Batch)
+--------------------------
+POST /api/extract                 -> Upload de PDFs (multipart). Inicia processamento async. Retorna batchId.
+GET  /api/progress/:batchId       -> Polling de progresso do processamento.
+GET  /api/batch/:batchId          -> Obtém linhas processadas (memória ou disco).
+PATCH /api/doc/:id                -> Edita campos de um documento (staging ou processado).
+DELETE /api/doc/:id               -> Apaga documento e ficheiro PDF.
+
+4. Finalização & Gestão
+--------------------------
+POST /api/doc/finalize            -> Finaliza um doc (move Staging -> Archive).
+POST /api/docs/finalize-bulk      -> Finaliza múltiplos docs.
+POST /api/docs/bulk-delete        -> Apaga múltiplos docs.
+POST /api/docs/merge              -> Funde múltiplos docs num só (mantém 1, apaga outros).
+
+5. Dados & Exportação
+--------------------------
+GET  /api/excel.json              -> Obtém todos os dados (lê Excel ou docs.json). JSON DB principal.
+POST /api/excel/refresh           -> Força re-escrita do Excel com base no JSON.
+GET  /api/export.xlsx             -> Download Excel filtrado.
+GET  /api/export.csv              -> Download CSV filtrado.
+GET  /api/export.pdf              -> Download PDF lista simples.
+GET  /api/doc/view?id=...         -> Serve o PDF (stream).
+
+6. Relatórios
+--------------------------
+GET  /api/reports/suppliers       -> JSON Top Fornecedores.
+GET  /api/reports/customers       -> JSON Top Clientes.
+GET  /api/reports/monthly         -> JSON Totais Mensais.
+GET  /api/reports.xlsx            -> Relatório Excel multi-sheet.
+GET  /api/reports.pdf             -> Relatório PDF "Basic" (Visual).
+POST /api/reports/pro-pdf         -> Relatório PDF "Pro" (com análise OpenAI).
+
+7. Normalização
+--------------------------
+GET    /api/normalize             -> Lista regras de normalização de entidades.
+PUT    /api/normalize             -> Atualiza todas as regras.
+POST   /api/normalize             -> Adiciona alias.
+DELETE /api/normalize             -> Remove alias.
+
+8. Auditoria
+--------------------------
+GET  /api/audit                   -> Lista logs de ações.

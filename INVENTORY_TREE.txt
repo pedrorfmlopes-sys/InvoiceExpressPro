@@ -1,0 +1,40 @@
+INVENTORY TREE (Invoice Studio)
+================================
+
+ROOT
+├── package.json         (Scripts: start, dev, install:all)
+├── .env                 (OPENAI_API_KEY)
+├── client/              (Frontend React/Vite)
+│   ├── vite.config.js   (Proxy /api -> 3000)
+│   ├── src/
+│   │   ├── main.jsx     (Entry)
+│   │   ├── App.jsx      (Layout, Router manual)
+│   │   ├── tabs/        (Componentes principais)
+│   │   │   ├── ProcessTab.jsx
+│   │   │   ├── ExploreTab.jsx
+│   │   │   ├── NormalizationTab.jsx
+│   │   │   ├── ReportsTab.jsx
+│   │   │   ├── AuditTab.jsx
+│   │   │   ├── TeacherTab.jsx
+│   │   │   └── ConfigTab.jsx
+│   │   └── shared/      (ui.jsx, utils)
+│   └── dist/            (Build production)
+├── server/              (Backend Node/Express)
+│   ├── server.js        (GOD FILE - 1300+ lines)
+│   ├── reports-pdf.js   (Helper PDFLib)
+│   └── config/          (secrets.json, doctypes.synonyms.json)
+└── data/                (Runtime Data - GitIgnored usually)
+    ├── docs.json        (MAIN DB: { rows: [] })
+    ├── projects/        (Projects folders)
+    └── uploads/         (Multer temp)
+
+ENTRIES & PORTS
+----------------
+Frontend: http://localhost:5173 (Dev)
+Backend:  http://localhost:3000 (API)
+
+IMPORTANT FILES
+----------------
+- server/server.js: 99% da lógica backend.
+- client/src/App.jsx: Lógica de tabs e estado global do frontend.
+- data/docs.json: Base de dados (se apagado, perde-se tudo, exceto PDFs no archive).

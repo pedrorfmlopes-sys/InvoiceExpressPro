@@ -1,0 +1,45 @@
+const DocService = require('../services/DocService');
+const helpers = require('../utils/helpers');
+
+exports.normalize = async (req, res) => {
+    try {
+        const project = req.query.project;
+        const docs = await DocService.getDocs(project);
+        let count = 0;
+
+        for (const doc of docs) {
+            let changed = false;
+
+            // Normalize Date
+            const nDate = helpers.normalizeDate(doc.date);
+            if (nDate !== doc.date) {
+                doc.date = nDate;
+                changed = true;
+            }
+
+            // Normalize Total
+            if (typeof doc.total === 'string') {
+                const nTotal = helpers.toNumberEU(doc.total);
+                if (nTotal !== doc.total) { // Note: strict check might fail if it was already number conceptually but string type
+                    doc.total = nTotal;
+                    changed = true;
+                }
+            }
+
+            // Ensure ID (hotfix parity) - handled by default but safe to check
+            if (!doc.id) {
+                // doc.id = uuidv4(); // Handled by save if missing usually, but let's skip for now
+            }
+
+            if (changed) {
+                // Use updateDoc to save
+                await DocService.updateDoc(project, doc.id, doc);
+                count++;
+            }
+        }
+
+        res.json({ ok: true, count, message: `Normalized ${count} documents` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};

@@ -1,0 +1,18 @@
+| Feature | Descrição curta | Onde está implementado | Como é acionado | Estado | Como testar |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Extração PDF** | Upload e extração de texto (OCR/Regex) | `server.js` (`/api/extract`) | `ProcessTab.jsx` > Drag&Drop | **Usado na UI** | Arrastar PDF na tab "Processar", verificar progress bar. |
+| **Parsing/Campos** | Regex heuristics para extrair data, total, etc. | `server.js` (`extractHeuristic`) | Automático no `/api/extract` | **Usado na UI** | Carregar PDF com "Total: 100€" e ver se preenche o campo. |
+| **Templates / ROI** | Definição de zonas/regiões para extração (Teacher) | `server.js` (`/api/templates`), `TeacherTab.jsx` | Tab "Teacher" (existe no código, mas não no menu principal?) | **Experimental/Oculto** | Verificar se `TeacherTab` está importado em `App.jsx` e renderizado. |
+| **Enrichment / Regras** | Não identificado explicitamente. Apenas regex. | N/A | N/A | **Inexistente** | N/A |
+| **Viewer PDF** | Visualizar PDF via browser/iframe | `server.js` (`/api/doc/view`), `PdfViewerOverlay.jsx` | Botão "Olho" nas tabelas | **Usado na UI** | Clicar no ícone de olho num documento carregado. |
+| **Edição Inline** | Editar campos na tabela | `server.js` (`PATCH /api/doc/:id`), `ProcessTab/ExploreTab` | Inputs nas tabelas de listagem | **Usado na UI** | Alterar valor do "Total", clicar fora ou guardar. |
+| **Finalize (Single)** | Move de Staging para Archive | `server.js` (`/api/doc/finalize`) | Botão "Confirmar" (ProcessTab) | **Usado na UI** | Processar documento e confirmar. Verificar se sai da lista de lote. |
+| **Finalize Bulk** | Move múltiplos docs para Archive | `server.js` (`/api/docs/finalize-bulk`) | Botão "Confirmar selecionados" | **Usado na UI** | Selecionar 3 docs e confirmar todos. |
+| **Merge Docs** | Fundir vários docs num só | `server.js` (`/api/docs/merge`) | Não encontrado na UI (código morto no front?) | **Só Endpoint** | Validar se há botão "Merge" em alguma tab. |
+| **Exports (XLSX/CSV)** | Download de listagens | `server.js` (`/api/export.*`) | Header (`App.jsx`) ou `ReportsTab` | **Usado na UI** | Clicar "Descarregar Excel" no topo. |
+| **Normalizações** | Alias para Fornecedores/Clientes | `server.js` (`/api/normalize`), `NormalizationTab.jsx` | Tab "Normalizações" | **Usado na UI** | Criar alias "Meo" -> "MEO SA", reprocessar/verificar. |
+| **Auditoria** | Logs de operações (audit.json) | `server.js` (`/api/audit`), `AuditTab.jsx` | Tab "Auditoria" | **Usado na UI** | Fazer ações e ver se aparecem na tab Auditoria. |
+| **Reports (Basic)** | Gráficos/Tabelas simples | `server.js` (`/api/reports/*`), `ReportsTab.jsx` | Tab "Relatórios" | **Usado na UI** | Abrir tab, ver tabelas "Top Fornecedores". |
+| **Relatórios Pro (AI)** | Análise OpenAI gerando PDF | `server.js` (`/api/reports/pro-pdf`) | Botão em `ExploreTab` (filtro) | **Usado na UI** | Clicar "Relatório Pro" na tab Explorar (precisa API Key). |
+| **Config (API Key)** | Gestão de chaves | `server.js` (`/api/config/secrets`), `ConfigTab.jsx` | Tab "Config" | **Usado na UI** | Inserir chave e salvar. |
+| **Autenticação** | Proteção de acesso | `-` | Não existe middleware | **Inexistente** | Tentar acessar `/api/audit` sem login (funciona). |

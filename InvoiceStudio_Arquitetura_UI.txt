@@ -1,0 +1,71 @@
+Arquitetura UI - Invoice Studio
+Framework: React + Vite
+Estilos: CSS Global (src/styles.css) + CSS Variables para temas.
+
+1. Layout Principal (App.jsx)
+-----------------------------
+Header:
+  - Título
+  - Seletor de Projeto (cria/apaga/seleciona)
+  - Seletor de Tema
+  - Botão "Descarregar Excel" (link direto)
+Tabs (Navegação):
+  - Processar
+  - Explorar/Editar
+  - Normalizações
+  - Relatórios
+  - Auditoria
+  - Config
+
+2. Módulos/Tabs (client/src/tabs/)
+-----------------------------
+ProcessTab.jsx:
+  - Drag & Drop de PDFs.
+  - Upload -> Polling (/api/progress).
+  - Tabela de "Revisão do lote atual" (Batch Review).
+  - Edição inline antes de finalizar.
+  - Ações: Guardar, Confirmar (Finalize), Apagar, Ver PDF (Modal).
+
+ExploreTab.jsx:
+  - Grid principal de documentos (Carregado de /api/excel.json).
+  - Filtros avançados (Fornecedor, Tipo, Datas, Valores).
+  - Edição inline (clique em "Editar").
+  - Drag & Drop entre células (Drag cell A to cell B) para trocas rápidas ou correções.
+  - Viewer de PDF.
+
+NormalizationTab.jsx:
+  - Gestão de aliases para Fornecedores e Clientes.
+  - Interface visual para agrupar nomes diferentes sob a mesma entidade canónica.
+
+ReportsTab.jsx:
+  - Dashboards visuais simples (provavelmente gráficos ou tabelas).
+  - Botões para exportar relatórios.
+
+ConfigTab.jsx:
+  - Configuração de chave OpenAI.
+  - Definição de Tipos de Documento.
+  - Upload de Logo.
+
+3. Fluxos de Utilizador
+-----------------------------
+Fluxo A: Processamento Novo
+  1. Utilizador arrasta PDFs na ProcessTab.
+  2. Frontend envia POST /api/extract.
+  3. Backend processa (OCR/AI) e coloca em 'staging'.
+  4. Frontend faz polling até concluir.
+  5. Utilizador revê dados na tabela de lote (corrige Tipo/Número se falhar).
+  6. Utilizador clica "Confirmar selecionados".
+  7. Backend move para 'archive' e marca como 'processado'.
+
+Fluxo B: Gestão/Correção
+  1. ExploreTab carrega todos os dados.
+  2. Utilizador filtra por mês ou fornecedor.
+  3. Deteta erro (ex: valor errado).
+  4. Edita a célula diretamente e guarda.
+  5. Excel é regenerado no backend.
+
+4. Componentes Partilhados (src/shared/ui.jsx)
+-----------------------------
+- Inputs, Buttons, Icons.
+- Utilitários de formatação (Euro, Datas).
+- Modal de Viewer PDF (PdfViewerOverlay).

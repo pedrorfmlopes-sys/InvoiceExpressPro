@@ -1,0 +1,29 @@
+DEAD CODE & EXPERIMENTAL NOTES
+================================
+
+1. TeacherTab.jsx / Templates API
+----------------------------------
+- Estado: Experimental / "Hidden".
+- Evidência:
+  - `TeacherTab` é importado em `App.jsx`, ma apenas renderizado se `tab === 'Teacher'`.
+  - Não existe botão no menu `<Tabs />` (shared/ui.jsx) para "Teacher".
+  - O endpoint `/api/templates` existe no server.js mas parece pouco integrado com o fluxo de extração principal (`extractHeuristic` não usa templates, `extractWithAI` também não).
+- Diagnóstico: Código de uma funcionalidade futura ou abandonada de "Zonal configuration". Candidato a esconder ou remover se não for para investir.
+
+2. /api/docs/merge
+----------------------------------
+- Estado: Só Endpoint.
+- Evidência:
+  - Definido no `server.js` (`app.post('/api/docs/merge')`).
+  - Não encontrado uso no `client/src` (sem botão "Merge" ou "Fundir" visível na UI).
+- Diagnóstico: Funcionalidade backend órfã.
+
+3. Legacy "audit.json"
+----------------------------------
+- Estado: Ativo.
+- Evidência: O `server.js` grava em `ctx.files.audit` (`audit.json` ou `audit.jsonl`?).
+- Diagnóstico: O sistema de logs é muito simples, apenas `fs.read/write` síncrono. Pode crescer indefinidamente.
+
+4. Comentários de código morto
+----------------------------------
+- `server.js` contém vários blocos comentados ou lógicas antigas de "dirs" que foram substituídas por estrutura de projeto mais recente.

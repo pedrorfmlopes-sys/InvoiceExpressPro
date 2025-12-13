@@ -42,30 +42,44 @@ export default function ExploreTab({ project }) {
   }
 
   async function load() {
-    const url = qp(`/api/excel.json`, project);
-    const j = await fetch(url).then(r => r.json()).catch(() => ({ rows: [] }));
-    const all = Array.isArray(j.rows) ? j.rows.map(xlsToUiRow) : [];
+    try {
+      const url = qp(`/api/excel.json`, project);
+      const res = await fetch(url);
+      // Se 404/500, assumir vazio mas não crashar
+      const j = res.ok ? await res.json() : { rows: [] };
+      if (j.error) console.warn('[ExploreTab] load warning:', j.error);
 
-    // filtros existentes + filtro Tipo
-    const pass = (r) => {
-      if (filters.tipo && String(r.Tipo || '') !== filters.tipo) return false; // <- filtro Tipo
-      if (filters.fornecedor && !String(r.Fornecedor || '').toLowerCase().includes(filters.fornecedor.toLowerCase())) return false;
-      if (filters.cliente && !String(r.Cliente || '').toLowerCase().includes(filters.cliente.toLowerCase())) return false;
-      if (filters.q && !String(r.Fatura || '').toLowerCase().includes(filters.q.toLowerCase())) return false;
-      if (filters.dateFrom && String(r.Data || '') < filters.dateFrom) return false;
-      if (filters.dateTo && String(r.Data || '') > filters.dateTo) return false;
-      if (filters.totalMin && Number(r.Total || 0) < Number(filters.totalMin)) return false;
-      if (filters.totalMax && Number(r.Total || 0) > Number(filters.totalMax)) return false;
-      return true;
-    };
-    setRows(all.filter(pass));
+      const all = Array.isArray(j.rows) ? j.rows.map(xlsToUiRow) : [];
+
+      // Filtros (mesma lógica)
+      const pass = (r) => {
+        if (filters.tipo && String(r.Tipo || '') !== filters.tipo) return false;
+        if (filters.fornecedor && !String(r.Fornecedor || '').toLowerCase().includes(filters.fornecedor.toLowerCase())) return false;
+        if (filters.cliente && !String(r.Cliente || '').toLowerCase().includes(filters.cliente.toLowerCase())) return false;
+        if (filters.q && !String(r.Fatura || '').toLowerCase().includes(filters.q.toLowerCase())) return false;
+        if (filters.dateFrom && String(r.Data || '') < filters.dateFrom) return false;
+        if (filters.dateTo && String(r.Data || '') > filters.dateTo) return false;
+        if (filters.totalMin && Number(r.Total || 0) < Number(filters.totalMin)) return false;
+        if (filters.totalMax && Number(r.Total || 0) > Number(filters.totalMax)) return false;
+        return true;
+      };
+      setRows(all.filter(pass));
+    } catch (e) {
+      console.error('[ExploreTab] load error:', e);
+      setRows([]); // Fallback safe
+      if (!toast.open) setToast({ open: true, text: 'Erro ao carregar documentos.' });
+    }
   }
 
   React.useEffect(() => {
     load();
     fetch(qp('/api/config/doctypes', project))
       .then(r => r.json())
-      .then(j => setDoctypes(Array.isArray(j.items) ? j.items : []))
+      .then(j => {
+        // Backend devolve array direto ou {items: []}
+        const list = Array.isArray(j) ? j : (Array.isArray(j?.items) ? j.items : []);
+        setDoctypes(list);
+      })
       .catch(() => setDoctypes([]));
 
     const onR = () => load();
@@ -176,9 +190,18 @@ export default function ExploreTab({ project }) {
     await axios.delete(qp(`/api/doc/${encodeURIComponent(id)}`, project));
     await load();
   }
-  function openViewer(id) {
+  async function openViewer(id) {
     const url = qp(`/api/doc/view?id=${encodeURIComponent(id)}`, project);
-    setViewer({ open: true, url });
+    try {
+      // Validar se existe antes de abrir
+      await axios.head(url);
+      setViewer({ open: true, url });
+    } catch (e) {
+      const msg = e.response?.status === 404
+        ? 'Ficheiro PDF não encontrado (pode ter sido apagado).'
+        : `Erro ao abrir documento: ${e.response?.data?.error || e.message}`;
+      setToast({ open: true, text: msg });
+    }
   }
 
   const Field = ({ value, onChange, type }) => (<input className="input" type={type || 'text'} value={value} onChange={e => onChange(e.target.value)} />);
@@ -318,6 +341,7 @@ export default function ExploreTab({ project }) {
                   <td><RowActions row={r} isEdit={isEdit} onEdit={() => startEdit(r)} onSave={save} onCancel={cancelEdit} /></td>
                   {renderCell('Fornecedor', isEdit ? <Field value={draft.Fornecedor || ''} onChange={v => setDraft(d => ({ ...d, Fornecedor: v }))} /> : r.Fornecedor)}
                   {renderCell('Tipo', isEdit ? <Field value={draft.Tipo || ''} onChange={v => setDraft(d => ({ ...d, Tipo: v }))} /> : (r.Tipo || ''))}
+                  {renderCell('Fatura', isEdit ? <Field value={draft.Fatura || ''} onChange={v => setDraft(d => ({ ...d, Fatura: v }))} /> : r.Fatura)}
                   {renderCell('Data', isEdit ? <Field value={draft.Data || ''} onChange={v => setDraft(d => ({ ...d, Data: v }))} type="date" /> : r.Data)}
                   {renderCell('Total', isEdit ? <Field value={draft.Total || 0} onChange={v => setDraft(d => ({ ...d, Total: v }))} /> : <span className="num" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtEUR(r.Total)}</span>)}
                   {renderCell('Cliente', isEdit ? <Field value={draft.Cliente || ''} onChange={v => setDraft(d => ({ ...d, Cliente: v }))} /> : r.Cliente)}

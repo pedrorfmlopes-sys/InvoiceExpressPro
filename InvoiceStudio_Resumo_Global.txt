@@ -1,0 +1,54 @@
+Projeto: Invoice Studio (Análise)
+Status: Protótipo Funcional / Monólito
+Data: 2025-12-13
+
+1. Visão Geral
+-----------------
+O Invoice Studio é uma aplicação web local para processamento de faturas e documentos financeiros (PDFs).
+Permite upload, extração de dados (OCR/Texto PDF + OpenAI opcional), validação manual em lote e exportação para Excel/PDF.
+Os dados são persistidos em ficheiros JSON locais e organizados em pastas (staging vs archive).
+
+2. Estrutura de Pastas (Resumo)
+-----------------
+/server          - Backend Node.js
+  server.js      - Entry point e lógica total (57kb)
+  reports-pdf.js - Geração de PDFs
+/client          - Frontend React (Vite)
+  src/tabs       - Componentes principais (ProcessTab, ExploreTab, etc.)
+  src/shared     - UI kit e helpers
+/data            - Base de dados (criada em runtime)
+  docs.json      - "Banco de dados" principal
+  projects/      - Pastas por projeto
+/uploads         - Lixo/Temp de uploads (multer)
+
+3. Stack Tecnológico
+-----------------
+Frontend: React, Vite, CSS Vanilla (custom), Axios.
+Backend: Node.js, Express.
+Persistência: Sistema de ficheiros (JSON + PDF).
+Processamento: pdf-parse (extração texto), OpenAI API (opcional para extração inteligente e relatórios), pdf-lib (manipulação PDF).
+Exportação: XLSX (SheetJS), PDFKit/pdf-lib.
+
+4. Como Correr Localmente
+-----------------
+Pré-requisitos: Node.js instalado.
+
+Comandos (raiz):
+  npm install        (instala server deps)
+  npm run install:all(instala server + client deps)
+  npm run start      (build frontend + start server)
+  npm run dev        (dev mode: server nodemon + vide client HMR)
+
+Portas por defeito:
+  Frontend: http://localhost:5173
+  Backend:  http://localhost:3000 (proxy configurado no Vite)
+
+Configuração:
+  .env               - OPENAI_API_KEY (opcional)
+  server/config/     - segredos e configurações globais
+
+5. Comportamento Chave
+-----------------
+- Monólito: Quase toda a lógica de negócio está num único ficheiro (server.js).
+- "Database": Um ficheiro JSON (docs.json) carrega tudo para RAM. Não escala para milhares de docs.
+- Ficheiros: PDFs movidos de 'staging' para 'archive/ANO/MES' ao finalizar.

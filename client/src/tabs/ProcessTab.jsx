@@ -99,49 +99,81 @@ export default function ProcessTab({ project }) {
 
   function pollProgress(_batchId, total) {
     if (pollRef.current) clearInterval(pollRef.current)
+
+    // Polling fn
     pollRef.current = setInterval(async () => {
-      const j = await fetch(`/api/progress/${encodeURIComponent(_batchId)}`).then(r => r.json()).catch(() => null)
-      const done = j?.done || 0
-      const errs = j?.errors || 0
-      const tot = j?.total || total || 1
-      setProcPct(Math.min(100, ((done + errs) / tot) * 100))
+      let isDone = false;
+      let shouldStop = false;
 
-      // só linhas deste batch (requer endpoint /api/batch/:batchId)
-      let rows = []
+      // 1. Check Progress
       try {
-        const b = await fetch(qp(`/api/batch/${encodeURIComponent(_batchId)}`, project)).then(r => r.json())
-        rows = b.rows || []
-      } catch {
-        // fallback: sem endpoint /api/batch, não atualiza
-      }
-      if (rows.length) {
-        setBatchRows(rows)
-        setEdits(prev => {
-          const np = { ...prev }
-          for (const r of rows) {
-            if (!np[r.id]) {
-              np[r.id] = {
-                docType: r.docType || '',
-                docNumber: r.docNumber || '',
-                date: r.date || '',
-                dueDate: r.dueDate || '',
-                supplier: r.supplier || '',
-                customer: r.customer || '',
-                total: r.total || 0
-              }
-            }
+        const u = `/api/progress/${encodeURIComponent(_batchId)}?project=${encodeURIComponent(project)}`;
+        const res = await fetch(u);
+
+        if (res.status === 404) {
+          // Batch perdida/inexistente -> Abortar
+          clearInterval(pollRef.current); pollRef.current = null;
+          setLoading(false);
+          setToast({ open: true, text: 'Batch não encontrada (progress 404).' });
+          return;
+        }
+
+        if (res.ok) {
+          const j = await res.json();
+          if (j.status === 'finished' || (j.done && j.done >= (j.total || total || 1))) {
+            isDone = true;
+            setProcPct(100);
+          } else {
+            // Update progress bar
+            const d = j.done || 0; const e = j.errors || 0; const t = j.total || total || 1;
+            setProcPct(Math.min(100, ((d + e) / t) * 100));
           }
-          return np
-        })
+        }
+      } catch (e) {
+        // Network error? Ignore skip tick
       }
 
-      // terminar polling quando concluído (com êxito + erros)
-      if (done + errs >= tot) {
-        clearInterval(pollRef.current)
-        pollRef.current = null
-        setLoading(false)
+      if (isDone) {
+        shouldStop = true;
+        // One-time fetch batch data
+        try {
+          const resB = await fetch(qp(`/api/batch/${encodeURIComponent(_batchId)}`, project));
+          if (resB.ok) {
+            const b = await resB.json();
+            const rows = b.rows || [];
+            if (rows.length) {
+              setBatchRows(rows);
+              // Initialize edits
+              setEdits(prev => {
+                const np = { ...prev };
+                for (const r of rows) {
+                  if (!np[r.id]) {
+                    np[r.id] = {
+                      docType: r.docType || '',
+                      docNumber: r.docNumber || '',
+                      date: r.date || '',
+                      dueDate: r.dueDate || '',
+                      supplier: r.supplier || '',
+                      customer: r.customer || '',
+                      total: r.total || 0
+                    };
+                  }
+                }
+                return np;
+              });
+            }
+          } else if (resB.status === 404) {
+            setToast({ open: true, text: 'Batch finalizada, mas dados não encontrados (404).' });
+          }
+        } catch (e) { /* ignore */ }
       }
-    }, 800)
+
+      if (shouldStop) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        setLoading(false);
+      }
+    }, 1000); // 1s interval
   }
 
   async function run() {

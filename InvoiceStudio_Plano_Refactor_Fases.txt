@@ -1,0 +1,50 @@
+Plano de Reestruturação (Proposta em Fases)
+
+Objetivo: Melhorar a estabilidade e manutenibilidade sem "partir" a aplicação existente.
+
+Fase 1: Organização e Modularização (Sem alterações lógicas profundas)
+----------------------------------------------------------------------
+1. Criar estrutura de backend:
+   /server
+     /src
+       /config      (configuração, envs, constants)
+       /routes      (express routers: projects, docs, reports)
+       /controllers (lógica de request/response)
+       /services    (lógica de negócio: OcrService, FileService, ExcelService)
+       /utils       (helpers: sanitize, dates)
+       app.js       (setup do express)
+       index.js     (entry point)
+
+2. Mover código do `server.js` gradualmente:
+   - Extrair helpers puros para `utils/`.
+   - Mover lógica de 'Reports' para `services/ReportService.js` e `controllers/reportController.js`.
+   - Mover lógica de 'Docs' (CRUD) para `controllers/docController.js`.
+
+3. Frontend:
+   - Centralizar chamadas API num `apiClient.js` (remover fetch/axios dispersos nos componentes).
+
+Fase 2: Estabilidade de Dados (Safety First)
+----------------------------------------------------------------------
+1. Implementar Camada de Acesso a Dados (DAL):
+   - Criar `db.js` que controla TODAS as leituras/escritas no `docs.json`.
+   - Adicionar mecanismo de "Lock" (ex: biblioteca `proper-lockfile` ou mutex em memória) para impedir escritas simultâneas.
+
+2. Validação (Zod ou Joi):
+   - Validar inputs no `controller` antes de passar ao `service`.
+   - Garantir que `docNumber` e `docType` existem antes de finalizar.
+
+3. Logs estruturados:
+   - Substituir `console.log` por logger (ex: winston) com níveis (INFO, ERROR) e escrita em ficheiro de log rotativo.
+
+Fase 3: Escalabilidade e Performance
+----------------------------------------------------------------------
+1. Migração para SQLite (Opcional mas recomendado):
+   - Substituir `docs.json` por base de dados SQLite (ficheiro local na mesma).
+   - Permite queries SQL (filtros rápidos), transações ACID reais e zero custo de RAM inicial.
+   - Manter exportação Excel apenas como "Output", não como "DB".
+
+2. Paginação no Frontend:
+   - Alterar `ExploreTab` e `api/excel.json` para suportar `?page=1&limit=50`.
+
+3. Queue de Processamento:
+   - Usar uma fila de tarefas (ex: `bull` ou simples in-memory queue) para os uploads/OCR, desacoplando o request HTTP do processamento pesado.
