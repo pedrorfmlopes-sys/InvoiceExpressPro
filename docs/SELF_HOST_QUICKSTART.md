@@ -5,8 +5,45 @@ This guide helps you run Invoice Studio V2 on your local Windows machine (or ser
 ## Prerequisites
 1. **Node.js**: v18+ installed.
 2. **Postgres** (Optional, recommended for Prod): Installed locally or via Docker.
-   - If using Docker: `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_DB=invoicestudio postgres:15-alpine`
+   - Using Repo Docker (Compose): `docker-compose up -d` (Starts Postgres 16 on port 5432)
+   - Manual Docker: `docker run -d -p 5432:5432 -e POSTGRES_USER=invoicestudio -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=invoicestudio postgres:16`
 3. **Git**: To clone the repo.
+
+## Ports Reference
+- **3000**: Main Server (API + Client Production Build)
+- **5173**: Client Dev Server (Hot Module Reload)
+- **5432**: Postgres Database
+
+## Env Vars (Configuration)
+Configure these before running (CMD or PowerShell).
+
+### Mandatory (Auth + Postgres)
+- `DB_CLIENT`: `pg` (or `sqlite`)
+- `DATABASE_URL`: `postgres://invoicestudio:mysecretpassword@localhost:5432/invoicestudio`
+- `AUTH_MODE`: `required` (Enforces Login)
+- `JWT_SECRET`: `change_this_to_something_secure`
+
+### Optional
+- `OPENAI_API_KEY`: For AI Extraction (if not set, falls back to Regex)
+- `PORT`: Default 3000
+
+#### Examples
+
+**PowerShell**
+```powershell
+$env:DB_CLIENT="pg"
+$env:DATABASE_URL="postgres://invoicestudio:mysecretpassword@localhost:5432/invoicestudio"
+$env:AUTH_MODE="required"
+$env:JWT_SECRET="super_secret"
+```
+
+**CMD**
+```cmd
+set DB_CLIENT=pg
+set DATABASE_URL=postgres://invoicestudio:mysecretpassword@localhost:5432/invoicestudio
+set AUTH_MODE=required
+set JWT_SECRET=super_secret
+```
 
 ## Quick Start (SQLite - Simplest)
 Good for testing, dev, or small usage.
@@ -14,30 +51,23 @@ Good for testing, dev, or small usage.
 1. **Install Dependencies**
    ```powershell
    npm install
-   cd client; npm install; cd ..
+   # Installs server + client deps
    ```
 
-2. **Initialize DB**
+2. **Initialize DB & Start**
    ```powershell
    npm run db:migrate
-   ```
-
-3. **Start**
-   ```powershell
-   # Cmd 1 (Server)
    npm start
-   # Cmd 2 (Client)
-   npm run build:client
-   # Or dev mode: cd client; npm run dev
+   # npm start will build the client and serve it at localhost:3000
    ```
 
-4. **Verify**
-   - Open `http://localhost:3000` (Server/API) or `http://localhost:5173` (Client Dev).
+3. **Verify**
+   - Open `http://localhost:3000`.
 
 ## Production / Power User (Postgres + Auth)
 
 1. **Start Postgres**
-   - Ensure specific DB exists: `invoicestudio`
+   - Ensure specific DB exists: `invoicestudio` (Created automatically if using `docker-compose`)
    
 2. **Use Helper Script (Windows)**
    We provide a script to set Env Vars, Migrate, and Start in one go.
@@ -46,7 +76,7 @@ Good for testing, dev, or small usage.
    .\scripts\windows\start_pg.cmd
    ```
 
-   *Check the script to adjust password/user if needed.*
+   *Check the script to ensure credentials match your Postgres setup.*
 
 3. **Run Smoke Test (Verify)**
    To ensure everything is working correctly with Postgres:
