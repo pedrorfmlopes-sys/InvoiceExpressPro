@@ -17,11 +17,20 @@ This guide helps you run Invoice Studio V2 on your local Windows machine (or ser
 ## Env Vars (Configuration)
 Configure these before running (CMD or PowerShell).
 
-### Mandatory
-- `DB_CLIENT`: `pg` (or `sqlite`)
-- `DATABASE_URL`: `postgres://invoicestudio:mysecretpassword@localhost:5432/invoicestudio`
+### Mandatory (General)
 - `AUTH_MODE`: `required` (Enforces Login)
 - `JWT_SECRET`: `change_this_to_something_secure`
+
+### Mandatory (Database Selection)
+**Choose ONE option:**
+
+**Option A: SQLite (Default)**
+- `DB_CLIENT`: `sqlite` (or leave empty)
+- `DATABASE_URL`: *Not used*
+
+**Option B: Postgres**
+- `DB_CLIENT`: `pg`
+- `DATABASE_URL`: `postgres://user:pass@host:5432/dbname`
 
 ### Optional
 - `OPENAI_API_KEY`: Activates AI Extraction. Model is defined in code/config.
