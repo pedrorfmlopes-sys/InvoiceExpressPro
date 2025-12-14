@@ -82,7 +82,7 @@ function requireAuth(req, res, next) {
 function requireRole(role) {
     return (req, res, next) => {
         // Optional mode bypass (dev only)
-        if (AUTH_MODE === 'optional') return next();
+        if (AUTH_MODE === 'optional' && process.env.NODE_ENV !== 'production') return next();
 
         if (req.ctx && req.ctx.role === role) return next();
 

@@ -1,6 +1,10 @@
 # Changelog
 
-## V2.7.0 (Current)
+## V2.7.1 (Security Hardening)
+- **Security**: Locked RBAC bypass mechanism (only allowed in non-production environments).
+- **Security**: Restricted QA endpoint (`/auth/qa/seed-user`) to require `QA_MODE=true` and non-production environment.
+
+## V2.7.0
 - **Added**: RBAC Enforced (Admin vs User).
 - **Security**: Protected DocType configuration endpoints (`requireRole('admin')`).
 - **Web**: UI now hides administrative tabs for non-admin users.

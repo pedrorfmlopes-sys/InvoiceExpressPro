@@ -14,6 +14,7 @@ jobs:
       JWT_SECRET: super_secret_ci_key
       DB_CLIENT: sqlite
       SQLITE_FILENAME: /tmp/db.sqlite
+      QA_MODE: 'true'
     steps:
       - uses: actions/checkout@v3
       - name: Setup Node
@@ -48,6 +49,7 @@ jobs:
       JWT_SECRET: super_secret_ci_key
       DB_CLIENT: pg
       DATABASE_URL: postgres://invoicestudio:mysecretpassword@localhost:5432/invoicestudio
+      QA_MODE: 'true'
     steps:
       - uses: actions/checkout@v3
       - name: Setup Node

@@ -38,6 +38,8 @@ Configure these before running (CMD or PowerShell).
 
 ### Verification
 Run robust smoke tests with bundled runner:
+> Note: The smoke tests use a special `QA_MODE=true` environment variable to access test-only endpoints (`/api/auth/qa/seed-user`). This endpoint is disabled in production.
+
 ```bash
 # SQLite (Auth)
 npm run smoke:v2_6:sqlite
