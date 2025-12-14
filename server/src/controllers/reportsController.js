@@ -2,27 +2,110 @@ const DocService = require('../services/DocService');
 const { buildPDF } = require('../../reports-pdf'); // adjust path if needed: reports-pdf is in server root
 const path = require('path');
 
+// Helper for safe name extraction
+const getName = (entity) => {
+    if (!entity) return '—';
+    if (typeof entity === 'string') return entity || '—';
+    return entity.name || '—';
+};
+
+// Helper for number safety
+const getNum = (val) => {
+    const n = Number(val);
+    return isNaN(n) ? 0 : n;
+};
+
+// Helper to aggregate logic
+const aggregateByEntity = (docs, entityField) => {
+    const map = new Map();
+    docs.forEach(d => {
+        const sName = getName(d[entityField]);
+        if (!map.has(sName)) map.set(sName, { [entityField === 'supplier' ? 'supplier' : 'customer']: sName, count: 0, sum: 0 });
+        const s = map.get(sName);
+        s.count++;
+        s.sum += getNum(d.total);
+    });
+    // Sort desc by sum
+    return Array.from(map.values()).map(x => ({
+        ...x,
+        // Frontend expects 'key' or specific field name.
+        // ChartsAll.jsx: supTop uses d.key || d.Fornecedor
+        // We will provide a clean structure.
+        name: x.supplier || x.customer,
+        total: x.sum
+    })).sort((a, b) => b.total - a.total);
+};
+
 exports.getSuppliers = async (req, res) => {
     try {
         const project = req.query.project;
         const docs = await DocService.getDocs(project);
 
-        // Aggregate
         const map = new Map();
         docs.forEach(d => {
-            const name = typeof d.supplier === 'object' ? d.supplier.name : d.supplier;
-            const sName = name || 'N/A';
-            if (!map.has(sName)) map.set(sName, { name: sName, count: 0, sum: 0 });
+            const sName = getName(d.supplier);
+            if (!map.has(sName)) map.set(sName, { Fornecedor: sName, count: 0, total: 0 });
             const s = map.get(sName);
             s.count++;
-            s.sum += Number(d.total || 0);
+            s.total += getNum(d.total);
         });
 
-        const items = Array.from(map.values()).sort((a, b) => b.sum - a.sum);
-        res.json({ items });
+        const rows = Array.from(map.values()).sort((a, b) => b.total - a.total);
+
+        // Return { rows } as requested (and items for backwards compat if any)
+        res.json({ rows, items: rows });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('Reports Error:', e);
+        res.status(500).json({ error: e.message, rows: [] });
     }
 };
 
-// Implement monthly or general report if needed based on smoke test usage patterns, but user only asked for parity on broken endpoints.
+exports.getCustomers = async (req, res) => {
+    try {
+        const project = req.query.project;
+        const docs = await DocService.getDocs(project);
+
+        const map = new Map();
+        docs.forEach(d => {
+            const cName = getName(d.customer);
+            if (!map.has(cName)) map.set(cName, { Cliente: cName, count: 0, total: 0 });
+            const s = map.get(cName);
+            s.count++;
+            s.total += getNum(d.total);
+        });
+
+        const rows = Array.from(map.values()).sort((a, b) => b.total - a.total);
+        res.json({ rows, items: rows });
+    } catch (e) {
+        console.error('Reports Error:', e);
+        res.status(500).json({ error: e.message, rows: [] });
+    }
+};
+
+exports.getMonthly = async (req, res) => {
+    try {
+        const project = req.query.project;
+        const docs = await DocService.getDocs(project);
+
+        const map = new Map();
+        docs.forEach(d => {
+            let key = 'unknown';
+            if (d.date && typeof d.date === 'string') {
+                if (d.date.length >= 7) key = d.date.slice(0, 7); // YYYY-MM
+            }
+
+            if (!map.has(key)) map.set(key, { month: key, count: 0, total: 0 });
+            const item = map.get(key);
+            item.count++;
+            item.total += getNum(d.total);
+        });
+
+        // Sort by month ascending
+        const rows = Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
+
+        res.json({ rows, items: rows });
+    } catch (e) {
+        console.error('Reports Error:', e);
+        res.status(500).json({ error: e.message, rows: [] });
+    }
+};

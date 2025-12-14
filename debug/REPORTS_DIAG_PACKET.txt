@@ -1,0 +1,440 @@
+
+===== SECTION: RUNTIME NOTES =====
+
+OBSERVATION:
+The frontend component `ChartsAll.jsx` makes the following requests:
+1. `GET /api/reports/suppliers`
+2. `GET /api/reports/monthly`
+3. `GET /api/reports/customers`
+
+CURRENT STATE:
+- `reportsRoutes.js` ONLY defines `/suppliers` and `POST /pro-pdf`.
+- `reportsController.js` ONLY exports `getSuppliers`.
+- **CRITICAL**: `/api/reports/monthly` and `/api/reports/customers` are MISSING in the backend. These will return 404 Not Found, causing the charts to fail or hang.
+
+===== SECTION: CLIENT REPORTS UI =====
+
+--- FILE: client/src/tabs/ReportsTab.jsx ---
+// client/src/tabs/ReportsTab.jsx
+import React from 'react'
+import ChartsAll from '../components/ChartsAll'
+import { qp, downloadFile } from '../shared/ui'
+
+export default function ReportsTab({ project }) {
+  const chartsRef = React.useRef(null)
+  const [loadingPro, setLoadingPro] = React.useState(false);
+
+  async function downloadProPdf() {
+    if (!confirm('O relatório Pro utiliza a API da OpenAI para gerar uma análise inteligente. Continuar?')) return;
+    setLoadingPro(true);
+    try {
+      const apiKey = localStorage.getItem('OPENAI_API_KEY') || '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['X-OpenAI-Key'] = apiKey;
+
+      const res = await fetch(qp('/api/reports/pro-pdf', project), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ reportType: 'Geral' })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const a = document.createElement('a');
+      a.href = `data:application/pdf;base64,${data.pdfBase64}`;
+      a.download = `relatorio_pro_${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+    } catch (e) {
+      alert('Erro: ' + e.message);
+    } finally {
+      setLoadingPro(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="card">
+        <div className="card__title">Exportações</div>
+        <div className="row">
+          <div className="muted">CSV, XLSX (relatórios e detalhe) e PDF.</div>
+          <div style={{ justifySelf: 'end', display: 'flex', gap: 8 }}>
+            {/* CSV e Reports XLSX não implementados no backend ainda, redirecionando para export.xlsx principal ou desativando */}
+            <button className="btn" onClick={() => alert('Export CSV ainda não disponível.')} disabled>CSV</button>
+            <button className="btn" onClick={() => downloadFile(qp('/api/export.xlsx', project), 'relatorios.xlsx', { type: 'summary' })} disabled title="Em breve">XLSX Relatórios</button>
+            <button className="btn" onClick={() => downloadFile(qp('/api/export.xlsx', project), `detalhe-${project}.xlsx`)}>XLSX Detalhe</button>
+            <div className="splitter" style={{ width: 1, background: 'var(--border)', margin: '0 4px' }} />
+            {/* PDF Básico redirecionado para endpoint Pro (mock) ou futuro endpoint POST */}
+            <button className="btn" onClick={() => alert('PDF Básico em manutenção. Use o Pro.')}>PDF Básico</button>
+            <button className="btn primary" disabled={loadingPro} onClick={downloadProPdf}>
+              {loadingPro ? 'A gerar...' : 'PDF Pro (IA)'}
+            </button>
+            <button className="btn" onClick={() => chartsRef.current?.reload?.()}>Atualizar</button>
+          </div>
+        </div>
+      </div>
+      <ChartsAll ref={chartsRef} project={project} />
+    </>
+  )
+}
+
+--- FILE: client/src/components/ChartsAll.jsx ---
+// client/src/components/ChartsAll.jsx
+import React from 'react'
+import { CollapsibleCard, fmtEUR, qp, saveNodeAsPng } from '../shared/ui'
+
+const ChartsAll = React.forwardRef(function ChartsAll({ project }, ref) {
+  const [suppliers, setSuppliers] = React.useState([])
+  const [monthly, setMonthly] = React.useState([])
+  const [customers, setCustomers] = React.useState([])
+  const [totals, setTotals] = React.useState({ sup: 0, mon: 0, cus: 0, rowsSup: 0, rowsMon: 0, rowsCus: 0 })
+  const refSup = React.useRef(null), refMon = React.useRef(null), refCus = React.useRef(null)
+
+  async function load() {
+    const [a, b, c] = await Promise.all([
+      fetch(qp('/api/reports/suppliers', project)).then(r => r.json()),
+      fetch(qp('/api/reports/monthly', project)).then(r => r.json()),
+      fetch(qp('/api/reports/customers', project)).then(r => r.json()),
+    ]).catch(() => [[], [], []])
+    const sup = Array.isArray(a) ? a : (a.rows || [])
+    const mon = Array.isArray(b) ? b : (b.rows || [])
+    const cus = Array.isArray(c) ? c : (c.rows || [])
+    setSuppliers(sup); setMonthly(mon); setCustomers(cus)
+    setTotals({
+      sup: sup.reduce((s, x) => s + (Number(x.total || x.sum || 0)), 0), rowsSup: sup.length,
+      mon: mon.reduce((s, x) => s + (Number(x.total || x.sum || 0)), 0), rowsMon: mon.length,
+      cus: cus.reduce((s, x) => s + (Number(x.total || x.sum || 0)), 0), rowsCus: cus.length,
+    })
+  }
+  React.useEffect(() => { load(); const onR = () => load(); window.addEventListener('reports-refresh', onR); return () => window.removeEventListener('reports-refresh', onR) }, [project])
+  React.useImperativeHandle(ref, () => ({ reload: load }))
+
+  const supTop = React.useMemo(() => { const s = [...suppliers].sort((x, y) => Number((y.total ?? y.sum) || 0) - Number((x.total ?? x.sum) || 0)).slice(0, 10); const max = Math.max(1, ...s.map(x => Number((x.total ?? x.sum) || 0))); return { data: s, max, sum: s.reduce((a, r) => a + (Number((r.total ?? r.sum) || 0)), 0) } }, [suppliers])
+  const monAgg = React.useMemo(() => { const max = Math.max(1, ...monthly.map(x => Number((x.total ?? x.sum) || 0))); return { data: monthly.map(m => ({ month: m.key || m.Mes || m.month, sum: Number((m.total ?? m.sum) || 0) })), max, sum: monthly.reduce((a, r) => a + (Number((r.total ?? r.sum) || 0)), 0) } }, [monthly])
+  const cusTop = React.useMemo(() => { const s = [...customers].sort((x, y) => Number((y.total ?? y.sum) || 0) - Number((x.total ?? x.sum) || 0)).slice(0, 10); const max = Math.max(1, ...s.map(x => Number((x.total ?? x.sum) || 0))); return { data: s, max, sum: s.reduce((a, r) => a + (Number((r.total ?? r.sum) || 0)), 0) } }, [customers])
+
+  function ChartH({ rows, labelKey, valueKey, max, innerRef }) {
+    return (
+      <div>
+        <div className="chart chart--h" ref={innerRef}>
+          {rows.map((r, i) => (
+            <div className="bar-row" key={i}>
+              <div className="bar-label" title={r[labelKey]}>{r[labelKey]}</div>
+              <div className="bar-track">
+                <div className="bar-fill" style={{ width: `${((Number(r[valueKey] || 0)) / max) * 100}%` }} />
+              </div>
+              <div className="bar-value">{fmtEUR(Number(r[valueKey] || 0))}</div>
+            </div>
+          ))}
+          {!rows.length && <div className="muted" style={{ padding: 20, textAlign: 'center' }}>Sem dados para apresentar.</div>}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="grid-2 mt-16">
+        <div className="card">
+          <div className="row" style={{ alignItems: 'center', marginBottom: 8 }}>
+            <div className="card__title" style={{ margin: 0 }}>Top 10 Fornecedores</div>
+            <button className="btn btn--tiny" onClick={() => saveNodeAsPng(refSup.current, 'Top 10 Fornecedores')}>[PNG]</button>
+          </div>
+          <ChartH innerRef={refSup} rows={supTop.data.map(d => ({ Fornecedor: d.key || d.Fornecedor, sum: Number((d.total ?? d.sum) || 0) }))} labelKey="Fornecedor" valueKey="sum" max={supTop.max} />
+        </div>
+
+        <CollapsibleCard
+          title="Total por mês"
+          exportNodeRef={refMon}
+          exportName="Total por mês"
+          initialOpen={false}
+          footer={<div className="card__footer"><b>Total (soma meses visíveis):</b> {fmtEUR(monAgg.sum)}</div>}
+        >
+          <div className="chart chart--v" ref={refMon}>
+            {monAgg.data.map((r, i) => (
+              <div className="bar-col" key={i} title={`${r.month} • ${fmtEUR(Number(r.sum || 0))}`}>
+                <div className="bar bar--v" style={{ height: `${((Number(r.sum || 0)) / monAgg.max) * 100}%` }} />
+                <div className="bar-x">{r.month}</div>
+              </div>
+            ))}
+            {!monAgg.data.length && <div className="muted">Sem dados</div>}
+          </div>
+        </CollapsibleCard>
+
+        <div className="card">
+          <div className="row" style={{ alignItems: 'center', marginBottom: 8 }}>
+            <div className="card__title" style={{ margin: 0 }}>Top 10 Clientes</div>
+            <button className="btn btn--tiny" onClick={() => saveNodeAsPng(refCus.current, 'Top 10 Clientes')}>[PNG]</button>
+          </div>
+          <ChartH innerRef={refCus} rows={cusTop.data.map(d => ({ Cliente: d.key || d.Cliente, sum: Number((d.total ?? d.sum) || 0) }))} labelKey="Cliente" valueKey="sum" max={cusTop.max} />
+        </div>
+      </div>
+
+      <div className="card mt-16">
+        <div className="row">
+          <div><b>Total Fornecedores (todos):</b> {fmtEUR(totals.sup)}</div>
+          <div><b>Total (todos os meses):</b> {fmtEUR(totals.mon)}</div>
+          <div><b>Total Clientes (todos):</b> {fmtEUR(totals.cus)}</div>
+          <div><b># Registos:</b> {totals.rowsSup}</div>
+        </div>
+      </div>
+    </>
+  )
+})
+
+export default ChartsAll
+
+===== SECTION: CLIENT AUTH & UTILS =====
+
+--- FILE: client/src/api/apiClient.js ---
+import axios from 'axios';
+
+// Event emitter for auth failures
+let onAuthFailure = () => { };
+
+export const setOnAuthFailure = (fn) => {
+    onAuthFailure = fn;
+};
+
+const api = axios.create({
+    baseURL: '', // Relative to current origin
+    withCredentials: true // Send cookies
+});
+
+// Request Interceptor: Attach Token
+api.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+}, error => Promise.reject(error));
+
+// Refresh Logic
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
+// Response Interceptor: Handle 401 & Refresh
+api.interceptors.response.use(response => {
+    return response;
+}, async error => {
+    const originalRequest = error.config;
+
+    // Guard: If 401 (Unauthorized)
+    if (error.response && error.response.status === 401) {
+
+        // If it's the refresh endpoint itself failing -> Logout
+        if (originalRequest.url.includes('/auth/refresh')) {
+            localStorage.removeItem('token');
+            onAuthFailure();
+            return Promise.reject(error);
+        }
+
+        // If generic 401 and we haven't retried yet
+        if (!originalRequest._retry) {
+            // Check specific code if available (e.g., TOKEN_EXPIRED)
+            // Or assume any 401 on protected route means expiry
+
+            if (isRefreshing) {
+                // If already refreshing, queue this request
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(token => {
+                    originalRequest.headers.Authorization = 'Bearer ' + token;
+                    return api(originalRequest);
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+                // Attempt Refresh
+                const rs = await api.post('/api/auth/refresh');
+                const { token } = rs.data;
+
+                if (token) {
+                    localStorage.setItem('token', token);
+                    api.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+                    originalRequest.headers['Authorization'] = 'Bearer ' + token;
+
+                    processQueue(null, token);
+                    isRefreshing = false;
+
+                    return api(originalRequest);
+                }
+            } catch (err) {
+                processQueue(err, null);
+                isRefreshing = false;
+
+                // If refresh failed, logout
+                localStorage.removeItem('token');
+                onAuthFailure();
+                return Promise.reject(err);
+            }
+        }
+    }
+    return Promise.reject(error);
+});
+
+export const login = async (email, password) => {
+    const res = await api.post('/api/auth/login', { email, password });
+    if (res.data.token) {
+        localStorage.setItem('token', res.data.token);
+    }
+    return res.data;
+};
+
+export const logout = async () => {
+    try {
+        await api.post('/api/auth/logout');
+    } catch (e) { /* ignore */ }
+    localStorage.removeItem('token');
+    onAuthFailure();
+};
+
+export const downloadFile = async (url, params = {}) => {
+    const response = await api.get(url, {
+        params,
+        responseType: 'blob'
+    });
+    return response.data;
+};
+
+export default api;
+
+--- FILE: client/src/shared/ui.jsx (Partial/Relevant) ---
+// client/src/shared/ui.jsx
+import React from 'react'
+import * as htmlToImage from 'html-to-image'
+import axios from 'axios'
+// ... (imports)
+
+// Helper for query params
+export function qp(url, project) {
+  const u = new URL(url, window.location.origin)
+  if (project) u.searchParams.set('project', project)
+  return u.pathname + u.search
+}
+
+// Helper for downloads with Auth (Bearer token)
+export async function downloadFile(url, filename, body = {}, method = 'POST') {
+  try {
+    const res = await axios({
+      url,
+      method,
+      data: body,
+      responseType: 'blob', // Importante para binary/file
+    });
+    const blob = new Blob([res.data], { type: res.headers['content-type'] });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = filename || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    if (e.response && e.response.data instanceof Blob) {
+      // Tentar ler erro do blob
+      try {
+        const text = await e.response.data.text();
+        const json = JSON.parse(text);
+        alert('Erro no download: ' + (json.error || 'Desconhecido'));
+      } catch { alert('Erro no download: ' + e.message); }
+    } else {
+      alert('Erro no download: ' + (e.response?.data?.error || e.message));
+    }
+  }
+}
+// ...
+
+
+===== SECTION: BACKEND CONFIG & ROUTES =====
+
+--- FILE: server/src/app.js ---
+// ...
+app.use('/api', require('./routes/exportRoutes')); // Keeps /export.xlsx
+app.use('/api/reports', require('./routes/reportsRoutes'));
+// ...
+
+--- FILE: server/src/routes/reportsRoutes.js ---
+const express = require('express');
+const router = express.Router();
+const reportsController = require('../controllers/reportsController');
+
+const { requireEntitlement } = require('../middlewares/entitlements');
+
+router.get('/suppliers', reportsController.getSuppliers);
+router.post('/pro-pdf', requireEntitlement('pro_reports'), (req, res) => {
+    // Mock implementation for Phase 3.1
+    res.json({ message: 'Pro PDF Report Generated', project: req.query.project });
+});
+
+module.exports = router;
+
+===== SECTION: BACKEND HANDLER & DATA =====
+
+--- FILE: server/src/controllers/reportsController.js ---
+const DocService = require('../services/DocService');
+const { buildPDF } = require('../../reports-pdf'); // adjust path if needed: reports-pdf is in server root
+const path = require('path');
+
+exports.getSuppliers = async (req, res) => {
+    try {
+        const project = req.query.project;
+        const docs = await DocService.getDocs(project);
+
+        // Aggregate
+        const map = new Map();
+        docs.forEach(d => {
+            const name = typeof d.supplier === 'object' ? d.supplier.name : d.supplier;
+            const sName = name || 'N/A';
+            if (!map.has(sName)) map.set(sName, { name: sName, count: 0, sum: 0 });
+            const s = map.get(sName);
+            s.count++;
+            s.sum += Number(d.total || 0);
+        });
+
+        const items = Array.from(map.values()).sort((a, b) => b.sum - a.sum);
+        res.json({ items });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// Implement monthly or general report if needed based on smoke test usage patterns, but user only asked for parity on broken endpoints.
+
+===== SECTION: BACKEND AUTH MIDDLEWARE =====
+
+--- FILE: server/src/middlewares/auth.js ---
+const jwt = require('jsonwebtoken');
+const UserService = require('../services/UserService');
+//...
+async function attachContext(req, res, next) {
+    // ... validates jwt ...
+    const ctx = await UserService.getUserContext(decoded.userId);
+    // ... constructs req.ctx ...
+}
+//...
+
+===== FILE INDEX =====
+client/src/tabs/ReportsTab.jsx
+client/src/components/ChartsAll.jsx
+client/src/api/apiClient.js
+client/src/shared/ui.jsx
+server/src/app.js
+server/src/routes/reportsRoutes.js
+server/src/controllers/reportsController.js
+server/src/middlewares/auth.js
