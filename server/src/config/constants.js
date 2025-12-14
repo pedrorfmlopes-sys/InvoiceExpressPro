@@ -18,6 +18,7 @@ module.exports = {
         CLIENT_DIST: path.resolve(PROJECT_ROOT, 'client/dist'),
     },
     DEFAULTS: {
+        PROJECT: 'default',
         PORT: 3000,
         HOST: '0.0.0.0'
     }

@@ -55,6 +55,14 @@ async function run() {
     // 3. Check Customers
     await checkReport('/reports/customers', 'Customers');
 
+    // 4. Check Default Project (No ?project=...)
+    console.log('4. Check Default Project fallback...');
+    // We already used client with baseURL, but let's be explicit we are NOT passing ?project
+    // The previous calls didn't pass ?project anyway so they were relying on the bug or previous behavior,
+    // BUT now we confirmed we added the fallback.
+    // Let's explicitly check one endpoint again to be sure it doesn't 500.
+    await checkReport('/reports/suppliers', 'Suppliers (Default)');
+
     console.log('\n✅ V3.0 Reports Smoke Passed!');
 }
 

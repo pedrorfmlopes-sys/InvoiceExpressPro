@@ -15,12 +15,10 @@ if (args.length === 0) {
 // 1. Start Server
 console.log('[Runner] Starting server...');
 const isWin = process.platform === 'win32';
-const npmCmd = isWin ? 'npm.cmd' : 'npm';
-
-const server = spawn(npmCmd, ['start'], {
+const server = spawn('npm', ['start'], {
     stdio: 'inherit',
     env: { ...process.env, PORT: '3000' },
-    shell: false
+    shell: true
 });
 
 let serverKilled = false;

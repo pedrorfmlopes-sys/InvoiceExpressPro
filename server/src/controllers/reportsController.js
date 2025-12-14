@@ -1,6 +1,7 @@
 const DocService = require('../services/DocService');
 const { buildPDF } = require('../../reports-pdf'); // adjust path if needed: reports-pdf is in server root
 const path = require('path');
+const { DEFAULTS } = require('../config/constants');
 
 // Helper for safe name extraction
 const getName = (entity) => {
@@ -38,7 +39,10 @@ const aggregateByEntity = (docs, entityField) => {
 
 exports.getSuppliers = async (req, res) => {
     try {
-        const project = req.query.project;
+        console.log('[Reports] DEFAULTS:', DEFAULTS);
+        const project = req.query.project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
+        console.log('[Reports] Resolved project:', project);
+
         const docs = await DocService.getDocs(project);
 
         const map = new Map();
@@ -62,7 +66,7 @@ exports.getSuppliers = async (req, res) => {
 
 exports.getCustomers = async (req, res) => {
     try {
-        const project = req.query.project;
+        const project = req.query.project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
         const docs = await DocService.getDocs(project);
 
         const map = new Map();
@@ -84,7 +88,7 @@ exports.getCustomers = async (req, res) => {
 
 exports.getMonthly = async (req, res) => {
     try {
-        const project = req.query.project;
+        const project = req.query.project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
         const docs = await DocService.getDocs(project);
 
         const map = new Map();
