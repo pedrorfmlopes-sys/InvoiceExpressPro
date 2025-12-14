@@ -4,22 +4,21 @@ const { v4: uuidv4 } = require('uuid');
 class DbDocsAdapter {
     // --- Documents ---
     async getDocs(project, { page = 1, limit = 50, q, status, docType, from, to } = {}) {
-        let query = knex('documents').where({ project });
+        // Base Query (Filters only)
+        let baseQuery = knex('documents').where({ project });
 
-        if (status) query = query.where('status', status);
-        if (docType) query = query.where((b) => b.where('docType', docType).orWhere('docTypeId', docType));
+        if (status) baseQuery = baseQuery.where('status', status);
+        if (docType) baseQuery = baseQuery.where((b) => b.where('docType', docType).orWhere('docTypeId', docType));
 
-        // Dates: Assume 'date' column or 'created_at'. Requirement says consistent filter.
-        // Using 'date' (invoice date) as primary filter usually makes sense for business logic.
-        if (from) query = query.where('date', '>=', from);
-        if (to) query = query.where('date', '<=', to);
+        if (from) baseQuery = baseQuery.where('date', '>=', from);
+        if (to) baseQuery = baseQuery.where('date', '<=', to);
 
         if (q) {
             const isPg = knex.client.config.client === 'pg';
-            const op = isPg ? 'ilike' : 'like'; // PG: Case-insensitive ilike, SQLite: like (default insensitive)
+            const op = isPg ? 'ilike' : 'like';
             const like = `%${q}%`;
 
-            query = query.where((b) => {
+            baseQuery = baseQuery.where((b) => {
                 b.where('docNumber', op, like)
                     .orWhere('supplier', op, like)
                     .orWhere('customer', op, like)
@@ -27,13 +26,13 @@ class DbDocsAdapter {
             });
         }
 
-        // Count: Must be clean of any pagination or ordering
-        const countQuery = query.clone().clearSelect().clearOrder().clear('limit').clear('offset').count('* as count').first();
+        // Count (Clean clone)
+        const countQuery = baseQuery.clone().clearSelect().clearOrder().count('* as count').first();
         const totalParams = await countQuery;
         const total = parseInt(totalParams.count || totalParams['count(*)'] || 0, 10);
 
-        // Fetch
-        const rows = await query.orderBy('created_at', 'desc').limit(limit).offset((page - 1) * limit);
+        // Fetch Rows (Apply pagination to clone)
+        const rows = await baseQuery.clone().orderBy('created_at', 'desc').limit(limit).offset((page - 1) * limit);
 
         return {
             rows: rows.map(r => {

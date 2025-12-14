@@ -42,24 +42,28 @@ api.interceptors.response.use(response => response, async error => {
 
 **Critical Snippet: DB Adapter (Knex Search & Count)**
 ```javascript
-// server/src/storage/DbDocsAdapter.js (Lines 17-33)
+// server/src/storage/DbDocsAdapter.js (Lines 6-35)
+// Base Query
+let baseQuery = knex('documents').where({ project });
+
+// ... filters (status, docType, etc) ...
+
 if (q) {
     const isPg = knex.client.config.client === 'pg';
-    const op = isPg ? 'ilike' : 'like'; // PG: Case-insensitive
+    const op = isPg ? 'ilike' : 'like'; 
     const like = `%${q}%`;
-
-    query = query.where((b) => {
-        b.where('docNumber', op, like)
-         .orWhere('supplier', op, like)
-         .orWhere('customer', op, like)
-         .orWhere('origName', op, like);
+    baseQuery = baseQuery.where((b) => {
+        b.where('docNumber', op, like) .orWhere('supplier', op, like) // ...
     });
 }
 
-// Count: Must be clean (remove limit/offset/order)
-const countQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
+// Count (Clean clone)
+const countQuery = baseQuery.clone().clearSelect().clearOrder().count('* as count').first();
 const totalParams = await countQuery;
 const total = parseInt(totalParams.count || totalParams['count(*)'] || 0, 10);
+
+// Fetch Rows (Apply pagination to clone)
+const rows = await baseQuery.clone().orderBy('created_at', 'desc').limit(limit).offset((page - 1) * limit);
 ```
 
 ## 3. CI Smoke Tests
@@ -98,8 +102,10 @@ GitHub Actions workflow checks SQLite and Postgres (v16). Includes readiness che
         run: |
           npm start &
           PID=$!
-          echo "Waiting for server..."
-          sleep 5
+          
+          # Loop 60 times (wait for health)
+          for i in {1..60}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 2; done || exit 1
+          
           node scripts/smoke_v2_4_pg.js
           kill $PID
 ```

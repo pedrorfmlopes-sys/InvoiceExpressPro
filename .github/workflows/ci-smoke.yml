@@ -26,7 +26,10 @@ jobs:
         run: |
           npm start &
           PID=$!
-          sleep 5
+          
+          # Wait for Server
+          for i in {1..60}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 2; done || (echo "Server failed to start" && exit 1)
+          
           node scripts/smoke_v2_4_pg.js
           kill $PID
 
@@ -75,9 +78,10 @@ jobs:
           npm start &
           PID=$!
           
-          # Wait for Server Health
+          # Wait for Server Health (Robust Loop)
           echo "Waiting for server to be ready..."
-          timeout 30s bash -c 'until curl -s -f http://127.0.0.1:3000/api/health; do sleep 2; done' || (echo "Server failed to start" && exit 1)
+          # Loop 60 times, sleep 2s -> ~2 mins max wait
+          for i in {1..60}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 2; done || (echo "Server failed to start" && exit 1)
           
           node scripts/smoke_v2_4_pg.js
           
