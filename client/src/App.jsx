@@ -144,8 +144,14 @@ export default function App() {
     await checkAuth();
   };
 
-  const handleLogout = () => {
-    resetAuthState();
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.error('Logout failed:', e);
+    } finally {
+      resetAuthState();
+    }
   };
 
   if (isLoading) return <div className="p-10 flex justify-center text-slate-400">Loading...</div>;
