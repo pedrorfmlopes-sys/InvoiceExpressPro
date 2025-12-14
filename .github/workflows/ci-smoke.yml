@@ -1,0 +1,70 @@
+name: CI Smoke
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  smoke-sqlite:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_MODE: required
+      JWT_SECRET: super_secret_ci_key
+      DB_CLIENT: sqlite
+      SQLITE_FILENAME: /tmp/db.sqlite
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run db:migrate
+      - name: Start Server & Smoke
+        run: |
+          npm start &
+          PID=$!
+          sleep 5
+          node scripts/smoke_v2_4_pg.js
+          kill $PID
+
+  smoke-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: invoicestudio
+        ports:
+          - 5432:5432
+        # Health check to ensure DB is ready
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      AUTH_MODE: required
+      JWT_SECRET: super_secret_ci_key
+      DB_CLIENT: pg
+      DATABASE_URL: postgres://user:password@localhost:5432/invoicestudio
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - name: Migrate PG
+        run: npm run db:migrate
+      - name: Start Server & Smoke (PG)
+        run: |
+          npm start &
+          PID=$!
+          sleep 5
+          node scripts/smoke_v2_4_pg.js
+          kill $PID
