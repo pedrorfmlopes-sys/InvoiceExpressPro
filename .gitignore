@@ -1,5 +1,13 @@
 # Dependencies
+# Dependencies
 node_modules/
+
+# Backups & Archives
+backups/
+!backups/BACKUP_README.md
+*.dump
+*.sql
+*.zip
 
 # Environment
 .env
