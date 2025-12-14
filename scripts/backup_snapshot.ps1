@@ -61,17 +61,16 @@ $allowlist = @(
 # Collect files
 $filesToZip = @()
 foreach ($pattern in $allowlist) {
-    # Resolve wildcards and recursion
-    $matches = Get-ChildItem -Path . -Include $pattern -Recurse -Depth 0 -ErrorAction SilentlyContinue
-    if (-not $matches) {
-        # Try finding path directly if no wildcards/recurse logic needed for top level
-        if (Test-Path $pattern) {
-            $matches = Get-Item $pattern
-        }
+    # Resolve specific paths and wildcards (PS 5.1 compatible)
+    $foundItems = $null
+    
+    # Check if path (or wildcard) exists
+    if (Test-Path $pattern) {
+        $foundItems = Get-Item $pattern
     }
     
-    if ($matches) {
-        $filesToZip += $matches
+    if ($foundItems) {
+        $filesToZip += $foundItems
     }
 }
 
