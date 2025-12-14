@@ -37,7 +37,8 @@ export default function App() {
     setIsAuthenticated(false);
     setUser(null);
     setRole('user');
-    logout(); // Clear token from localStorage/cookies via API helper if needed, mainly local cleanup
+    // Clear token from localStorage/cookies locally
+    localStorage.removeItem('token');
   };
 
   // -- Effects --
@@ -138,11 +139,6 @@ export default function App() {
       { id: 'audit', label: 'Audit', Component: AuditTab },
     ] : [])
   ];
-
-  const handleLoginSuccess = async () => {
-    setIsAuthenticated(true);
-    await checkAuth();
-  };
 
   const handleLogout = async () => {
     try {
