@@ -87,6 +87,7 @@ exports.login = async (req, res) => {
             token: accessToken,
             user: ctx.user,
             org: ctx.org,
+            role: ctx.role,
             planKey: ctx.planKey
         });
 
