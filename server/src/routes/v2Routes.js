@@ -29,10 +29,11 @@ router.get('/docs/:id/link-suggestions', coreController.getLinkSuggestions);
 router.post('/docs/bulk', coreController.bulkPatch);
 router.post('/links', coreController.createLink);
 
-// DocTypes CRUD
-router.post('/doctypes', coreController.createDocType);
-router.put('/doctypes/:id', coreController.updateDocType);
-router.delete('/doctypes/:id', coreController.deleteDocType);
+// DocTypes CRUD (Admin Only)
+const { requireRole } = require('../middlewares/auth');
+router.post('/doctypes', requireRole('admin'), coreController.createDocType);
+router.put('/doctypes/:id', requireRole('admin'), coreController.updateDocType);
+router.delete('/doctypes/:id', requireRole('admin'), coreController.deleteDocType);
 
 // --- Transactions (V2.3) ---
 router.post('/transactions', transactionController.create);

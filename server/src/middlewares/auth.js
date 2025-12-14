@@ -81,10 +81,18 @@ function requireAuth(req, res, next) {
 
 function requireRole(role) {
     return (req, res, next) => {
-        if (req.ctx && req.ctx.role === role) return next();
-        // Loose check for optional default admin
+        // Optional mode bypass (dev only)
         if (AUTH_MODE === 'optional') return next();
-        return res.status(403).json({ error: 'Forbidden' });
+
+        if (req.ctx && req.ctx.role === role) return next();
+
+        // Return 403 Forbidden
+        return res.status(403).json({
+            code: 'FORBIDDEN',
+            error: 'Access denied',
+            requiredRole: role,
+            currentRole: req.ctx ? req.ctx.role : 'guest'
+        });
     };
 }
 

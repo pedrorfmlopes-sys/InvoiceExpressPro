@@ -1,8 +1,8 @@
 CAPABILITIES MATRIX (V2.5)
 
 [Authentic]
-- Auth: JWT (Access + Refresh HttpOnly Cookies)
-- Auth: RBAC (Admin/User) - *Basic*
+- [x] Authentication (JWT + Refresh HttpOnly Cookies)
+- [x] RBAC (Basic: Admin vs User enforced)
   - Scope: Project-level isolation (Config via Token Claims/Env)
   - Roles: 'Admin' (Config/Audit) vs 'User' (Operations) - Currently simplified
 - Audit: Basic Audit Log (V1) + Transaction Log (V2)

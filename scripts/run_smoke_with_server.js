@@ -14,9 +14,11 @@ if (args.length === 0) {
 
 // 1. Start Server
 console.log('[Runner] Starting server...');
-const server = spawn(/^win/.test(process.platform) ? 'npm.cmd' : 'npm', ['start'], {
+const isWin = process.platform === 'win32';
+const server = spawn('npm', ['start'], {
     stdio: 'inherit',
-    env: { ...process.env, PORT: '3000' } // Ensure port
+    env: { ...process.env, PORT: '3000' },
+    shell: true // Important for Windows to find npm
 });
 
 let serverKilled = false;

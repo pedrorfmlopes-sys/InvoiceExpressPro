@@ -106,52 +106,86 @@ export default function App() {
     ] : [])
   ];
 
-  const CurrentComponent = TABS.find(t => t.id === activeTab)?.Component || (() => <div style={{ padding: 20 }}>Not Found</div>);
+  if (isLoading) return <div className="p-10 flex justify-center text-slate-400">Loading...</div>;
 
-  if (loading) return <div className="container" style={{ display: 'center', justifyContent: 'center' }}>Loading...</div>;
-  if (!isAuthenticated) return <Login onLoginSuccess={() => { setIsAuthenticated(true); checkAuth(); }} />;
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Filter Tabs based on Role
+  let visibleTabs = TABS.filter(t => !t.hidden);
+  if (role !== 'admin') {
+    visibleTabs = visibleTabs.filter(t => t.id !== 'config'); // Hide Config/Admin
+    // If current active tab is forbidden, switch to safe default
+    if (activeTab === 'config') setActiveTab('corev2');
+  }
+
+  const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div style={{ padding: 20 }}>Not Found</div>);
 
   return (
-    <div className={`app-container ${theme}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      {/* Top Bar */}
-      <div className="top-bar">
-        <div className="brand">InvoiceStudio <span className="version">v2.5</span></div>
-        <div className="project-selector">
-          <label>Project:</label>
-          <select value={project} onChange={e => setProject(e.target.value)}>
-            {projects.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <button onClick={createProject} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'white', marginLeft: 5, fontSize: 10 }}>+</button>
+    <div className="flex flex-col h-screen bg-slate-50 relative overflow-hidden font-sans">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm z-10">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold shadow-md">
+            IS
+          </div>
+          <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-700 to-slate-900 tracking-tight">Invoice Studio</h1>
+          <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-medium border border-indigo-100">Pro</span>
         </div>
-        <div className="spacer" />
-        <div className="user-controls">
-          <select className="input" style={{ width: 100, marginRight: 10 }} value={theme} onChange={e => setTheme(e.target.value)}>
-            {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <button onClick={handleLogout} className="btn-logout">Logout</button>
+
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-500 hidden sm:block">
+            {user ? `${user.name} (${role})` : ''}
+          </span>
+          <button
+            onClick={handleLogout}
+            className="text-sm text-slate-500 hover:text-red-500 transition-colors"
+          >
+            Sign Out
+          </button>
+          <a href="https://github.com/pedrorfmlopes/InvoiceStudioGRVTY" target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-600">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+            </svg>
+          </a>
         </div>
       </div>
 
-      {/* Main Layout */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Sidebar */}
-        <div className="sidebar">
-          {TABS.map(t => (
-            <div key={t.id}
-              className={`nav-item ${activeTab === t.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(t.id)}>
-              {t.label}
-            </div>
-          ))}
-          <div style={{ marginTop: 'auto', padding: 10, fontSize: '0.8em', opacity: 0.5 }}>
-            <a href="#" onClick={handleDownload} style={{ color: 'inherit' }}>Export All Excel</a>
-          </div>
+      {/* Main Tabs */}
+      <div className="flex border-b border-slate-200 bg-white px-6 gap-6 pt-2">
+        {visibleTabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`pb-3 px-1 text-sm font-medium transition-all relative ${activeTab === tab.id
+              ? 'text-indigo-600'
+              : 'text-slate-500 hover:text-slate-700'
+              }`}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" />
+            )}
+          </button>
+        ))}
+        <div className="project-selector" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+          <label className="text-sm text-slate-500 mr-2">Project:</label>
+          <select className="input text-sm" value={project} onChange={e => setProject(e.target.value)}>
+            {projects.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <button onClick={createProject} className="ml-2 px-2 py-1 text-xs bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">+</button>
         </div>
+        <div className="user-controls" style={{ display: 'flex', alignItems: 'center', marginLeft: 10 }}>
+          <select className="input text-sm" style={{ width: 100 }} value={theme} onChange={e => setTheme(e.target.value)}>
+            {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
 
-        {/* Content */}
-        <div className="content-area">
-          <CurrentComponent project={project} />
-        </div>
+      {/* Content Area */}
+      <div className="flex-1 overflow-hidden">
+        <CurrentComponent project={project} />
       </div>
     </div>
   );

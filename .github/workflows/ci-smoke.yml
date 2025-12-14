@@ -23,7 +23,9 @@ jobs:
       - run: npm ci
       - run: npm run db:migrate
       - name: Run Smoke Tests (SQLite)
-        run: npm run smoke:v2_6:sqlite
+        run: |
+            npm run smoke:v2_6:sqlite
+            npm run smoke:v2_7:sqlite
 
   smoke-postgres:
     runs-on: ubuntu-latest
@@ -66,4 +68,6 @@ jobs:
         run: npm run db:migrate
         
       - name: Run Smoke Tests (PG)
-        run: npm run smoke:v2_6:pg
+        run: |
+            npm run smoke:v2_6:pg
+            npm run smoke:v2_7:pg

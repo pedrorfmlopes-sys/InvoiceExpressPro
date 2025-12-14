@@ -46,7 +46,7 @@ exports.login = async (req, res) => {
         if (!ctx) return res.status(403).json({ error: 'No active membership' });
 
         // Short-lived Access Token
-        const accessToken = jwt.sign({ userId: ctx.user.id, orgId: ctx.org.id }, JWT_SECRET, { expiresIn: '15m' });
+        const accessToken = jwt.sign({ userId: ctx.user.id, orgId: ctx.org.id, role: ctx.role }, JWT_SECRET, { expiresIn: '15m' });
 
         // Long-lived Refresh Token (cookie only)
         // In a robust system, store this in DB (hashed) to allow revocation
@@ -110,5 +110,11 @@ exports.logout = (req, res) => {
 };
 
 exports.me = (req, res) => {
-    res.json(req.ctx);
+    res.json({
+        user: req.ctx.user,
+        org: req.ctx.org,
+        role: req.ctx.role,
+        planKey: req.ctx.planKey,
+        entitlements: req.ctx.entitlements
+    });
 };

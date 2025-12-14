@@ -50,6 +50,25 @@ class UserService {
         });
     }
 
+    async createRegularUser(email, password, name, orgId) {
+        const passwordHash = await bcrypt.hash(password, 10);
+        return knex.transaction(async trx => {
+            const userId = uuidv4();
+            await trx('users').insert({
+                id: userId,
+                email,
+                passwordHash,
+                name: name || 'User'
+            });
+            await trx('memberships').insert({
+                userId,
+                orgId,
+                role: 'user'
+            });
+            return { userId, email, role: 'user' };
+        });
+    }
+
     async validatePassword(user, password) {
         return bcrypt.compare(password, user.passwordHash);
     }
