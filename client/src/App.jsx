@@ -20,64 +20,52 @@ export default function App() {
   // Feature Flag
   const ENABLE_LEGACY = import.meta.env.VITE_ENABLE_LEGACY === 'true';
 
-  // State
+  // -- State: UI --
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'ocean')
   const [project, setProject] = useState(localStorage.getItem('project') || 'default')
   const [projects, setProjects] = useState([])
   const [activeTab, setActiveTab] = useState('corev2');
 
-  // Auth State
-  // Auth State
+  // -- State: Auth --
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'))
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [role, setRole] = useState('user');
 
-  // Auth Init
+  // Helper: Reset Auth State
+  const resetAuthState = () => {
+    setIsAuthenticated(false);
+    setUser(null);
+    setRole('user');
+    logout(); // Clear token from localStorage/cookies via API helper if needed, mainly local cleanup
+  };
+
+  // -- Effects --
+
+  // 1. Auth Init
   useEffect(() => {
+    // Global handler for API 401s (e.g. token expired)
     setOnAuthFailure(() => {
-      setIsAuthenticated(false);
-      setUser(null);
-      setRole('user');
+      resetAuthState();
     });
-    if (localStorage.getItem('token')) checkAuth();
-    else setIsLoading(false);
+
+    if (localStorage.getItem('token')) {
+      checkAuth();
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Effect to switch tab if current is forbidden
+  // 2. Tab Guard (Role-based)
   useEffect(() => {
     if (!isAuthenticated) return;
+    // Redirect if on forbidden tab
     if (role !== 'admin' && activeTab === 'config') {
       setActiveTab('corev2');
     }
   }, [isAuthenticated, role, activeTab]);
 
-  async function checkAuth() {
-    try {
-      // Parallel fetch: Verify Token (via Me) and get Projects
-      // We need user details for Role
-      const me = await api.get('/api/auth/me');
-      setUser(me.data.user);
-      setRole(me.data.role || 'user');
-
-      const pRes = await api.get('/api/projects');
-      const list = pRes.data.projects || [];
-      setProjects(list);
-      if (list.length && !list.includes(project)) setProject(list[0]);
-
-      setIsAuthenticated(true);
-    } catch (err) {
-      console.error('[App] Auth Check Failed:', err);
-      // Clean state safely
-      setIsAuthenticated(false);
-      setUser(null);
-      setRole('user');
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // Theme & Project Persistence
+  // 3. Persistence
   useEffect(() => {
     if (!THEMES.includes(theme)) setTheme('ocean');
     document.documentElement.dataset.theme = theme;
@@ -86,63 +74,40 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem('project', project); }, [project]);
 
-  const handleDownload = async (e) => {
-    e.preventDefault();
+  // -- Logic --
+
+  async function checkAuth() {
     try {
-      const data = await downloadFile('/api/export.xlsx', { project });
-      const url = window.URL.createObjectURL(new Blob([data]));
-      const link = document.createElement('a'); link.href = url; link.setAttribute('download', `export_${project}.xlsx`);
-      document.body.appendChild(link); link.click(); link.remove();
-    } catch (err) { alert('Download falhou'); }
-  };
+      // Parallel fetch: Verify Token (via Me) and get Projects
+      const [meRes, pRes] = await Promise.all([
+        api.get('/api/auth/me'),
+        api.get('/api/projects')
+      ]);
 
-  const createProject = async () => {
-    const name = prompt('Nome do projeto:');
-    if (name) {
-      await api.post('/api/projects', { name });
-      window.location.reload();
+      setUser(meRes.data.user);
+      setRole(meRes.data.role || 'user');
+
+      const list = pRes.data.projects || [];
+      setProjects(list);
+      if (list.length && !list.includes(project)) setProject(list[0]);
+
+      setIsAuthenticated(true);
+    } catch (err) {
+      console.error('[App] Auth Check Failed:', err);
+      resetAuthState();
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  // Tabs Configuration
-  const TABS = [
-    { id: 'dashboard', label: '📊 Dashboard', Component: ReportsTab },
-    { id: 'corev2', label: '📄 Core V2', Component: CoreV2Tab },
-    { id: 'transactions', label: '💼 Transactions', Component: TransactionsTab },
-    { id: 'config', label: '⚙️ Config', Component: ConfigTab },
-    ...(ENABLE_LEGACY ? [
-      { id: 'process', label: 'Process (V1)', Component: ProcessTab },
-      { id: 'teacher', label: 'Teacher', Component: TeacherTab },
-      { id: 'explore', label: 'Explore (Old)', Component: ExploreTab },
-      { id: 'normalization', label: 'Normalization', Component: NormalizationTab },
-      { id: 'audit', label: 'Audit', Component: AuditTab },
-    ] : [])
-  ];
+  }
 
   const handleLoginSuccess = async () => {
     setIsAuthenticated(true);
-    await checkAuth(); // Load user/projects
+    await checkAuth();
   };
 
   const handleLogout = () => {
-    logout();
-    setIsAuthenticated(false);
-    setUser(null);
+    resetAuthState();
   };
-
-  if (isLoading) return <div className="p-10 flex justify-center text-slate-400">Loading...</div>;
-
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // Filter Tabs based on Role
-  let visibleTabs = TABS.filter(t => !t.hidden);
-  if (role !== 'admin') {
-    visibleTabs = visibleTabs.filter(t => t.id !== 'config'); // Hide Config/Admin
-  }
-
-  // Effect to switch tab if current is forbidden
 
 
   const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div style={{ padding: 20 }}>Not Found</div>);
