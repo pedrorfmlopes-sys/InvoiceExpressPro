@@ -567,9 +567,23 @@ exports.exportXlsx = async (req, res) => {
         const ws = xlsx.utils.json_to_sheet(rows);
         xlsx.utils.book_append_sheet(wb, ws, "Core V2");
 
-        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        // Perf: Stream via Temp File
+        const os = require('os');
+        const tmpPath = path.join(os.tmpdir(), `core-export-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.xlsx`);
+
+        xlsx.writeFile(wb, tmpPath);
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.send(buffer);
+        res.setHeader('Content-Disposition', `attachment; filename=core-v2-export-${Date.now()}.xlsx`);
+
+        const stream = fs.createReadStream(tmpPath);
+        stream.pipe(res);
+
+        // Cleanup
+        const cleanup = () => { if (fs.existsSync(tmpPath)) fs.unlink(tmpPath, () => { }); };
+        stream.on('close', cleanup);
+        stream.on('error', cleanup);
+        res.on('finish', cleanup);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

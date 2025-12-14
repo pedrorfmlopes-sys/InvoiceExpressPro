@@ -1,6 +1,8 @@
 CAPABILITIES MATRIX (V2.5)
 
 [Authentic]
+CA- [x] Performance: PostgreSQL `pg_trgm` indexes for fuzzy search (V2.8)
+- [x] Performance: Exports (XLSX) streamed from temp files (Server-side) (V2.8)
 - [x] Authentication (JWT + Refresh HttpOnly Cookies)
 - [x] RBAC (Basic: Admin vs User enforced)
   - Scope: Project-level isolation (Config via Token Claims/Env)

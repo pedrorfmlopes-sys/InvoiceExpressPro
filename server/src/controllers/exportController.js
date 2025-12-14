@@ -22,11 +22,25 @@ exports.exportXlsx = async (req, res) => {
         const ws = xlsx.utils.json_to_sheet(rows);
         xlsx.utils.book_append_sheet(wb, ws, "Docs");
 
-        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        // Perf: Stream via Temp File to avoid large RAM Buffer
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+        const tmpPath = path.join(os.tmpdir(), `export-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.xlsx`);
+
+        // Write to disk (xlsx still builds WB in ram, but we avoid the double hit of Buffer allocation)
+        xlsx.writeFile(wb, tmpPath);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=export-${Date.now()}.xlsx`);
-        res.send(buffer);
+
+        const stream = fs.createReadStream(tmpPath);
+        stream.pipe(res);
+
+        // Cleanup
+        stream.on('close', () => { fs.unlink(tmpPath, () => { }); });
+        stream.on('error', () => { fs.unlink(tmpPath, () => { }); });
+        res.on('finish', () => { fs.unlink(tmpPath, () => { }); }); // Fail-safe
 
     } catch (e) {
         console.error(e);

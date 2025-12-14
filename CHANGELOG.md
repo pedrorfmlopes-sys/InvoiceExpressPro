@@ -3,6 +3,7 @@
 ## V2.8.0
 - **Added**: PostgreSQL `pg_trgm` extension and GIN indexes for fast fuzzy search on Documents.
 - **Performance**: Optimized `q` search queries in V2.
+- **Performance**: Exports (XLSX) now stream from temporary files to avoid memory spikes.
 
 ## V2.7.1 (Security Hardening)
 - **Security**: Locked RBAC bypass mechanism (only allowed in non-production environments).
