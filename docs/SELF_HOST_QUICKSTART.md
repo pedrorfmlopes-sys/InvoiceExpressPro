@@ -17,20 +17,26 @@ This guide helps you run Invoice Studio V2 on your local Windows machine (or ser
 ## Env Vars (Configuration)
 Configure these before running (CMD or PowerShell).
 
-### Mandatory- **JWT based**: Access tokens are short-lived.
-- **Refresh Tokens**: HttpOnly cookies are used for session refresh.
-- **CORS**: If running client and server on different origins (dev), ensure cookies are allowed.
-
-### Environment Reference
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | `3000` |
-| `CLIENT_URL` | Client origin for CORS (e.g. `http://localhost:5173`) | `http://localhost:5173` |
-| `AUTH_MODE` | `optional` (default) or `required` | `optional` |
-| `JWT_SECRET` | **Must set in prod** | `dev-secret...` |
+### Mandatory
+- `DB_CLIENT`: `pg` (or `sqlite`)
+- `DATABASE_URL`: `postgres://invoicestudio:mysecretpassword@localhost:5432/invoicestudio`
+- `AUTH_MODE`: `required` (Enforces Login)
+- `JWT_SECRET`: `change_this_to_something_secure`
 
 ### Optional
-- `OPENAI_API_KEY`: Activates AI Extraction. The model is currently defined in code/config (default: `gpt-3.5-turbo-1106`).
+- `OPENAI_API_KEY`: Activates AI Extraction. Model is defined in code/config.
+- `PORT`: Server port (default 3000).
+
+### Verification
+Run robust smoke tests with bundled runner:
+```bash
+# SQLite (Auth)
+npm run smoke:v2_6:sqlite
+
+# Postgres (Auth) - Requires DB running
+# Ensure env vars are set (DB_CLIENT=pg, DATABASE_URL=...)
+npm run smoke:v2_6:pg
+```
 - `PORT`: Default 3000
 
 #### Examples

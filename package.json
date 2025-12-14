@@ -12,6 +12,8 @@
     "db:info": "node scripts/db_info.js",
     "db:import": "node scripts/import_db.js",
     "smoke:pg": "node scripts/smoke_pg_core_v2.js",
+    "smoke:v2_6:sqlite": "node scripts/run_smoke_with_server.js node scripts/smoke_v2_6_auth.js",
+    "smoke:v2_6:pg": "node scripts/run_smoke_with_server.js node scripts/smoke_v2_6_auth.js",
     "dev:client": "cd client && npm run dev"
   },
   "dependencies": {

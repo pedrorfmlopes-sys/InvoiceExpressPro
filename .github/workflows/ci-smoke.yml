@@ -22,17 +22,8 @@ jobs:
           node-version: '18'
       - run: npm ci
       - run: npm run db:migrate
-      - name: Start Server & Smoke
-        run: |
-          npm start &
-          PID=$!
-          
-          # Wait for Server
-          for i in {1..60}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 2; done || (echo "Server failed to start" && exit 1)
-          
-          node scripts/smoke_v2_4_pg.js
-          node scripts/smoke_v2_6_auth.js
-          kill $PID
+      - name: Run Smoke Tests (SQLite)
+        run: npm run smoke:v2_6:sqlite
 
   smoke-postgres:
     runs-on: ubuntu-latest
@@ -74,17 +65,5 @@ jobs:
       - name: Migrate PG
         run: npm run db:migrate
         
-      - name: Start Server & Smoke (PG)
-        run: |
-          npm start &
-          PID=$!
-          
-          # Wait for Server Health (Robust Loop)
-          echo "Waiting for server to be ready..."
-          # Loop 60 times, sleep 2s -> ~2 mins max wait
-          for i in {1..60}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 2; done || (echo "Server failed to start" && exit 1)
-          
-          node scripts/smoke_v2_4_pg.js
-          node scripts/smoke_v2_6_auth.js
-          
-          kill $PID
+      - name: Run Smoke Tests (PG)
+        run: npm run smoke:v2_6:pg
