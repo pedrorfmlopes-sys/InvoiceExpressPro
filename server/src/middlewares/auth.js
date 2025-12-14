@@ -5,6 +5,8 @@ const EntitlementsService = require('../entitlements/entitlementsService');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-do-not-use-in-prod';
 const AUTH_MODE = process.env.AUTH_MODE || 'optional';
 
+console.log('[Auth] Loaded. AUTH_MODE:', AUTH_MODE);
+
 async function attachContext(req, res, next) {
     const authHeader = req.headers.authorization;
     let token = null;

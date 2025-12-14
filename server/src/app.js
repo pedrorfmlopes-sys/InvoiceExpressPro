@@ -19,14 +19,20 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
-// Global Auth/Context (replacing legacy attachEntitlements)
+
+// 1. Static Client (Public) - Serve before Auth check
+app.use('/', express.static(PATHS.CLIENT_DIST));
+
+
+// 2. Auth Context (loads user if token present, doesn't block)
 app.use(attachContext);
 
+// 3. Public API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 
+// 4. Protected API Routes
 const { requireAuth } = require('./middlewares/auth');
-// Protect all API routes below (except whitelisted)
-app.use(requireAuth);
+app.use('/api', requireAuth); // Blocks everything under /api not whitelist
 
 // Routes
 app.use('/api', require('./routes/projectRoutes'));
@@ -48,9 +54,12 @@ app.use('/api/templates', require('./routes/templatesRoutes'));
 app.use('/api/normalize', require('./routes/normalizeRoutes'));
 app.use('/api/audit', require('./routes/auditRoutes'));
 
-
-// Static Client
-// IMPORTANT: Serve client/dist
-app.use('/', express.static(PATHS.CLIENT_DIST));
+// 5. SPA Fallback (Public) - For any other route, serve index.html
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(PATHS.CLIENT_DIST, 'index.html'));
+});
 
 module.exports = app;
