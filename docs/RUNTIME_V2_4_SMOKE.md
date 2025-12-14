@@ -1,7 +1,7 @@
 # RUNTIME V2.4 SMOKE TEST
 
 **Date:** 2025-12-14
-**Status:** PASSED (SQLite) | PENDING (Postgres)
+**Status:** PASSED (SQLite) | PASSED (Postgres)
 **Script:** `scripts/smoke_v2_4_pg.js`
 
 ## 1. SQLite (Verified)
