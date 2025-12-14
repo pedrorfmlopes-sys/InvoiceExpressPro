@@ -44,7 +44,7 @@ exports.getSuppliers = async (req, res) => {
         const map = new Map();
         docs.forEach(d => {
             const sName = getName(d.supplier);
-            if (!map.has(sName)) map.set(sName, { Fornecedor: sName, count: 0, total: 0 });
+            if (!map.has(sName)) map.set(sName, { Fornecedor: sName, key: sName, name: sName, count: 0, total: 0 });
             const s = map.get(sName);
             s.count++;
             s.total += getNum(d.total);
@@ -68,7 +68,7 @@ exports.getCustomers = async (req, res) => {
         const map = new Map();
         docs.forEach(d => {
             const cName = getName(d.customer);
-            if (!map.has(cName)) map.set(cName, { Cliente: cName, count: 0, total: 0 });
+            if (!map.has(cName)) map.set(cName, { Cliente: cName, key: cName, name: cName, count: 0, total: 0 });
             const s = map.get(cName);
             s.count++;
             s.total += getNum(d.total);
@@ -94,14 +94,18 @@ exports.getMonthly = async (req, res) => {
                 if (d.date.length >= 7) key = d.date.slice(0, 7); // YYYY-MM
             }
 
-            if (!map.has(key)) map.set(key, { month: key, count: 0, total: 0 });
+            if (!map.has(key)) map.set(key, { month: key, key: key, count: 0, total: 0 });
             const item = map.get(key);
             item.count++;
             item.total += getNum(d.total);
         });
 
-        // Sort by month ascending
-        const rows = Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
+        // Sort by month ascending, unknown last
+        const rows = Array.from(map.values()).sort((a, b) => {
+            if (a.month === 'unknown') return 1;
+            if (b.month === 'unknown') return -1;
+            return a.month.localeCompare(b.month);
+        });
 
         res.json({ rows, items: rows });
     } catch (e) {
