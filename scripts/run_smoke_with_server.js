@@ -15,11 +15,22 @@ if (args.length === 0) {
 // 1. Start Server
 console.log('[Runner] Starting server...');
 const isWin = process.platform === 'win32';
-const server = spawn('npm', ['start'], {
-    stdio: 'inherit',
-    env: { ...process.env, PORT: '3000' },
-    shell: true
-});
+let server;
+
+if (isWin) {
+    // Windows: Use cmd.exe directly to avoid EINVAL and DEP0190
+    server = spawn('cmd.exe', ['/d', '/s', '/c', 'npm start'], {
+        shell: false,
+        stdio: 'inherit',
+        env: { ...process.env, PORT: '3000' }
+    });
+} else {
+    server = spawn('npm', ['start'], {
+        shell: false,
+        stdio: 'inherit',
+        env: { ...process.env, PORT: '3000' }
+    });
+}
 
 let serverKilled = false;
 
