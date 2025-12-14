@@ -35,10 +35,22 @@ export default function App() {
 
   // Auth Init
   useEffect(() => {
-    setOnAuthFailure(() => setIsAuthenticated(false));
+    setOnAuthFailure(() => {
+      setIsAuthenticated(false);
+      setUser(null);
+      setRole('user');
+    });
     if (localStorage.getItem('token')) checkAuth();
     else setIsLoading(false);
   }, []);
+
+  // Effect to switch tab if current is forbidden
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (role !== 'admin' && activeTab === 'config') {
+      setActiveTab('corev2');
+    }
+  }, [isAuthenticated, role, activeTab]);
 
   async function checkAuth() {
     try {
@@ -131,11 +143,7 @@ export default function App() {
   }
 
   // Effect to switch tab if current is forbidden
-  useEffect(() => {
-    if (role !== 'admin' && activeTab === 'config') {
-      setActiveTab('corev2');
-    }
-  }, [role, activeTab]);
+
 
   const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div style={{ padding: 20 }}>Not Found</div>);
 
