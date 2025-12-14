@@ -39,6 +39,10 @@ app.use('/api', require('./routes/projectRoutes'));
 app.use('/api', require('./routes/docRoutes'));
 app.use('/api', require('./routes/extractRoutes'));
 
+// Modular V2 Reports Strategy (Modules Directory)
+const reportsV2 = require('./modules/reportsV2');
+app.use('/api/v2/reports', reportsV2.router);
+
 // Core V2
 app.use('/api/v2', require('./routes/v2Routes'));
 

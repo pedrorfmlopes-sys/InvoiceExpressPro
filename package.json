@@ -22,6 +22,8 @@
     "smoke:v2_9:pg": "node scripts/run_smoke_with_server.js node scripts/smoke_v2_9_auth_refresh.js",
     "smoke:v3_0:sqlite": "node scripts/run_smoke_with_server.js node scripts/smoke_v3_0_reports.js",
     "smoke:v3_0:pg": "node scripts/run_smoke_with_server.js node scripts/smoke_v3_0_reports.js",
+    "smoke:v3_1:sqlite": "node scripts/run_smoke_with_server.js node scripts/smoke_v3_1_reports_v2.js",
+    "smoke:v3_1:pg": "node scripts/run_smoke_with_server.js node scripts/smoke_v3_1_reports_v2.js",
     "dev:client": "cd client && npm run dev"
   },
   "dependencies": {

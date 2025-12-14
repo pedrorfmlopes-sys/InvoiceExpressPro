@@ -8,6 +8,7 @@ import ExploreTab from './tabs/ExploreTab'
 import CoreV2Tab from './tabs/CoreV2Tab'
 import NormalizationTab from './tabs/NormalizationTab'
 import ReportsTab from './tabs/ReportsTab'
+import ReportsV2Tab from './modules/reportsV2/ReportsV2Tab'
 import AuditTab from './tabs/AuditTab'
 import TeacherTab from './tabs/TeacherTab'
 import ConfigTab from './tabs/ConfigTab'
@@ -128,6 +129,7 @@ export default function App() {
   // Tabs Configuration
   const TABS = [
     { id: 'dashboard', label: '📊 Dashboard', Component: ReportsTab },
+    { id: 'reports_v2', label: '📈 Reports V2', Component: ReportsV2Tab },
     { id: 'corev2', label: '📄 Core V2', Component: CoreV2Tab },
     { id: 'transactions', label: '💼 Transactions', Component: TransactionsTab },
     { id: 'config', label: '⚙️ Config', Component: ConfigTab },

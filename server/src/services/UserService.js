@@ -88,11 +88,20 @@ class UserService {
 
         const planKey = sub ? sub.planKey : 'normal';
 
+        // Phase 3 Entitlements Logic (Simple Map)
+        const entitlements = {
+            reports_v2: { enabled: true }, // Enable by default for now to prove V2 works
+            reports_export: { enabled: true },
+            reports_pdf_basic: { enabled: true },
+            reports_pdf_pro: { enabled: membership.role === 'admin' } // Only admin gets Pro stub
+        };
+
         return {
             user: { id: user.id, email: user.email, name: user.name },
             org: { id: org.id, name: org.name },
             role: membership.role,
-            planKey
+            planKey,
+            entitlements
         };
     }
 }

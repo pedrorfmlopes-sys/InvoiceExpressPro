@@ -1,5 +1,5 @@
 const DocService = require('../services/DocService');
-const { buildPDF } = require('../../reports-pdf'); // adjust path if needed: reports-pdf is in server root
+const { buildPDF } = require('../../reports-pdf');
 const path = require('path');
 const { DEFAULTS } = require('../config/constants');
 
@@ -16,26 +16,14 @@ const getNum = (val) => {
     return isNaN(n) ? 0 : n;
 };
 
-// Helper to aggregate logic
-const aggregateByEntity = (docs, entityField) => {
-    const map = new Map();
-    docs.forEach(d => {
-        const sName = getName(d[entityField]);
-        if (!map.has(sName)) map.set(sName, { [entityField === 'supplier' ? 'supplier' : 'customer']: sName, count: 0, sum: 0 });
-        const s = map.get(sName);
-        s.count++;
-        s.sum += getNum(d.total);
-    });
-    // Sort desc by sum
-    return Array.from(map.values()).map(x => ({
-        ...x,
-        // Frontend expects 'key' or specific field name.
-        // ChartsAll.jsx: supTop uses d.key || d.Fornecedor
-        // We will provide a clean structure.
-        name: x.supplier || x.customer,
-        total: x.sum
-    })).sort((a, b) => b.total - a.total);
-};
+// Helper to normalize docs (Fixes V3.0 regression)
+const normalizeDocs = (raw) => {
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.rows)) return raw.rows;
+    if (raw && Array.isArray(raw.items)) return raw.items;
+    if (raw && Array.isArray(raw.docs)) return raw.docs;
+    return [];
+}
 
 exports.getSuppliers = async (req, res) => {
     try {
@@ -43,7 +31,8 @@ exports.getSuppliers = async (req, res) => {
         const project = req.query.project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
         console.log('[Reports] Resolved project:', project);
 
-        const docs = await DocService.getDocs(project);
+        const raw = await DocService.getDocs(project);
+        const docs = normalizeDocs(raw);
 
         const map = new Map();
         docs.forEach(d => {
@@ -67,7 +56,8 @@ exports.getSuppliers = async (req, res) => {
 exports.getCustomers = async (req, res) => {
     try {
         const project = req.query.project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
-        const docs = await DocService.getDocs(project);
+        const raw = await DocService.getDocs(project);
+        const docs = normalizeDocs(raw);
 
         const map = new Map();
         docs.forEach(d => {
@@ -89,7 +79,8 @@ exports.getCustomers = async (req, res) => {
 exports.getMonthly = async (req, res) => {
     try {
         const project = req.query.project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
-        const docs = await DocService.getDocs(project);
+        const raw = await DocService.getDocs(project);
+        const docs = normalizeDocs(raw);
 
         const map = new Map();
         docs.forEach(d => {
