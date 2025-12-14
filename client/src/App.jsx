@@ -27,15 +27,42 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('corev2');
 
   // Auth State
+  // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'))
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState('user');
 
   // Auth Init
   useEffect(() => {
     setOnAuthFailure(() => setIsAuthenticated(false));
     if (localStorage.getItem('token')) checkAuth();
-    else setLoading(false);
+    else setIsLoading(false);
   }, []);
+
+  async function checkAuth() {
+    try {
+      // Parallel fetch: Verify Token (via Me) and get Projects
+      // We need user details for Role
+      const me = await api.get('/api/auth/me');
+      setUser(me.data.user);
+      setRole(me.data.role || 'user');
+
+      const pRes = await api.get('/api/projects');
+      const list = pRes.data.projects || [];
+      setProjects(list);
+      if (list.length && !list.includes(project)) setProject(list[0]);
+
+      setIsAuthenticated(true);
+    } catch (err) {
+      if (err.response && err.response.status === 401) {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   // Theme & Project Persistence
   useEffect(() => {
@@ -45,33 +72,6 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => { localStorage.setItem('project', project); }, [project]);
-
-  // Load Projects
-  useEffect(() => {
-    if (isAuthenticated) {
-      api.get('/api/projects').then(res => {
-        const list = res.data.projects || [];
-        setProjects(list);
-        if (list.length && !list.includes(project)) setProject(list[0]);
-      }).catch(e => console.error(e));
-    }
-  }, [isAuthenticated]);
-
-  async function checkAuth() {
-    try {
-      await api.get('/api/projects');
-      setIsAuthenticated(true);
-    } catch (err) {
-      if (err.response && err.response.status === 401) setIsAuthenticated(false);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const handleLogout = () => {
-    logout();
-    setIsAuthenticated(false);
-  };
 
   const handleDownload = async (e) => {
     e.preventDefault();
@@ -105,6 +105,17 @@ export default function App() {
       { id: 'audit', label: 'Audit', Component: AuditTab },
     ] : [])
   ];
+
+  const handleLoginSuccess = async () => {
+    setIsAuthenticated(true);
+    await checkAuth(); // Load user/projects
+  };
+
+  const handleLogout = () => {
+    logout();
+    setIsAuthenticated(false);
+    setUser(null);
+  };
 
   if (isLoading) return <div className="p-10 flex justify-center text-slate-400">Loading...</div>;
 
