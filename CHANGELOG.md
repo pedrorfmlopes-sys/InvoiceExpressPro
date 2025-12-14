@@ -1,5 +1,9 @@
 # Changelog
 
+## V2.8.0
+- **Added**: PostgreSQL `pg_trgm` extension and GIN indexes for fast fuzzy search on Documents.
+- **Performance**: Optimized `q` search queries in V2.
+
 ## V2.7.1 (Security Hardening)
 - **Security**: Locked RBAC bypass mechanism (only allowed in non-production environments).
 - **Security**: Restricted QA endpoint (`/auth/qa/seed-user`) to require `QA_MODE=true` and non-production environment.
