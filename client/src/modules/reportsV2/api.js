@@ -1,4 +1,5 @@
 import { qp, downloadFile } from '../../shared/ui';
+import api from '../../api/apiClient';
 
 // V2 Reports API Client
 // Note: We reuse 'downloadFile' from shared UI for consistency but wrap endpoints here.
@@ -8,29 +9,29 @@ const BASE = '/api/v2/reports';
 export const ReportsV2Api = {
 
     getSummary: async (project) => {
-        const res = await fetch(qp(`${BASE}/summary`, project));
-        return res.json(); // { meta, filters, rows }
+        const res = await api.get(qp(`${BASE}/summary`, project));
+        return res.data; // { meta, filters, rows }
     },
 
     getTopSuppliers: async (project, topN = 10) => {
         const u = new URL(`${BASE}/top-suppliers`, window.location.origin);
         if (project) u.searchParams.set('project', project);
         u.searchParams.set('topN', topN);
-        const res = await fetch(u.pathname + u.search);
-        return res.json();
+        const res = await api.get(u.pathname + u.search);
+        return res.data;
     },
 
     getTopCustomers: async (project, topN = 10) => {
         const u = new URL(`${BASE}/top-customers`, window.location.origin);
         if (project) u.searchParams.set('project', project);
         u.searchParams.set('topN', topN);
-        const res = await fetch(u.pathname + u.search);
-        return res.json();
+        const res = await api.get(u.pathname + u.search);
+        return res.data;
     },
 
     getMonthlyTotals: async (project) => {
-        const res = await fetch(qp(`${BASE}/monthly-totals`, project));
-        return res.json();
+        const res = await api.get(qp(`${BASE}/monthly-totals`, project));
+        return res.data;
     },
 
     downloadExport: (project, format = 'xlsx') => {

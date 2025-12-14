@@ -1,0 +1,292 @@
+===== SECTION: QUICK FINDINGS =====
+1. [Authorize Callers]:
+   - client/src/App.jsx: Uses 'api/apiClient'. [OK] (Login, CheckAuth, Projects)
+   - client/src/modules/reportsV2/api.js: Uses native 'fetch' without Headers. [FAIL] (401 on /api/v2/reports/*)
+   - client/src/tabs/ConfigTab.jsx: Uses 'axios' from 'shared/ui'. [FAIL] (401 on /api/config/*)
+   - client/src/components/ChartsAll.jsx: Uses native 'fetch'. [FAIL] (401 on /api/reports/*)
+   - client/src/tabs/ReportsTab.jsx: Uses native 'fetch' (Pro PDF) and 'downloadFile' (shared/ui). [FAIL]
+
+2. [Root Cause]:
+   Exists a "Two Worlds" problem. 
+   - World A (App.jsx): Uses 'apiClient.js' which has Interceptors + Token Storage + Refresh Logic.
+   - World B (Tabs/Modules): Uses raw 'fetch' or imports 'axios' from 'shared/ui' (which is raw axios without interceptors).
+   All calls in World B fail because they send no Authorization header.
+
+3. [Shared UI Issue]:
+   - client/src/shared/ui.jsx exports raw 'axios' and implements 'downloadFile' using raw 'axios'. 
+   - It does NOT use 'apiClient'.
+
+===== SECTION: API CLIENT (THE CORRECT WORLD) =====
+--- FILE: client/src/api/apiClient.js ---
+import axios from 'axios';
+
+// Event emitter for auth failures
+let onAuthFailure = () => { };
+
+export const setOnAuthFailure = (fn) => {
+    onAuthFailure = fn;
+};
+
+const api = axios.create({
+    baseURL: '', // Relative to current origin
+    withCredentials: true // Send cookies
+});
+
+// Request Interceptor: Attach Token
+api.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+}, error => Promise.reject(error));
+
+// Refresh Logic
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
+// Response Interceptor: Handle 401 & Refresh
+api.interceptors.response.use(response => {
+    return response;
+}, async error => {
+    const originalRequest = error.config;
+
+    // Guard: If 401 (Unauthorized)
+    if (error.response && error.response.status === 401) {
+
+        // If it's the refresh endpoint itself failing -> Logout
+        if (originalRequest.url.includes('/auth/refresh')) {
+            localStorage.removeItem('token');
+            onAuthFailure();
+            return Promise.reject(error);
+        }
+
+        // If generic 401 and we haven't retried yet
+        if (!originalRequest._retry) {
+            // Check specific code if available (e.g., TOKEN_EXPIRED)
+            // Or assume any 401 on protected route means expiry
+
+            if (isRefreshing) {
+                // If already refreshing, queue this request
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(token => {
+                    originalRequest.headers.Authorization = 'Bearer ' + token;
+                    return api(originalRequest);
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+                // Attempt Refresh
+                const rs = await api.post('/api/auth/refresh');
+                const { token } = rs.data;
+
+                if (token) {
+                    localStorage.setItem('token', token);
+                    api.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+                    originalRequest.headers['Authorization'] = 'Bearer ' + token;
+
+                    processQueue(null, token);
+                    isRefreshing = false;
+
+                    return api(originalRequest);
+                }
+            } catch (err) {
+                processQueue(err, null);
+                isRefreshing = false;
+
+                // If refresh failed, logout
+                localStorage.removeItem('token');
+                onAuthFailure();
+                return Promise.reject(err);
+            }
+        }
+    }
+    return Promise.reject(error);
+});
+
+export const login = async (email, password) => {
+    const res = await api.post('/api/auth/login', { email, password });
+    if (res.data.token) {
+        localStorage.setItem('token', res.data.token);
+    }
+    return res.data;
+};
+
+export const logout = async () => {
+    try {
+        await api.post('/api/auth/logout');
+    } catch (e) { /* ignore */ }
+    localStorage.removeItem('token');
+    onAuthFailure();
+};
+
+export const downloadFile = async (url, params = {}) => {
+    const response = await api.get(url, {
+        params,
+        responseType: 'blob'
+    });
+    return response.data;
+};
+
+export default api;
+
+===== SECTION: BROKEN MODULES (EVIDENCE) =====
+--- FILE: client/src/modules/reportsV2/api.js ---
+import { qp, downloadFile } from '../../shared/ui';
+
+// V2 Reports API Client
+// Note: We reuse 'downloadFile' from shared UI for consistency but wrap endpoints here.
+
+const BASE = '/api/v2/reports';
+
+export const ReportsV2Api = {
+
+    getSummary: async (project) => {
+        const res = await fetch(qp(`${BASE}/summary`, project)); // FAIL: No Headers
+        return res.json(); // { meta, filters, rows }
+    },
+
+    getTopSuppliers: async (project, topN = 10) => {
+        const u = new URL(`${BASE}/top-suppliers`, window.location.origin);
+        if (project) u.searchParams.set('project', project);
+        u.searchParams.set('topN', topN);
+        const res = await fetch(u.pathname + u.search); // FAIL: No Headers
+        return res.json();
+    },
+
+    getTopCustomers: async (project, topN = 10) => {
+        const u = new URL(`${BASE}/top-customers`, window.location.origin);
+        if (project) u.searchParams.set('project', project);
+        u.searchParams.set('topN', topN);
+        const res = await fetch(u.pathname + u.search); // FAIL: No Headers
+        return res.json();
+    },
+
+    getMonthlyTotals: async (project) => {
+        const res = await fetch(qp(`${BASE}/monthly-totals`, project)); // FAIL: No Headers
+        return res.json();
+    },
+
+    downloadExport: (project, format = 'xlsx') => {
+        // Reuse export V1 logic but mounted on V2
+        // We can just use the download helper directly
+        const u = `${BASE}/export`;
+        downloadFile(qp(u, project), `reports_v2.${format}`); // FAIL: downloadFile uses raw axios
+    },
+
+    downloadPdfBasic: (project) => {
+        // Post request typically for PDF generation if body needed, but our V1/V2 Basic is GET/POST agnostic for now
+        // Controller is defined as POST /pdf
+        // downloadFile uses POST by default if body present? 
+        // Our shared/ui.jsx downloadFile helper defaults to POST if body provided, 
+        // but here we might want just a link or trigger download.
+        // Let's use downloadFile helper which supports axios config or fetch logic
+        downloadFile(qp(`${BASE}/pdf`, project), 'relatorio_v2.pdf', {}, 'POST'); // Empty body
+    }
+};
+
+--- FILE: client/src/tabs/ConfigTab.jsx (Truncated Config Logic) ---
+// client/src/tabs/ConfigTab.jsx
+import React from 'react'
+import { axios, qp } from '../shared/ui' // FAIL: Imports raw axios
+
+export default function ConfigTab({ project }) {
+  // ...
+  async function loadTypes() {
+    try {
+      const j = await fetch(qp('/api/config/doctypes', project)).then(r => r.json()) // FAIL: fetch
+      // ...
+    } catch { ... }
+  }
+
+  async function saveTypes() {
+    // ...
+    try {
+      setBusy(true)
+      const res = await fetch(qp('/api/config/doctypes', project), { // FAIL: fetch
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: arr })
+      })
+      // ...
+    } catch (e) { ... }
+  }
+
+  async function uploadLogo() {
+    // ...
+    try {
+      setBusy(true)
+      await axios.post(qp('/api/app-logo', project), { dataUrl: logo }, { headers: { 'Content-Type': 'application/json' } }) // FAIL: raw axios
+      // ...
+    } catch (e) { ... }
+  }
+
+  /* --- Secrets (API Key) --- */
+  async function loadSecrets() {
+    try {
+      const j = await fetch(qp('/api/config/secrets', project)).then(r => r.json()); // FAIL: fetch
+      // ...
+    } catch { }
+  }
+  async function saveKey() {
+    // ...
+    try {
+      await axios.post(qp('/api/config/secrets', project), { apiKey: key }); // FAIL: raw axios
+      // ...
+    } catch (e) { ... }
+  }
+  // ...
+}
+
+--- FILE: client/src/shared/ui.jsx (The Culprit) ---
+import React from 'react'
+import * as htmlToImage from 'html-to-image'
+import axios from 'axios' // FAIL: Imports raw axios
+
+// ...
+
+// Helper para downloads com Auth (Bearer token) -- INCORRECT COMMENT, NO AUTH IMPLEMENTED
+export async function downloadFile(url, filename, body = {}, method = 'POST') {
+  try {
+    const res = await axios({ // FAIL: Uses raw axios
+      url,
+      method,
+      data: body,
+      responseType: 'blob', // Importante para binary/file
+    });
+    const blob = new Blob([res.data], { type: res.headers['content-type'] });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = filename || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    // ...
+  }
+}
+
+export { axios } // FAIL: Exports raw axios
+
+===== INDEX =====
+client/src/api/apiClient.js
+client/src/modules/reportsV2/api.js
+client/src/tabs/ConfigTab.jsx
+client/src/shared/ui.jsx

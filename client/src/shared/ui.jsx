@@ -1,7 +1,7 @@
 // client/src/shared/ui.jsx
 import React from 'react'
 import * as htmlToImage from 'html-to-image'
-import axios from 'axios'
+import api from '../api/apiClient'
 
 export const THEMES = ['dark', 'light', 'ocean', 'solarized', 'light-high']
 export const COLS = ['Fornecedor', 'Fatura', 'Data', 'Total', 'Cliente', 'Vencimento', 'Portes']
@@ -104,11 +104,11 @@ export function mapDocToLegacyRow(d) {
 // Helper para downloads com Auth (Bearer token)
 export async function downloadFile(url, filename, body = {}, method = 'POST') {
   try {
-    const res = await axios({
+    const res = await api.request({
       url,
       method,
       data: body,
-      responseType: 'blob', // Importante para binary/file
+      responseType: 'blob',
     });
     const blob = new Blob([res.data], { type: res.headers['content-type'] });
     const link = document.createElement('a');
@@ -119,7 +119,6 @@ export async function downloadFile(url, filename, body = {}, method = 'POST') {
     document.body.removeChild(link);
   } catch (e) {
     if (e.response && e.response.data instanceof Blob) {
-      // Tentar ler erro do blob
       try {
         const text = await e.response.data.text();
         const json = JSON.parse(text);
@@ -130,5 +129,4 @@ export async function downloadFile(url, filename, body = {}, method = 'POST') {
     }
   }
 }
-
-export { axios }
+// export { axios } removed

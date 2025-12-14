@@ -1,6 +1,7 @@
 // client/src/components/ChartsAll.jsx
 import React from 'react'
 import { CollapsibleCard, fmtEUR, qp, saveNodeAsPng } from '../shared/ui'
+import api from '../api/apiClient'
 
 const ChartsAll = React.forwardRef(function ChartsAll({ project }, ref) {
   const [suppliers, setSuppliers] = React.useState([])
@@ -11,9 +12,9 @@ const ChartsAll = React.forwardRef(function ChartsAll({ project }, ref) {
 
   async function load() {
     const [a, b, c] = await Promise.all([
-      fetch(qp('/api/reports/suppliers', project)).then(r => r.json()),
-      fetch(qp('/api/reports/monthly', project)).then(r => r.json()),
-      fetch(qp('/api/reports/customers', project)).then(r => r.json()),
+      api.get(qp('/api/reports/suppliers', project)).then(r => r.data),
+      api.get(qp('/api/reports/monthly', project)).then(r => r.data),
+      api.get(qp('/api/reports/customers', project)).then(r => r.data),
     ]).catch(() => [[], [], []])
     const sup = Array.isArray(a) ? a : (a.rows || [])
     const mon = Array.isArray(b) ? b : (b.rows || [])

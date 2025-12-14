@@ -2,6 +2,7 @@
 import React from 'react'
 import ChartsAll from '../components/ChartsAll'
 import { qp, downloadFile } from '../shared/ui'
+import api from '../api/apiClient'
 
 export default function ReportsTab({ project }) {
   const chartsRef = React.useRef(null)
@@ -12,15 +13,11 @@ export default function ReportsTab({ project }) {
     setLoadingPro(true);
     try {
       const apiKey = localStorage.getItem('OPENAI_API_KEY') || '';
-      const headers = { 'Content-Type': 'application/json' };
+      const headers = {};
       if (apiKey) headers['X-OpenAI-Key'] = apiKey;
 
-      const res = await fetch(qp('/api/reports/pro-pdf', project), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ reportType: 'Geral' })
-      });
-      const data = await res.json();
+      const res = await api.post(qp('/api/reports/pro-pdf', project), { reportType: 'Geral' }, { headers });
+      const data = res.data;
       if (data.error) throw new Error(data.error);
 
       const a = document.createElement('a');

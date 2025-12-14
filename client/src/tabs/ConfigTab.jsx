@@ -1,6 +1,7 @@
 // client/src/tabs/ConfigTab.jsx
 import React from 'react'
-import { axios, qp } from '../shared/ui'
+import { qp } from '../shared/ui'
+import api from '../api/apiClient'
 
 export default function ConfigTab({ project }) {
   const [key, setKey] = React.useState(localStorage.getItem('OPENAI_API_KEY') || '')
@@ -13,7 +14,7 @@ export default function ConfigTab({ project }) {
 
   async function loadTypes() {
     try {
-      const j = await fetch(qp('/api/config/doctypes', project)).then(r => r.json())
+      const j = await api.get(qp('/api/config/doctypes', project)).then(r => r.data)
       const arr = Array.isArray(j) ? j : (j.items || [])
       setItems(arr)
       setRaw((arr || []).join('\n'))
@@ -37,12 +38,7 @@ export default function ConfigTab({ project }) {
     if (!arr.length) { alert('Adiciona pelo menos um tipo.'); return }
     try {
       setBusy(true)
-      const res = await fetch(qp('/api/config/doctypes', project), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: arr })
-      })
-      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Falha ao guardar') }
+      await api.put(qp('/api/config/doctypes', project), { items: arr })
       await loadTypes()
       alert('Tipos de documento guardados ✓')
     } catch (e) {
@@ -56,7 +52,7 @@ export default function ConfigTab({ project }) {
     if (!logo) return
     try {
       setBusy(true)
-      await axios.post(qp('/api/app-logo', project), { dataUrl: logo }, { headers: { 'Content-Type': 'application/json' } })
+      await api.post(qp('/api/app-logo', project), { dataUrl: logo })
       alert('Logo atualizado ✓')
     } catch (e) {
       alert(e?.response?.data?.error || e.message)
@@ -68,7 +64,7 @@ export default function ConfigTab({ project }) {
   /* --- Secrets (API Key) --- */
   async function loadSecrets() {
     try {
-      const j = await fetch(qp('/api/config/secrets', project)).then(r => r.json());
+      const j = await api.get(qp('/api/config/secrets', project)).then(r => r.data);
       if (j.hasApiKey && j.maskedKey) setKey(j.maskedKey);
     } catch { }
   }
@@ -77,7 +73,7 @@ export default function ConfigTab({ project }) {
     // se for a mascara, nao salvar de novo
     if (key.includes('...')) { alert('Chave já guardada (mascarada). Para alterar, escreve uma nova.'); return; }
     try {
-      await axios.post(qp('/api/config/secrets', project), { apiKey: key });
+      await api.post(qp('/api/config/secrets', project), { apiKey: key });
       localStorage.setItem('OPENAI_API_KEY', key); // manter sync local opcional
       await loadSecrets();
       alert('Chave guardada no servidor ✓');
@@ -90,7 +86,7 @@ export default function ConfigTab({ project }) {
   }
   async function clearKey() {
     try {
-      await axios.post(qp('/api/config/secrets', project), { apiKey: '' });
+      await api.post(qp('/api/config/secrets', project), { apiKey: '' });
       localStorage.removeItem('OPENAI_API_KEY');
       setKey('');
       alert('Chave removida.');
