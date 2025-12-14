@@ -1,6 +1,7 @@
 const service = require('./service');
 const dto = require('./dto');
 const { buildPDF } = require('../../../reports-pdf'); // Reuse V1 PDF Engine
+const exportController = require('../../controllers/exportController');
 
 // Helper to handle standard V2 response
 const respond = (res, rows, req) => {
@@ -86,4 +87,63 @@ exports.generatePdfBasic = async (req, res, next) => {
 
 exports.generatePdfPro = async (req, res) => {
     res.status(501).json({ error: 'Pro PDF not configured (Phase 3.1 placeholder)' });
+};
+
+exports.exportData = async (req, res, next) => {
+    const format = (req.query.format || 'xlsx').toLowerCase();
+
+    if (format === 'xlsx') {
+        return exportController.exportXlsx(req, res, next);
+    }
+
+    if (format === 'csv') {
+        try {
+            const project = req.query.project;
+            const docs = await service.fetchDocs(project);
+
+            // Columns: id, docType, docNumber, date, supplier, customer, total, status, origName, project
+            const headers = ['id', 'docType', 'docNumber', 'date', 'supplier', 'customer', 'total', 'status', 'origName', 'project'];
+
+            const escape = (val) => {
+                if (val === null || val === undefined) return '';
+                const str = String(val);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            const csvRows = docs.map(d => {
+                const supplierName = (d.supplier && typeof d.supplier === 'object') ? (d.supplier.name || '') : (d.supplier || '');
+                const customerName = (d.customer && typeof d.customer === 'object') ? (d.customer.name || '') : (d.customer || '');
+
+                return [
+                    d.id,
+                    d.docType,
+                    d.docNumber,
+                    d.date,
+                    supplierName,
+                    customerName,
+                    d.total,
+                    d.status,
+                    d.origName,
+                    d.project
+                ].map(escape).join(',');
+            });
+
+            const csvContent = [headers.join(','), ...csvRows].join('\n');
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const filename = `reports_export_${project || 'default'}_${dateStr}.csv`;
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            return res.send(csvContent);
+
+        } catch (e) {
+            console.error('[Export CSV Error]', e);
+            return res.status(500).json({ error: e.message });
+        }
+    }
+
+    return res.status(400).json({ error: 'Unsupported format' });
 };

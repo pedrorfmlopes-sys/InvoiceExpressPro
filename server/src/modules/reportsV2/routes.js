@@ -19,9 +19,8 @@ router.get('/monthly-totals', controller.getMonthlyTotals);
 router.post('/pdf', requireEntitlement('reports_pdf_basic'), controller.generatePdfBasic);
 router.post('/pdf-pro', requireEntitlement('reports_pdf_pro'), controller.generatePdfPro);
 
-// Export (Directly reuse logic or provide a wrapper? reuse exportController is allowed by MAP)
+// Export (Wrapper handles CSV vs XLSX)
 // User asked to "reusar export streaming existente"
-const exportController = require('../../controllers/exportController');
-router.get('/export', requireEntitlement('reports_export'), exportController.exportXlsx);
+router.get('/export', requireEntitlement('reports_export'), controller.exportData);
 
 module.exports = router;

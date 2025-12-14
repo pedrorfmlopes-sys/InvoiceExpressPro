@@ -47,41 +47,27 @@ async function run() {
     await checkEndpoint('/v2/reports/monthly-totals', 'Monthly');
 
     // 4. Test Export CSV
+    // 4. Test Export CSV (Strict)
     console.log('Checking Export CSV...');
     const csv = await client.get('/v2/reports/export?format=csv', {
-        ...authHeaders, // This works because authHeaders has { headers: ... } and axios options merge headers? No.
-        // Wait, authHeaders is { headers: { Authorization: ... } }
-        // axios.get(url, config). If we spread authHeaders into config, it works.
-        // But for PDF we did check PDF Basic...
+        headers: authHeaders.headers
     });
-    // Wait, let's look at exportXlsx controller. It defaults to xlsx content type.
-    // Does it support csv? The request asked for "GET /api/v2/reports/export?format=csv".
-    // reuse `exportController.exportXlsx`.
-    // Checking `exportController.js`: It builds XSLX. Does NOT implement CSV logic.
-    // The requirement says "export/exportCsv.js".
-    // But reuse map said "REUSE export streaming".
-    // Does exportController support CSV? NO.
-    // Re-reading Phase 1.1: "export/exportCsv.js" listed.
-    // Phase 1.5: "GET /export?format=csv|xlsx (reusar export streaming)".
-    // If I reused `exportController.exportXlsx` for both, it only does XLSX.
-    // So `format=csv` might return XLSX or fail?
-    // User Requirement: "GET /api/v2/reports/export?format=csv -> 200 + body não vazio"
-    // I should test default (xlsx) for now if CSV isn't implemented.
-    // Wait, Task said "export/exportCsv.js" should be created in module?
-    // I created `routes.js`: `router.get('/export', ..., exportController.exportXlsx);`
-    // So it ignores format.
-    // I will check `export.xlsx`.
-    // If I need to support CSV, I might need to implement it.
-    // But for "Smoke", let's check what works. `exportXlsx` works.
-    // I will check XLSX.
 
+    if (csv.status !== 200) throw new Error(`CSV Export Failed: ${csv.status}`);
+    const csvType = csv.headers['content-type'] || csv.headers['Content-Type'];
+    if (!csvType.includes('text/csv')) throw new Error(`Invalid CSV Content-Type: ${csvType}`);
+    if (csv.data.length < 50) throw new Error('CSV body too small');
+    if (!csv.data.includes('docType') && !csv.data.includes('docNumber')) throw new Error('CSV missing headers');
+    console.log(`   [PASS] Export CSV OK (${csv.data.length} chars)`);
+
+    // Export XLSX (Strict)
     console.log('Checking Export XLSX...');
     const xlsx = await client.get('/v2/reports/export?format=xlsx', {
         headers: authHeaders.headers,
         responseType: 'arraybuffer'
     });
-    if (xlsx.status !== 200) throw new Error(`Export Failed: ${xlsx.status}`);
-    if (xlsx.data.length < 10) throw new Error('Export body too small');
+    if (xlsx.status !== 200) throw new Error(`XLSX Export Failed: ${xlsx.status}`);
+    if (xlsx.data.length < 200) throw new Error('XLSX body too small (<200 bytes)');
     console.log(`   [PASS] Export XLSX OK (${xlsx.data.length} bytes)`);
 
     // 5. Test PDF Basic (Fix Header)

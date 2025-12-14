@@ -16,7 +16,8 @@ const getNum = (n) => {
 class ReportsV2Service {
 
     // Core data fetcher reused from DocService
-    async _fetchDocs(project) {
+    // Core data fetcher reused from DocService
+    async fetchDocs(project) {
         // Use 'default' fallback logic strictly here too
         const pid = project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
         const raw = await DocService.getDocs(pid);
@@ -24,7 +25,7 @@ class ReportsV2Service {
     }
 
     async getSummary(project) {
-        const docs = await this._fetchDocs(project);
+        const docs = await this.fetchDocs(project);
 
         const totalSum = docs.reduce((acc, d) => acc + getNum(d.total), 0);
         const count = docs.length;
@@ -42,7 +43,7 @@ class ReportsV2Service {
     }
 
     async getTopSuppliers(project, limit = 10) {
-        const docs = await this._fetchDocs(project);
+        const docs = await this.fetchDocs(project);
         const map = new Map();
 
         docs.forEach(d => {
@@ -59,7 +60,7 @@ class ReportsV2Service {
     }
 
     async getTopCustomers(project, limit = 10) {
-        const docs = await this._fetchDocs(project);
+        const docs = await this.fetchDocs(project);
         const map = new Map();
 
         docs.forEach(d => {
@@ -76,7 +77,7 @@ class ReportsV2Service {
     }
 
     async getMonthlyTotals(project) {
-        const docs = await this._fetchDocs(project);
+        const docs = await this.fetchDocs(project);
         const map = new Map();
 
         docs.forEach(d => {
