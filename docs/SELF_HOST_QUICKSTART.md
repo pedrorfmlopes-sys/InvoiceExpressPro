@@ -44,11 +44,13 @@ Run robust smoke tests with bundled runner:
 # SQLite (Auth)
 npm run smoke:v2_6:sqlite
 npm run smoke:v2_7:sqlite
+npm run smoke:v2_8:sqlite
 
 # Postgres (Auth) - Requires DB running
 # Ensure env vars are set (DB_CLIENT=pg, DATABASE_URL=...)
 npm run smoke:v2_6:pg
 npm run smoke:v2_7:pg
+npm run smoke:v2_8:pg
 ```
 - `PORT`: Default 3000
 

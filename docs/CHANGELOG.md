@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.8.0] - 2025-12-14
+
+### Perf
+- **Postgres**: Added `pg_trgm` and indexes for optimized global search.
+- **Exports**: Implemented streaming for V1 and V2 exports (Postgres & SQLite compatible).
+
+### Tests
+- **Smoke**: Added `smoke:v2_8` scripts for validating exports.
+- **Fixes**: Stabilized auth seed in RBAC smoke tests; fixed pagination normalization for export adapter.
+
 ## [v2.5.0] - 2025-01-24
 
 ### Added
