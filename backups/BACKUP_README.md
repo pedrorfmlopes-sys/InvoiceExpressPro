@@ -10,24 +10,31 @@ git status
 git add .
 git commit -m "chore: freeze v2.8.0 state"
 git tag -a v2.8.0 -m "Release v2.8.0"
-git push origin master --tags
+git push --follow-tags
 ```
 
 ## 2. Database Backup
 
 ### Option A: SQLite (Default)
-Copy the `server/data` directory. This contains the SQLite database file and uploads.
+Back up the `data` directory (or `server/data` if legacy).
 
 **PowerShell:**
 ```powershell
-Copy-Item -Path "server/data" -Destination "backups/v2.8.0_data" -Recurse
+# Copy 'data' or 'server/data'
+Copy-Item -Path "data" -Destination "backups/v2.8.0_data" -Recurse
 ```
 
 ### Option B: Postgres
-Use `pg_dump` to create an SQL dump. If running via Docker:
+Use `pg_dump` via Docker Compose (Custom Format `-Fc` recommended).
 
+**Backup:**
 ```bash
-docker exec -t <container_name> pg_dump -U invoicestudio invoicestudio > backups/v2.8.0_dump.sql
+docker compose exec -T postgres pg_dump -Fc -U invoicestudio invoicestudio > backups/v2.8.0_dump.dump
+```
+
+**Restore Example:**
+```bash
+docker compose exec -T postgres pg_restore -U invoicestudio -d invoicestudio --clean < backups/v2.8.0_dump.dump
 ```
 
 ## 3. Project Archive (ZIP)
