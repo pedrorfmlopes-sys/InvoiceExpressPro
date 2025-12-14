@@ -9,27 +9,46 @@ async function run() {
             validateStatus: () => true
         });
 
-        // 1. Bootstrap Admin (Standard)
-        // If 401, maybe existing admin has diff pass. Let's try to create a fresh user via QA endpoint if possible? 
-        // No, QA endpoint needs specific ENV mode.
-        // Let's rely on standard bootstrap with a unique email to guarantee we get a fresh user.
+        // 1. Auth Setup (Standard Admin -> Seed User)
+        const ADMIN_EMAIL = 'admin@smoke.test';
+        const ADMIN_PASS = 'password123';
+        const USER_EMAIL = 'user@smoke.test';
+        const USER_PASS = 'password123';
 
-        const email = `test_export_${Date.now()}@t.com`;
-        const pass = '123456';
+        process.stdout.write('1. Bootstrapping Admin... ');
+        // Idempotent bootstrap
+        const boot = await client.post('/auth/bootstrap', {
+            email: ADMIN_EMAIL, password: ADMIN_PASS, name: 'Admin', orgName: 'SmokeOrg'
+        });
+        if (boot.status !== 200 && boot.status !== 409) throw new Error(`Bootstrap failed: ${boot.status}`);
 
-        process.stdout.write('1. Seeding User (QA Mode)... ');
-        // We assume QA_MODE=true is set in env
-        const seed = await client.post('/auth/qa/seed-user', { email, password: pass, name: 'Tester', orgId: 'default' });
-        if (seed.status !== 200) console.warn('Seed status:', seed.status); // Might be 200 {userId...}
+        // Admin Login
+        const loginAdm = await client.post('/auth/login', { email: ADMIN_EMAIL, password: ADMIN_PASS });
+        if (loginAdm.status !== 200) throw new Error('Admin login failed');
+        const adminToken = loginAdm.data.token;
 
-        const login = await client.post('/auth/login', { email, password: pass });
+        // Get Org ID
+        const meAdm = await client.get('/auth/me', { headers: { Authorization: `Bearer ${adminToken}` } });
+        const orgId = meAdm.data.org.id;
+
+        // Seed Regular User
+        process.stdout.write('Seeding User... ');
+        const seed = await client.post('/auth/qa/seed-user', {
+            email: USER_EMAIL, password: USER_PASS, name: 'Smoke User', orgId
+        }, { headers: { Authorization: `Bearer ${adminToken}` } });
+
+        if (seed.status !== 200) {
+            console.error('Seed Failed:', seed.status, seed.data);
+            throw new Error('User seed failed');
+        }
+
+        // 2. User Login
+        process.stdout.write('User Login... ');
+        const login = await client.post('/auth/login', { email: USER_EMAIL, password: USER_PASS });
         const token = login.data.token;
         console.log('OK');
 
-        if (!token) {
-            console.error('Login Failed Response:', login.status, login.data);
-            throw new Error('Login failed');
-        }
+        if (!token) throw new Error('User login failed (no token)');
 
         // 2. Export V1
         process.stdout.write('2. Export V1 (Stream)... ');

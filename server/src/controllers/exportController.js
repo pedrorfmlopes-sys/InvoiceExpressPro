@@ -4,7 +4,27 @@ const xlsx = require('xlsx');
 exports.exportXlsx = async (req, res) => {
     try {
         const project = req.query.project;
-        const docs = await DocService.getDocs(project);
+        const raw = await DocService.getDocs(project);
+
+        // Normalize: adapter might return Array or { items: Array, ... }
+        const docs =
+            Array.isArray(raw) ? raw :
+                Array.isArray(raw?.items) ? raw.items :
+                    Array.isArray(raw?.rows) ? raw.rows :
+                        Array.isArray(raw?.docs) ? raw.docs :
+                            [];
+
+        if (!Array.isArray(raw) && !raw?.items) console.warn('[exportXlsx] Unexpected docs shape', raw);
+
+        if (docs.length === 0) {
+            // Return empty XLSX (safe UX)
+        }
+
+        if (docs.length === 0) {
+            // Return empty XLSX (safe UX)
+            // Or use 400 if strictly debugging. User preferred safe UX (200 empty).
+            // We'll proceed to generate empty sheet.
+        }
 
         // Transform for Export
         const rows = docs.map(d => ({
