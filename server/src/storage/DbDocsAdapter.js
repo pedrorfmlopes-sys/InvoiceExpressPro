@@ -3,14 +3,45 @@ const { v4: uuidv4 } = require('uuid');
 
 class DbDocsAdapter {
     // --- Documents ---
-    async getDocs(project) {
-        const rows = await knex('documents').where({ project });
-        // Hydrate from rawJson if needed, but for listing mostly standard fields are enough.
-        // Legacy compatibility: merge rawJson with columns
-        return rows.map(r => {
-            const raw = r.rawJson ? JSON.parse(r.rawJson) : {};
-            return { ...raw, ...r }; // DB columns override raw if present
-        });
+    async getDocs(project, { page = 1, limit = 50, q, status, docType, from, to } = {}) {
+        let query = knex('documents').where({ project });
+
+        if (status) query = query.where('status', status);
+        if (docType) query = query.where((b) => b.where('docType', docType).orWhere('docTypeId', docType));
+
+        if (from) query = query.where('date', '>=', from);
+        if (to) query = query.where('date', '<=', to);
+
+        if (q) {
+            const like = `%${q}%`;
+            query = query.where((b) => {
+                b.where('docNumber', 'like', like)
+                    .orWhere('supplier', 'like', like)
+                    .orWhere('customer', 'like', like)
+                    .orWhere('origName', 'like', like)
+                // Cast total to string for search if needed, or just skip numeric search for simplicity/perf
+                // SQLite/PG handle this differently. Keeping it simple string match if widely supported or skip.
+            });
+        }
+
+        // Count
+        const countQuery = query.clone().count('* as count').first();
+        const totalParams = await countQuery;
+        const total = parseInt(totalParams.count || totalParams['count(*)'] || 0, 10);
+
+        // Fetch
+        const rows = await query.orderBy('created_at', 'desc').limit(limit).offset((page - 1) * limit);
+
+        return {
+            rows: rows.map(r => {
+                const raw = r.rawJson ? JSON.parse(r.rawJson) : {};
+                const refs = r.references_json ? JSON.parse(r.references_json) : (raw.references || []);
+                return { ...raw, ...r, references: refs };
+            }),
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit)
+        };
     }
 
     async getDoc(project, id) {
@@ -24,11 +55,14 @@ class DbDocsAdapter {
         if (!doc.id) doc.id = uuidv4();
 
         // Split known columns vs raw
-        const { id, docType, docNumber, supplier, customer, date, dueDate, total, status, filePath, batchId, ...rest } = doc;
+        const { id, docType, docNumber, supplier, customer, date, dueDate, total, status, filePath, batchId,
+            docTypeId, docTypeLabel, docTypeRaw, docTypeSource, docTypeConfidence, needsReviewDocType,
+            ...rest } = doc;
 
         // Safe defaults
-        const suppliersName = typeof supplier === 'object' ? supplier.name : supplier;
-        const customersName = typeof customer === 'object' ? customer.name : customer;
+        const suppliersName = (supplier && typeof supplier === 'object') ? supplier.name : supplier;
+        const customersName = (customer && typeof customer === 'object') ? customer.name : customer;
+        const refsJson = (rest.references) ? JSON.stringify(rest.references) : (rest.references_json || null);
 
         const row = {
             id,
@@ -43,6 +77,15 @@ class DbDocsAdapter {
             status,
             filePath,
             batchId,
+            references_json: refsJson,
+            // V2.2 Canonical Fields
+            docTypeId,
+            docTypeLabel,
+            docTypeRaw,
+            docTypeSource,
+            docTypeConfidence,
+            needsReviewDocType,
+
             rawJson: JSON.stringify(doc), // Store full doc in rawJson for perfect fidelity
             updated_at: new Date()
         };
