@@ -15,10 +15,12 @@ if (args.length === 0) {
 // 1. Start Server
 console.log('[Runner] Starting server...');
 const isWin = process.platform === 'win32';
-const server = spawn('npm', ['start'], {
+const npmCmd = isWin ? 'npm.cmd' : 'npm';
+
+const server = spawn(npmCmd, ['start'], {
     stdio: 'inherit',
     env: { ...process.env, PORT: '3000' },
-    shell: true // Important for Windows to find npm
+    shell: false
 });
 
 let serverKilled = false;
@@ -92,10 +94,19 @@ const waitForServer = async () => {
     console.log(`[Runner] Running test: ${args.join(' ')}`);
     const [cmd, ...cmdArgs] = args;
 
-    // Resolve command (node, npm, etc)
-    const testProcess = spawn(cmd, cmdArgs, {
+    // Resolve command to avoid shell: true
+    let finalCmd = cmd;
+    let finalArgs = cmdArgs;
+
+    if (cmd === 'node') {
+        finalCmd = process.execPath;
+    } else if (cmd === 'npm') {
+        finalCmd = isWin ? 'npm.cmd' : 'npm';
+    }
+
+    const testProcess = spawn(finalCmd, finalArgs, {
         stdio: 'inherit',
-        shell: true
+        shell: false
     });
 
     testProcess.on('close', (code) => {
