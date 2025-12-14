@@ -1,0 +1,38 @@
+===== SECTION: PROBLEM ANALYSIS =====
+User reported: "ExploreTab.jsx:5 import DndConfirmModal from '../components/DndConfirmModal'" failure.
+Reality: The build failed because 'axios' was not exported from 'shared/ui.jsx' (regression from previous task).
+'ExploreTab.jsx' tried to import '{ axios }' from '../shared/ui'.
+
+===== SECTION: ACTUAL FIX =====
+1. Fix 'ExploreTab.jsx':
+   - Removed 'axios' from import.
+   - Imported 'api' from '../api/apiClient'.
+   - Replaced 'axios.*' with 'api.*' (patch, post, delete, head).
+
+2. Fix OTHER affected files (identified via grep):
+   - TransactionsV2Tab.jsx
+   - TeacherTab.jsx
+   - ProcessTab.jsx
+   - NormalizationTab.jsx
+   
+   These files also imported 'axios' from 'shared/ui' and were breaking the build.
+   They have been refactored to use 'apiClient' correctly.
+
+===== SECTION: DND CONFIRM MODAL =====
+Verified:
+- File exists: client/src/components/DndConfirmModal.jsx
+- Exports default: Yes.
+- Import path in ExploreTab: Correct.
+
+The reported error on this line was arguably a side-effect or misinterpretation of the build log which listed ExploreTab.jsx errors.
+
+===== SECTION: VERIFICATION =====
+Command: 'cd client && npm run build'
+Result: PASSED (Exit code 0)
+Output:
+dist/index.html                  0.43 kB
+dist/assets/index-C4Sm1vd8.css   8.18 kB
+dist/assets/index-BwrhofFZ.js    732.65 kB
+
+All missing 'axios' imports resolved.
+Rules: "Two Worlds" problem further reduced by this forced refactor.

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { axios, Badge } from '../shared/ui';
+import { Badge } from '../shared/ui';
+import api from '../api/apiClient';
 
 export default function TransactionsV2Tab({ project }) {
     const [txs, setTxs] = useState([]);
@@ -10,7 +11,7 @@ export default function TransactionsV2Tab({ project }) {
     async function load() {
         setLoading(true);
         try {
-            const res = await axios.get(`/api/v2/transactions?project=${project}`);
+            const res = await api.get(`/api/v2/transactions?project=${project}`);
             setTxs(res.data.rows);
         } catch (e) { alert('Load error: ' + e.message); }
         finally { setLoading(false); }
@@ -23,7 +24,7 @@ export default function TransactionsV2Tab({ project }) {
         const title = prompt("Transaction Title (e.g. Order 123):");
         if (!title) return;
         try {
-            await axios.post(`/api/v2/transactions?project=${project}`, { title });
+            await api.post(`/api/v2/transactions?project=${project}`, { title });
             load();
         } catch (e) { alert('Create error: ' + e.message); }
     }
@@ -31,7 +32,7 @@ export default function TransactionsV2Tab({ project }) {
     // Detail Loader
     async function openTx(id) {
         try {
-            const res = await axios.get(`/api/v2/transactions/${id}?project=${project}`);
+            const res = await api.get(`/api/v2/transactions/${id}?project=${project}`);
             setActiveTx(res.data.transaction);
         } catch (e) { alert('Detail error: ' + e.message); }
     }

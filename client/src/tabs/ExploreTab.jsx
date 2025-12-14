@@ -1,6 +1,7 @@
 // client/src/tabs/ExploreTab.jsx
 import React from 'react';
-import { axios, COLS, fmtEUR, fmtParty, qp, mapDocToLegacyRow, IconEdit, IconEye, IconTrash } from '../shared/ui';
+import { COLS, fmtEUR, fmtParty, qp, mapDocToLegacyRow, IconEdit, IconEye, IconTrash } from '../shared/ui';
+import api from '../api/apiClient';
 import Toast from '../components/Toast';
 import DndConfirmModal from '../components/DndConfirmModal';
 import PdfViewerOverlay from '../components/PdfViewerOverlay';
@@ -101,8 +102,8 @@ export default function ExploreTab({ project }) {
         customer: draft.Cliente,
         dueDate: draft.Vencimento
       };
-      await axios.patch(qp(`/api/doc/${encodeURIComponent(editing)}`, project), body, { headers: { 'X-Actor': 'ui' } });
-      await axios.post(qp('/api/excel/refresh', project)); // refresh Excel
+      await api.patch(qp(`/api/doc/${encodeURIComponent(editing)}`, project), body, { headers: { 'X-Actor': 'ui' } });
+      await api.post(qp('/api/excel/refresh', project)); // refresh Excel
       setEditing(null); setDraft({});
       await load();
       setToast({ open: true, text: 'Guardado ✓' })
@@ -140,11 +141,11 @@ export default function ExploreTab({ project }) {
     const tgtOldRaw = rawValue(targetCol, targetRow);
 
     if (mode === 'substituir') {
-      await axios.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, src.value) }, { headers: { 'X-Actor': 'dnd-substituir' } });
+      await api.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, src.value) }, { headers: { 'X-Actor': 'dnd-substituir' } });
       await load();
       setToast({
         open: true, text: `Substituído ✓ (${src.uiField} → ${targetCol})`, undo: async () => {
-          await axios.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, tgtOldRaw) }, { headers: { 'X-Actor': 'undo' } });
+          await api.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, tgtOldRaw) }, { headers: { 'X-Actor': 'undo' } });
           await load();
         }
       });
@@ -152,15 +153,15 @@ export default function ExploreTab({ project }) {
       const srcRow = rows.find(r => r.id === src.id); if (!srcRow) return;
       const srcOldRaw = rawValue(src.uiField, srcRow);
       await Promise.all([
-        axios.patch(qp(`/api/doc/${encodeURIComponent(src.id)}`, project), { [src.field]: coerce(src.field, tgtOldRaw) }, { headers: { 'X-Actor': 'dnd-trocar' } }),
-        axios.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, srcOldRaw) }, { headers: { 'X-Actor': 'dnd-trocar' } }),
+        api.patch(qp(`/api/doc/${encodeURIComponent(src.id)}`, project), { [src.field]: coerce(src.field, tgtOldRaw) }, { headers: { 'X-Actor': 'dnd-trocar' } }),
+        api.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, srcOldRaw) }, { headers: { 'X-Actor': 'dnd-trocar' } }),
       ]);
       await load();
       setToast({
         open: true, text: `Trocado ✓ (${src.uiField} ⇄ ${targetCol})`, undo: async () => {
           await Promise.all([
-            axios.patch(qp(`/api/doc/${encodeURIComponent(src.id)}`, project), { [src.field]: coerce(src.field, srcOldRaw) }, { headers: { 'X-Actor': 'undo' } }),
-            axios.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, tgtOldRaw) }, { headers: { 'X-Actor': 'undo' } }),
+            api.patch(qp(`/api/doc/${encodeURIComponent(src.id)}`, project), { [src.field]: coerce(src.field, srcOldRaw) }, { headers: { 'X-Actor': 'undo' } }),
+            api.patch(qp(`/api/doc/${encodeURIComponent(targetRow.id)}`, project), { [tgtField]: coerce(tgtField, tgtOldRaw) }, { headers: { 'X-Actor': 'undo' } }),
           ]);
           await load();
         }
@@ -187,14 +188,14 @@ export default function ExploreTab({ project }) {
 
   async function deleteRow(id) {
     if (!confirm('Apagar este registo?')) return;
-    await axios.delete(qp(`/api/doc/${encodeURIComponent(id)}`, project));
+    await api.delete(qp(`/api/doc/${encodeURIComponent(id)}`, project));
     await load();
   }
   async function openViewer(id) {
     const url = qp(`/api/doc/view?id=${encodeURIComponent(id)}`, project);
     try {
       // Validar se existe antes de abrir
-      await axios.head(url);
+      await api.head(url);
       setViewer({ open: true, url });
     } catch (e) {
       const msg = e.response?.status === 404
@@ -215,7 +216,7 @@ export default function ExploreTab({ project }) {
     if (!txId) return;
 
     try {
-      await axios.post(qp(`/api/transactions/${txId}/link`, project), {
+      await api.post(qp(`/api/transactions/${txId}/link`, project), {
         documentId: id,
         linkType: 'related'
       });

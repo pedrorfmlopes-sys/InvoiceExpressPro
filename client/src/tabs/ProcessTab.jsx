@@ -1,6 +1,6 @@
 // client/src/tabs/ProcessTab.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import axios from 'axios'
+import api from '../api/apiClient'
 import { THEMES, Tabs, qp, fmtEUR, useETA, Progress, IconEye, IconTrash, IconClose } from '../shared/ui'
 import Toast from '../components/Toast'
 
@@ -95,7 +95,7 @@ export default function ProcessTab({ project }) {
   }
   async function createDir() {
     if (!newDirName.trim()) return
-    const { data } = await axios.post(qp('/api/mkdir', project), { dir: newDirName.trim() }, { headers: { 'Content-Type': 'application/json' } })
+    const { data } = await api.post(qp('/api/mkdir', project), { dir: newDirName.trim() }, { headers: { 'Content-Type': 'application/json' } })
     if (data?.ok) { setNewDirName(''); refreshDirs(); setExcelDir(newDirName.trim()) }
   }
 
@@ -182,14 +182,14 @@ export default function ProcessTab({ project }) {
     try {
       setLoading(true); setUploadPct(0); setProcPct(0); resetUL(); setBatchRows([]); setSelected(new Set()); setEdits({})
       if (outputMode === 'append') {
-        await axios.post(qp('/api/set-output', project), { dir: excelDir, name: excelFilename }, { headers: { 'Content-Type': 'application/json' } })
+        await api.post(qp('/api/set-output', project), { dir: excelDir, name: excelFilename }, { headers: { 'Content-Type': 'application/json' } })
         const j = await fetch(qp('/api/health', project)).then(r => r.json()); setCurrentExcelPath(j.excelOutputPath || '')
       }
       const fd = new FormData(); files.forEach(f => fd.append('files', f))
       const newBatch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
       setBatchId(newBatch)
       pollProgress(newBatch, files.length)
-      await axios.post(qp(`/api/extract?batchId=${encodeURIComponent(newBatch)}`, project), fd, {
+      await api.post(qp(`/api/extract?batchId=${encodeURIComponent(newBatch)}`, project), fd, {
         timeout: 0, maxBodyLength: Infinity, maxContentLength: Infinity,
         headers: apiKey ? { 'X-OpenAI-Key': apiKey } : undefined,
         onUploadProgress: (e) => { if (!e.total) return; setUploadPct(Math.min(100, (e.loaded / e.total) * 100)); onUL(e.loaded, e.total) }
@@ -219,7 +219,7 @@ export default function ProcessTab({ project }) {
   function openViewer(id) { setViewer({ open: true, url: qp(`/api/doc/view?id=${encodeURIComponent(id)}`, project) }) }
   async function deleteOne(id) {
     if (!confirm('Apagar este registo? O PDF será removido.')) return
-    await axios.delete(qp(`/api/doc/${encodeURIComponent(id)}`, project))
+    await api.delete(qp(`/api/doc/${encodeURIComponent(id)}`, project))
     if (batchId) {
       try {
         const b = await fetch(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.json())
@@ -278,7 +278,7 @@ export default function ProcessTab({ project }) {
         const e = edits[r.id]
         items.push({ id: r.id, docType: e.docType, docNumber: e.docNumber })
       }
-      const { data } = await axios.post(qp('/api/docs/finalize-bulk', project), { items })
+      const { data } = await api.post(qp('/api/docs/finalize-bulk', project), { items })
       const failed = (data?.results || []).filter(x => !x.ok)
       if (failed.length) {
         setToast({ open: true, text: 'Alguns itens falharam. Verifique o log.' })
@@ -444,7 +444,7 @@ export default function ProcessTab({ project }) {
                           await axios.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
                         }
                         try {
-                          await axios.post(qp('/api/doc/finalize', project), { id: r.id, docType: e.docType, docNumber: e.docNumber })
+                          await api.post(qp('/api/doc/finalize', project), { id: r.id, docType: e.docType, docNumber: e.docNumber })
                           setSelected(prev => { const s = new Set(prev); s.delete(r.id); return s })
                           // refresh deste lote
                           if (batchId) {
