@@ -115,7 +115,7 @@ exports.refresh = async (req, res) => {
         if (!ctx) return res.status(403).json({ error: 'User no longer active' });
 
         // Issue new Access Token
-        const accessToken = jwt.sign({ userId: ctx.user.id, orgId: ctx.org.id }, JWT_SECRET, { expiresIn: '15m' });
+        const accessToken = jwt.sign({ userId: ctx.user.id, orgId: ctx.org.id, role: ctx.role }, JWT_SECRET, { expiresIn: '15m' });
 
         // Optional: Rolling Refresh (issue new refresh token)
         // For MVP, we keep the same valid refresh token until it expires
