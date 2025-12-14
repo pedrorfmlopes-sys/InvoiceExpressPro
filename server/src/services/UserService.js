@@ -90,10 +90,10 @@ class UserService {
 
         // Phase 3 Entitlements Logic (Simple Map)
         const entitlements = {
-            reports_v2: { enabled: true }, // Enable by default for now to prove V2 works
+            reports_v2: { enabled: true },
             reports_export: { enabled: true },
             reports_pdf_basic: { enabled: true },
-            reports_pdf_pro: { enabled: membership.role === 'admin' } // Only admin gets Pro stub
+            reports_pdf_pro: { enabled: membership.role === 'admin' }
         };
 
         return {

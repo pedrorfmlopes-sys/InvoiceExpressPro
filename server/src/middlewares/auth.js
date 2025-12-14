@@ -20,8 +20,15 @@ async function attachContext(req, res, next) {
             const decoded = jwt.verify(token, JWT_SECRET);
             const ctx = await UserService.getUserContext(decoded.userId);
             if (ctx) {
-                // Load entitlements
-                const entitlements = await EntitlementsService.getEntitlementsForPlan(ctx.planKey);
+                // Load entitlements from Plan default
+                const planEntitlements = await EntitlementsService.getEntitlementsForPlan(ctx.planKey);
+
+                // Merge: User Context overrides Plan defaults (e.g. UserService injected reports_v2)
+                const entitlements = {
+                    ...planEntitlements,
+                    ...(ctx.entitlements || {})
+                };
+
                 req.ctx = {
                     ...ctx,
                     entitlements,

@@ -3,7 +3,12 @@ const xlsx = require('xlsx');
 
 exports.exportXlsx = async (req, res) => {
     try {
-        const project = req.query.project;
+        // Reuse DEFAULTS logic if available, else literal 'default'
+        const { DEFAULTS } = require('../config/constants');
+        const project = req.query.project || (DEFAULTS && DEFAULTS.PROJECT) || 'default';
+
+        console.log('[Export] Generating for project:', project);
+
         const raw = await DocService.getDocs(project);
 
         // Normalize: adapter might return Array or { items: Array, ... }
@@ -65,7 +70,8 @@ exports.exportXlsx = async (req, res) => {
         res.on('finish', () => { fs.unlink(tmpPath, () => { }); }); // Fail-safe
 
     } catch (e) {
-        console.error(e);
+        console.error('[Export Error] Stack:', e.stack);
+        console.error('[Export Error] Message:', e.message);
         res.status(500).json({ error: e.message });
     }
 };
