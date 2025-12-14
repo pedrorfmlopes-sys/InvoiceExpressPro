@@ -3,9 +3,9 @@
 This guide helps you run Invoice Studio V2 on your local Windows machine (or server) with minimal friction.
 
 ## Prerequisites
-1. **Node.js**: v18+ installed.
+1. **Node.js**: v18 LTS or v20 LTS recommended (v18+ required).
 2. **Postgres** (Optional, recommended for Prod): Installed locally or via Docker.
-   - Using Repo Docker (Compose): `docker-compose up -d` (Starts Postgres 16 on port 5432)
+   - Using Repo Docker (Compose): `docker compose up -d` (or `docker-compose up -d` for older versions). Starts Postgres 16 on port 5432.
    - Manual Docker: `docker run -d -p 5432:5432 -e POSTGRES_USER=invoicestudio -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=invoicestudio postgres:16`
 3. **Git**: To clone the repo.
 
@@ -24,7 +24,7 @@ Configure these before running (CMD or PowerShell).
 - `JWT_SECRET`: `change_this_to_something_secure`
 
 ### Optional
-- `OPENAI_API_KEY`: For AI Extraction (if not set, falls back to Regex)
+- `OPENAI_API_KEY`: Activates AI Extraction. The model is currently defined in code/config (default: `gpt-3.5-turbo-1106`).
 - `PORT`: Default 3000
 
 #### Examples
