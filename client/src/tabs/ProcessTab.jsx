@@ -59,6 +59,7 @@ export default function ProcessTab({ project }) {
   const [doctypes, setDoctypes] = useState([])
 
   const [batchId, setBatchId] = useState('')
+  const [secretsPresent, setSecretsPresent] = useState(false)
   const [batchRows, setBatchRows] = useState([])          // só este lote
   const [selected, setSelected] = useState(new Set())     // ids selecionados
   const [edits, setEdits] = useState({})                  // id -> campos editados
@@ -73,6 +74,7 @@ export default function ProcessTab({ project }) {
     refreshDirs()
     fetch(qp('/api/health', project)).then(r => r.json()).then(j => setCurrentExcelPath(j.excelOutputPath || ''))
     fetch(qp('/api/config/doctypes', project)).then(r => r.json()).then(j => setDoctypes(j.items || []))
+    fetch(qp('/api/config/secrets', project)).then(r => r.json()).then(j => setSecretsPresent(!!j.openaiApiKeyPresent))
   }, [project])
 
   useEffect(() => {
@@ -330,7 +332,10 @@ export default function ProcessTab({ project }) {
             </div>
           </div>
         )}
-        <div className="muted mt-8">IA opcional: define a OpenAI API Key em <b>Config</b>. Projeto atual: <b>{project}</b></div>
+        <div className="muted mt-8">
+          {secretsPresent ? <span style={{ color: 'var(--success)' }}>✓ OpenAI configurado</span> : <span>IA opcional: define a OpenAI API Key em <b>Config</b> para extração inteligente.</span>}
+          Projeto atual: <b>{project}</b>
+        </div>
       </div>
 
       <div className="card mt-16">
@@ -408,7 +413,12 @@ export default function ProcessTab({ project }) {
                     <td><input className="input input--tight" value={String(e.total ?? 0)} onChange={ev => setEdit(r.id, 'total', ev.target.value)} /></td>
                     <td><input className="input input--tight" value={e.customer || ''} onChange={ev => setEdit(r.id, 'customer', ev.target.value)} /></td>
                     <td><input className="input input--tight" type="date" value={e.dueDate || ''} onChange={ev => setEdit(r.id, 'dueDate', ev.target.value)} /></td>
-                    <td><input className="input input--tight" value={e.supplier || ''} onChange={ev => setEdit(r.id, 'supplier', ev.target.value)} /></td>
+                    <td>
+                      <input className="input input--tight" value={e.supplier || ''} onChange={ev => setEdit(r.id, 'supplier', ev.target.value)} />
+                      {r.extractionMethod === 'ai' && <span className="badge" style={{ background: 'var(--success)', color: '#fff', transform: 'scale(0.8)', marginLeft: 4 }}>AI</span>}
+                      {r.extractionMethod === 'regex' && <span className="badge" style={{ background: 'var(--warn)', color: '#000', transform: 'scale(0.8)', marginLeft: 4 }}>Reg</span>}
+                      {r.needsOcr && <span className="badge" style={{ background: 'var(--err)', color: '#fff', transform: 'scale(0.8)', marginLeft: 4 }}>OCR</span>}
+                    </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="btn btn--tiny" onClick={async () => {
                         const diff = {}

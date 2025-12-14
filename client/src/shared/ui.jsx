@@ -36,7 +36,7 @@ export function useETA() {
   return { eta, reset, onProgress }
 }
 export function Tabs({ tab, setTab }) {
-  const tabs = ['Processar', 'Explorar/Editar', 'Normalizações', 'Relatórios', 'Auditoria', 'Teacher', 'Config']
+  const tabs = ['Core (v2)', 'Processar', 'Explorar/Editar', 'Normalizações', 'Relatórios', 'Auditoria', 'Transações', 'Teacher', 'Config']
   return <div className="tabs">{tabs.map(t => <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>)}</div>
 }
 export function Progress({ label, value = 0, eta = null }) {
@@ -98,6 +98,36 @@ export function mapDocToLegacyRow(d) {
     Total: d.total || 0,
     Cliente: fmtParty(d.customer || ''),
     Vencimento: d.dueDate || '',
+  }
+}
+
+// Helper para downloads com Auth (Bearer token)
+export async function downloadFile(url, filename, body = {}, method = 'POST') {
+  try {
+    const res = await axios({
+      url,
+      method,
+      data: body,
+      responseType: 'blob', // Importante para binary/file
+    });
+    const blob = new Blob([res.data], { type: res.headers['content-type'] });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = filename || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    if (e.response && e.response.data instanceof Blob) {
+      // Tentar ler erro do blob
+      try {
+        const text = await e.response.data.text();
+        const json = JSON.parse(text);
+        alert('Erro no download: ' + (json.error || 'Desconhecido'));
+      } catch { alert('Erro no download: ' + e.message); }
+    } else {
+      alert('Erro no download: ' + (e.response?.data?.error || e.message));
+    }
   }
 }
 

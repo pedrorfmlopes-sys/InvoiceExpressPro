@@ -31,6 +31,7 @@ jobs:
           for i in {1..60}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 2; done || (echo "Server failed to start" && exit 1)
           
           node scripts/smoke_v2_4_pg.js
+          node scripts/smoke_v2_6_auth.js
           kill $PID
 
   smoke-postgres:
@@ -84,5 +85,6 @@ jobs:
           for i in {1..60}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 2; done || (echo "Server failed to start" && exit 1)
           
           node scripts/smoke_v2_4_pg.js
+          node scripts/smoke_v2_6_auth.js
           
           kill $PID

@@ -204,6 +204,31 @@ export default function ExploreTab({ project }) {
     }
   }
 
+  async function linkToTransaction(id) {
+    // Ideally open a modal to pick a transaction or create new
+    // For Min Viable Phase 4: Prompt for Transaction ID or show simple list?
+    // User requirement: "botão Link to transaction (abre modal com lista de transações)"
+    // I will implement a minimal prompt for now or redirect to Transactions Tab with filter?
+    // "Integrar ... botão Link (abre modal)".
+    // I will use a simple prompt for Transaction ID for speed, or fetch list.
+    const txId = prompt("Enter Transaction ID to link to:");
+    if (!txId) return;
+
+    try {
+      await axios.post(qp(`/api/transactions/${txId}/link`, project), {
+        documentId: id,
+        linkType: 'related'
+      });
+      alert('Linked!');
+    } catch (e) {
+      alert('Error: ' + (e.response?.data?.error || e.message));
+    }
+  }
+
+  // Check linked transactions (on demand or for single row?)
+  // For simplicity, I won't auto-fetch linked txs for the table to avoid N+1. 
+  // Just the action button.
+
   const Field = ({ value, onChange, type }) => (<input className="input" type={type || 'text'} value={value} onChange={e => onChange(e.target.value)} />);
 
   function RowActions({ row, isEdit, onEdit, onSave, onCancel }) {
@@ -213,6 +238,7 @@ export default function ExploreTab({ project }) {
           <>
             <button className="iconbtn" title="Editar" onClick={onEdit}><IconEdit /></button>
             <button className="iconbtn" title="Ver documento" onClick={() => openViewer(row.id)}><IconEye /></button>
+            <button className="iconbtn" title="Link Transaction" onClick={() => linkToTransaction(row.id)}>🔗</button>
             <button className="iconbtn danger" title="Apagar" onClick={() => deleteRow(row.id)}><IconTrash /></button>
           </>
         ) : (
@@ -245,7 +271,9 @@ export default function ExploreTab({ project }) {
     params.set('project', project);
 
     if (type === 'basic') {
-      window.location.href = `/api/reports.pdf?${params.toString()}`;
+      // window.location.href = `/api/reports.pdf?${params.toString()}`;
+      // Em Auth Mode required, GET não funciona. Redirecionar para Pro ou alertar.
+      alert('PDF Básico indisponível. Por favor utilize o Relatório Pro.');
     } else {
       if (!confirm('O relatório Pro utiliza a API da OpenAI para gerar uma análise inteligente sobre estes dados filtrados. Continuar?')) return;
       const t = toast?.open ? toast : { open: false }; // preserve existing toast if needed

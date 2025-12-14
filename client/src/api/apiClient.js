@@ -9,6 +9,7 @@ export const setOnAuthFailure = (fn) => {
 
 const api = axios.create({
     baseURL: '', // Relative to current origin
+    withCredentials: true // Send cookies
 });
 
 // Request Interceptor: Attach Token
@@ -20,31 +21,83 @@ api.interceptors.request.use(config => {
     return config;
 }, error => Promise.reject(error));
 
-// Response Interceptor: Handle 401
-let isAuthFailing = false;
+// Refresh Logic
+let isRefreshing = false;
+let failedQueue = [];
 
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
+// Response Interceptor: Handle 401 & Refresh
 api.interceptors.response.use(response => {
     return response;
 }, async error => {
     const originalRequest = error.config;
 
-    // Logout on 401 (Single-flight Guard)
-    // We do not have a silent refresh token flow. Any 401 invalidates the session.
+    // Guard: If 401 (Unauthorized)
     if (error.response && error.response.status === 401) {
-        if (isAuthFailing) return Promise.reject(error); // Prevent multiple alerts/redirects
 
-        isAuthFailing = true; // Lock
-        localStorage.removeItem('token');
-        onAuthFailure();
+        // If it's the refresh endpoint itself failing -> Logout
+        if (originalRequest.url.includes('/auth/refresh')) {
+            localStorage.removeItem('token');
+            onAuthFailure();
+            return Promise.reject(error);
+        }
 
-        // Lock remains true until page reload or re-login event implies a reset.
-        // For now, we leave it locked to prevent any further 401 spam from existing parallel requests.
-        // A simple timeout releases it in case the app doesn't reload and user stays on public page.
-        setTimeout(() => { isAuthFailing = false; }, 5000);
+        // If generic 401 and we haven't retried yet
+        if (!originalRequest._retry) {
+            // Check specific code if available (e.g., TOKEN_EXPIRED)
+            // Or assume any 401 on protected route means expiry
 
-        return Promise.reject(error);
+            if (isRefreshing) {
+                // If already refreshing, queue this request
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(token => {
+                    originalRequest.headers.Authorization = 'Bearer ' + token;
+                    return api(originalRequest);
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+                // Attempt Refresh
+                const rs = await api.post('/api/auth/refresh');
+                const { token } = rs.data;
+
+                if (token) {
+                    localStorage.setItem('token', token);
+                    api.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+                    originalRequest.headers['Authorization'] = 'Bearer ' + token;
+
+                    processQueue(null, token);
+                    isRefreshing = false;
+
+                    return api(originalRequest);
+                }
+            } catch (err) {
+                processQueue(err, null);
+                isRefreshing = false;
+
+                // If refresh failed, logout
+                localStorage.removeItem('token');
+                onAuthFailure();
+                return Promise.reject(err);
+            }
+        }
     }
-
     return Promise.reject(error);
 });
 
@@ -56,7 +109,10 @@ export const login = async (email, password) => {
     return res.data;
 };
 
-export const logout = () => {
+export const logout = async () => {
+    try {
+        await api.post('/api/auth/logout');
+    } catch (e) { /* ignore */ }
     localStorage.removeItem('token');
     onAuthFailure();
 };

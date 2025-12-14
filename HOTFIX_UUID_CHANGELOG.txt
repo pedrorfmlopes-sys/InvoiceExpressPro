@@ -1,0 +1,22 @@
+HOTFIX UUID CHANGELOG
+=====================
+
+Files Changed:
+- server/src/controllers/extractController.js
+- server/src/db/migrateFromJson.js
+
+Diff Summary:
+-------------
+OLD: const { uuid } = require('uuidv4');
+NEW: const { v4: uuidv4 } = require('uuid');
+
+Test Commands:
+--------------
+cd server
+npm install
+npm start
+
+Expected Result:
+----------------
+Server starts successfully and exposes /api/health (or similar).
+No "Cannot find module 'uuidv4'" error.

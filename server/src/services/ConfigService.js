@@ -31,12 +31,65 @@ class ConfigService {
         }
     }
 
-    getDocTypes(projectId) { // Not fully using projectId yet as per legacy global fallback
-        // Try project
-        // But legacy fallback is hardcoded defaults + global check
-        // We'll mimic strict legacy behavior
-        const defaults = ["Fatura", "Recibo", "Nota de Crédito", "Guia de Remessa"];
-        return defaults;
+    async getDocTypes(projectId) {
+        // 1. Try Adapter (DB)
+        if (Adapter.getDocTypes) {
+            return await Adapter.getDocTypes(projectId);
+        }
+
+        // 2. Try File (JSON)
+        // For now, we use a per-project file if possible, or global
+        // In simple JSON mode, let's store in project dir or global config
+        // Let's use global for simplicity if project is not strictly separated in FS (or try both)
+        const customPath = path.join(PATHS.CONFIG, `doctypes-${projectId}.json`);
+        if (fs.existsSync(customPath)) {
+            try {
+                return JSON.parse(fs.readFileSync(customPath, 'utf8'));
+            } catch (e) { console.error('Error reading doctypes', e); }
+        }
+
+        // 3. Defaults
+        return [
+            {
+                id: "fatura",
+                labelPt: "Fatura",
+                synonyms: ["Fattura", "Invoice", "Factura", "FT", "Fatura"],
+                keywords: ["fattura", "invoice", "fatura"]
+            },
+            {
+                id: "recibo",
+                labelPt: "Recibo",
+                synonyms: ["Receipt", "Ricevuta", "Payment", "RC", "Recibo"],
+                keywords: ["recibo", "ricevuta", "receipt"]
+            },
+            {
+                id: "nota_credito",
+                labelPt: "Nota de Crédito",
+                synonyms: ["Credit Note", "Nota di credito", "NC", "Nota de Credito"],
+                keywords: ["nota de crédito", "credit note", "nota di credito"]
+            },
+            {
+                id: "guia_remessa",
+                labelPt: "Guia de Remessa",
+                synonyms: ["DDT", "Delivery Note", "Bolla", "Guia", "GR"],
+                keywords: ["ddt", "guia", "delivery note", "bolla"]
+            },
+            {
+                id: "fatura_recibo",
+                labelPt: "Fatura-Recibo",
+                synonyms: ["Cash Invoice", "FR"],
+                keywords: ["fatura-recibo", "pronto pagamento"]
+            }
+        ];
+    }
+
+    async saveDocTypes(projectId, types) {
+        if (Adapter.saveDocTypes) {
+            return await Adapter.saveDocTypes(projectId, types);
+        }
+        // File mode
+        const customPath = path.join(PATHS.CONFIG, `doctypes-${projectId}.json`);
+        fs.writeFileSync(customPath, JSON.stringify(types, null, 2));
     }
 
     // App Logo logic could go here or in ProjectService

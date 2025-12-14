@@ -45,10 +45,24 @@ exports.login = async (req, res) => {
         const ctx = await UserService.getUserContext(user.id);
         if (!ctx) return res.status(403).json({ error: 'No active membership' });
 
-        const token = jwt.sign({ userId: ctx.user.id, orgId: ctx.org.id }, JWT_SECRET, { expiresIn: '7d' });
+        // Short-lived Access Token
+        const accessToken = jwt.sign({ userId: ctx.user.id, orgId: ctx.org.id }, JWT_SECRET, { expiresIn: '15m' });
+
+        // Long-lived Refresh Token (cookie only)
+        // In a robust system, store this in DB (hashed) to allow revocation
+        const refreshToken = jwt.sign({ userId: ctx.user.id, type: 'refresh' }, JWT_SECRET, { expiresIn: '7d' });
+
+        // Set Cookie
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            sameSite: 'lax', // or stric
+            secure: process.env.NODE_ENV === 'production',
+            path: '/api/auth', // limit scope
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
 
         res.json({
-            token,
+            token: accessToken,
             user: ctx.user,
             org: ctx.org,
             planKey: ctx.planKey
@@ -57,6 +71,42 @@ exports.login = async (req, res) => {
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
+};
+
+exports.refresh = async (req, res) => {
+    try {
+        const token = req.cookies.refreshToken;
+        if (!token) return res.status(401).json({ code: 'NO_REFRESH', error: 'No refresh token' });
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (e) {
+            return res.status(401).json({ code: 'INVALID_REFRESH', error: 'Invalid refresh token' });
+        }
+
+        if (decoded.type !== 'refresh') return res.status(401).json({ code: 'INVALID_REFRESH', error: 'Not a refresh token' });
+
+        // Verify user still exists
+        const ctx = await UserService.getUserContext(decoded.userId);
+        if (!ctx) return res.status(403).json({ error: 'User no longer active' });
+
+        // Issue new Access Token
+        const accessToken = jwt.sign({ userId: ctx.user.id, orgId: ctx.org.id }, JWT_SECRET, { expiresIn: '15m' });
+
+        // Optional: Rolling Refresh (issue new refresh token)
+        // For MVP, we keep the same valid refresh token until it expires
+        // Or we can simple re-set session
+        res.json({ token: accessToken });
+
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.logout = (req, res) => {
+    res.clearCookie('refreshToken', { path: '/api/auth' });
+    res.json({ ok: true });
 };
 
 exports.me = (req, res) => {

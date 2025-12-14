@@ -1,0 +1,75 @@
+RELATÓRIO DE ANÁLISE TÉCNICA - INVOICE STUDIO
+Data: 10 de Dezembro de 2025
+Autor: Antigravity AI
+
+1. VISÃO GERAL DA APLICAÇÃO
+A "Invoice Studio" é uma aplicação web monopágina (SPA) focada na gestão, processamento e análise de faturas.
+- Backend: Node.js com Express.
+- Frontend: React (Vite).
+- Base de Dados: Sistema de ficheiros local (JSONs) em `data/projects/<projeto>/`.
+
+2. ARQUITETURA E FLUXO DE DADOS
+O sistema organiza-se por "Projetos". Cada projeto é uma pasta isolada contendo os seus dados e ficheiros.
+
+2.1. Estrutura de Pastas (Data Layer)
+`data/projects/<nome_projeto>/`
+  ├── uploads/      # Ficheiros temporários recebidos
+  ├── staging/      # Ficheiros processados (extração feita) mas não finalizados
+  ├── archive/      # Arquivo final de PDFs (organizado por Ano/Mês)
+  ├── docs.json     # "Base de Dados" principal - Registo de todos os documentos
+  ├── audit.json    # Log de ações (quem fez o quê)
+  └── ... (outros configs: links.json, doctypes.json)
+
+2.2. O Ciclo de Vida do Documento
+  1. Upload (Tab "Processar"):
+     - O utilizador arrasta PDFs.
+     - Frontend envia para `POST /api/extract` com um `BatchID` (gerado no front).
+     - Backend:
+       a. Lê o PDF (`pdf-parse`).
+       b. Tenta extrair dados via OpenAI (se API Key existir) ou Heurística (RegEx).
+       c. Move o ficheiro para `staging/`.
+       d. Cria registo no `docs.json` com status "staging" e `batchId`.
+       e. Guarda o registo na memória RAM (`batchRowsMap`).
+
+  2. Edição/Revisão (Tab "Explorar/Editar"):
+     - Frontend pede lista via `GET /api/excel.json` (ou lê `docs.json`).
+     - Utilizador vê tabela. Ao clicar "Ver Documento":
+       - Frontend chama `GET /api/doc/view?id=...`.
+       - Backend procura o caminho do ficheiro (`filePath`) no `docs.json` e faz stream do PDF.
+
+  3. Finalização:
+     - Documentos validados passam para "processado".
+     - PDF é movido de `staging/` para `archive/<Ano>/<Mês>/`.
+     - `docs.json` é atualizado com o novo caminho.
+
+3. PONTOS CRÍTICOS E DIAGNÓSTICO DE ERROS ("LIGAÇÕES")
+A análise revelou fragilidades que explicam os erros "intermitentes" ou "crescentes" reportados:
+
+A. A "Ligação" do Lote (BatchID) - [RESOLVIDO RECENTEMENTE]
+   - Problema: O frontend depende do `BatchID` para mostrar o progresso. Originalmente, o backend só guardava isto na memória RAM.
+   - Sintoma: Se o servidor reiniciava (comum em dev), a memória limpava. O frontend pedia "dá-me o lote X", o backend dizia "não conheço" (erro 500/404).
+   - Solução Aplicada: Implementou-se um "fallback". Se não estiver na memória, o backend vai ler ao disco (`docs.json`) para recuperar os dados.
+
+B. Sincronização Disco vs Base de Dados (JSON)
+   - Problema: O `docs.json` diz que o ficheiro está em `.../staging/doc.pdf`. Se, por algum motivo (erro de permissões, limpeza manual, crash durante move), o ficheiro não estiver lá:
+   - Sintoma Original: O servidor tentava abrir o ficheiro cego (`fs.createReadStream`) e "crashava" (Erro 500 fatal).
+   - Solução Aplicada: Agora valida-se a existência do ficheiro antes de abrir. Se falhar, devolve erro 404 amigável ("Ficheiro não encontrado") em vez de derrubar a aplicação.
+
+C. Persistência de Configurações (API Key)
+   - A API Key agora reside em `data/config/secrets.json` (servidor) em vez de apenas no browser, garantindo que processos de fundo (como relatórios Pro) funcionam mesmo se limparmos a cache do browser.
+
+4. RECOMENDAÇÕES TÉCNICAS (PARA ESTABILIDADE FUTURA)
+
+4.1. Curto Prazo (Robustez)
+   - Manter as proteções `try/catch` nas rotas críticas de I/O (leitura de ficheiros).
+   - O Frontend deve sempre verificar (`HEAD`) se um recurso existe antes de tentar renderizá-lo em iframes (já implementado no passo anterior).
+
+4.2. Médio Prazo (Arquitetura)
+   - A escrita nos ficheiros JSON (`fs.writeFileSync`) é síncrona e bloqueante. Com milhares de faturas, a aplicação vai ficar lenta.
+   - Sugestão: Migrar `docs.json` para uma base de dados real (SQLite ou LokiJS) se o volume crescer muito.
+   - O sistema de "Batch" em memória deve ser abandonado em favor de persistência total em disco para evitar desincronias.
+
+5. CONCLUSÃO
+A aplicação estava instável porque dependia demasiado da memória volátil (RAM) para "ligar" as ações do utilizador aos dados. As correções recentes moveram essa confiança para o disco (persistência), o que deve eliminar a maioria dos erros "misteriosos".
+
+-- Fim do Relatório --

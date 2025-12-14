@@ -1,0 +1,18 @@
+PHASE 4 CHANGELOG
+=================
+
+Database:
+- Migrations: `transactions`, `transaction_links`, `transaction_events`.
+- Entitlements Seed: `transactions`, `auto_linking`, `exports_zip` added to Pro plan.
+
+Backend:
+- `TransactionsService`: Manages transaction lifecycle and links.
+- `AutoLinkService`: Provides heuristic suggestions (date/entity/amount match).
+- Routes: `/api/transactions` (CRUD, Link, Suggestions, Zip).
+
+Frontend:
+- `TransactionsTab`: Interface for managing transactions.
+- Integration: Link to transaction from Explore Tab.
+
+Security:
+- New Entitlements Enforced in `AUTH_MODE=required`.

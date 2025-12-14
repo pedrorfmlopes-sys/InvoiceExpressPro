@@ -68,7 +68,7 @@ export default function ConfigTab({ project }) {
   /* --- Secrets (API Key) --- */
   async function loadSecrets() {
     try {
-      const j = await fetch('/api/config/secrets').then(r => r.json());
+      const j = await fetch(qp('/api/config/secrets', project)).then(r => r.json());
       if (j.hasApiKey && j.maskedKey) setKey(j.maskedKey);
     } catch { }
   }
@@ -77,24 +77,27 @@ export default function ConfigTab({ project }) {
     // se for a mascara, nao salvar de novo
     if (key.includes('...')) { alert('Chave já guardada (mascarada). Para alterar, escreve uma nova.'); return; }
     try {
-      await axios.post('/api/config/secrets', { apiKey: key });
+      await axios.post(qp('/api/config/secrets', project), { apiKey: key });
       localStorage.setItem('OPENAI_API_KEY', key); // manter sync local opcional
       await loadSecrets();
       alert('Chave guardada no servidor ✓');
     } catch (e) {
-      alert('Erro ao guardar: ' + (e?.response?.data?.error || e.message));
+      console.error(e)
+      const msg = e?.response?.data?.error || e.message || 'Erro desconhecido'
+      if (e?.response?.status === 404) alert('Erro 404: Endpoint não encontrado. Verifica se o servidor está atualizado.')
+      else alert('Não foi possível guardar a chave: ' + msg)
     }
   }
   async function clearKey() {
     try {
-      await axios.post('/api/config/secrets', { apiKey: '' });
+      await axios.post(qp('/api/config/secrets', project), { apiKey: '' });
       localStorage.removeItem('OPENAI_API_KEY');
       setKey('');
       alert('Chave removida.');
     } catch (e) { alert('Erro: ' + e.message); }
   }
 
-  React.useEffect(() => { loadSecrets() }, []);
+  React.useEffect(() => { loadSecrets() }, [project]);
 
   return (
     <div className="card">

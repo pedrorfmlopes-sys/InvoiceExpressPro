@@ -1,0 +1,46 @@
+PHASE 1 CHANGELOG (Modularização)
+=================================
+
+1. Overview
+-----------
+O backend monólito (`server.js`) foi substituído por uma arquitetura modular em camadas dentro de `server/src/`.
+A compatibilidade foi mantida através de um wrapper no `server/server.js` original.
+
+2. Alterações
+-----------
+- **Nova Estrutura (`server/src/`)**:
+  - `config/`: Constantes e configurações.
+  - `utils/`: Loggers, helpers de data/string, Mutex.
+  - `storage/`: `JsonDocsAdapter.js` gere o acesso ao `docs.json` com Locks (Mutex) para prevenir corrupção.
+  - `services/`: Lógica de negócio (ProjectService, DocService) separada do HTTP.
+  - `controllers/`: Recebe requests express, chama serviços e devolve JSON.
+  - `routes/`: Definição de rotas Express.
+  - `app.js` & `index.js`: Setup da aplicação Express.
+
+- **Endpoints Migrados**:
+  - Project/Configs: `/api/projects`, `/api/health`, `/api/dirs`.
+  - Docs CRUD: `/api/excel.json`, `/api/doc/:id`, `/api/doc/finalize`.
+  - Extract/Upload: `/api/extract` (Lógica simplificada/migrada mantendo contratos).
+
+3. Como Correr
+-----------
+DEV:
+  `npm run dev`
+  (Continua a usar `nodemon server/server.js`, que agora faz require de `src/index.js`)
+
+PROD:
+  `npm start`
+  (Mesmo comportamento)
+
+4. Testar (Smoke Tests Rapid)
+-----------
+1. **Health**: `GET /api/health` -> deve devolver `{ok:true, ...}`.
+2. **List**: `GET /api/excel.json` -> deve listar documentos atuais.
+3. **Upload**: Carregar PDF na UI -> deve aparecer na lista (Staging).
+4. **Finalize**: Confirmar doc na UI -> deve mover para Archive e atualizar state.
+
+5. Próximos Passos (Fase 2)
+-----------
+- Migrar `JsonDocsAdapter` para `SQLiteAdapter`.
+- Remover `docs.json` de vez.
+- Implementar autenticação real no middleware.

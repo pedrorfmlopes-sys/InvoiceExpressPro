@@ -1,0 +1,12 @@
+# Phase 4 Smoke Test Results
+
+Run at: 2025-12-13T16:10:08.068Z
+Mode: required
+DB Force: Set plan to pro (org: ce5ea034-7f80-4161-be83-b5b79e39eb1b)
+DB Debug: Pro Transactions Entitlement count: 1
+Login: OK
+Create Transaction: OK (ID: a506f71b-ab81-4a86-9f21-9397427fc4ef)
+Link Doc (00d1734a-5732-4bfb-a21f-9dffa8ab324b): OK
+Get Detail: OK (Links: 1)
+Suggestions: OK (Count: 0)
+Download Zip: OK (Size: 106890 bytes)

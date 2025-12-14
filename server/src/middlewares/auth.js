@@ -27,8 +27,12 @@ async function attachContext(req, res, next) {
                 };
             }
         } catch (e) {
-            console.warn('[Auth] Invalid token:', e.message);
-            // Expired or bad token -> treat as guest unless required mode handles it
+            // Explicitly mark expired tokens so client knows to try refresh
+            if (e.name === 'TokenExpiredError') {
+                req.authError = { code: 'TOKEN_EXPIRED', message: 'Token expired' };
+            } else {
+                console.warn('[Auth] Invalid token:', e.message);
+            }
         }
     }
 
@@ -43,7 +47,11 @@ async function attachContext(req, res, next) {
                 org: { id: 'default-org', name: 'Local Org' },
                 role: 'admin',
                 planKey: 'pro', // Give pro features locally
-                entitlements: { 'all': { enabled: true } }, // Super permissive
+                entitlements: {
+                    'all': { enabled: true },
+                    'ai_extract': { enabled: true },
+                    'pro_reports': { enabled: true }
+                }, // Super permissive
                 isAuthenticated: true // effectively
             };
         }
@@ -64,6 +72,10 @@ function requireAuth(req, res, next) {
     if (req.path === '/health' || req.originalUrl.includes('/health')) return next();
 
     if (req.ctx && req.ctx.isAuthenticated) return next();
+
+    // Return specific error if we caught an expiration
+    if (req.authError) return res.status(401).json(req.authError);
+
     return res.status(401).json({ error: 'Authentication required' });
 }
 

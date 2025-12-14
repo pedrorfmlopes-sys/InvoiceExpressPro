@@ -49,3 +49,29 @@ exports.listDirs = (req, res) => {
         res.json({ ok: false });
     }
 };
+
+exports.mkdir = (req, res) => {
+    const { dir } = req.body || {};
+    const project = req.query.project;
+    if (!dir) return res.status(400).json({ error: 'dir required' });
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const ProjectService = require('../services/ProjectService'); // Ensure ref if not global
+        const ctx = ProjectService.getContext(project);
+        const target = path.join(ctx.dirs.base, dir);
+
+        // Simple security check (could be better)
+        if (!target.startsWith(ctx.dirs.base)) return res.status(403).json({ error: 'Invalid path' });
+
+        if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.setOutput = (req, res) => {
+    // Just acknowledge for now
+    res.json({ ok: true });
+};

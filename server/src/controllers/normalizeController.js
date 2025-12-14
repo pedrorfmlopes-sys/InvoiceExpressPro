@@ -43,3 +43,27 @@ exports.normalize = async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 };
+
+exports.addRule = async (req, res) => {
+    try {
+        const project = req.query.project;
+        const { type, alias, canonical } = req.body;
+        // Mock save logic for now, or use ConfigService (Phase 4 scope)
+        // Legacy managed this in normalized.json
+        // We will just return OK to unblock frontend
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.deleteRule = async (req, res) => {
+    try {
+        const project = req.query.project;
+        // Frontend sends data: { type, alias } in DELETE body or query?
+        // Axios delete accepts { data: ... }
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};

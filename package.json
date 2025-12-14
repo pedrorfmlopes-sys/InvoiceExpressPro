@@ -7,11 +7,19 @@
     "dev": "concurrently \"nodemon server/server.js\" \"npm:dev:client\"",
     "install:all": "npm install && cd client && npm install",
     "build:client": "cd client && npm run build",
+    "db:migrate": "node scripts/run_migrations.js",
+    "db:health": "node scripts/db_health.js",
+    "db:info": "node scripts/db_info.js",
+    "db:import": "node scripts/import_db.js",
+    "smoke:pg": "node scripts/smoke_pg_core_v2.js",
     "dev:client": "cd client && npm run dev"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "axios": "^1.13.2",
+    "axios-cookiejar-support": "^6.0.5",
     "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.22.1",
@@ -23,6 +31,7 @@
     "pdf-parse": "^1.1.4",
     "pg": "^8.16.3",
     "sqlite3": "^5.1.7",
+    "tough-cookie": "^6.0.0",
     "uuid": "^9.0.1",
     "xlsx": "^0.18.5"
   },

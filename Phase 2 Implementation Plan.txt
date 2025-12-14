@@ -1,0 +1,63 @@
+Phase 2 Implementation Plan
+Goal
+Replace file-based persistence (docs.json) with a Database (SQLite/Postgres) using Knex.js, while maintaining full endpoint compatibility and improving security for secrets.
+
+Proposed Changes
+Dependencies
+Add knex, sqlite3, pg to 
+package.json
+.
+Database Layer
+server/src/db/knex.js
+: Connection logic based on DB_CLIENT env var.
+server/src/db/migrations/: Initial schema definition.
+server/src/db/migrate.js: Script to run migrations programmatically or via npm script.
+Storage Adapter Pattern
+server/src/storage/DbDocsAdapter.js: Implements crud operations for Documents, Rules, Audit Logs using Knex.
+server/src/storage/JsonDocsAdapter.js: (Existing or refactored) to keep legacy file support.
+server/src/storage/getDocsAdapter.js: Factory to switch between DB and JSON based on configuration.
+Services Refactor
+Update DocService, ProjectService, etc. to fetch adapter from factory instead of direct FS calls (or direct JsonAdapter).
+Migration Utilities
+server/src/db/migrateFromJson.js: Script to load existing docs.json data into the DB if fresh.
+Security
+Update ConfigService and configController to mask openaiApiKey.
+Store secrets in DB (config_secrets table) instead of secrets.json when in DB mode (or hybrid).
+Verification
+Run npm run db:migrate.
+Run npm run db:import.
+Run npm start.
+Execute Runtime Endpoint Smoke Test.
+Verify secrets endpoint returns masked key.
+Phase 4: Transactions & Linking
+Goal
+Implement "Transactions" (dossiers) to link related documents (manual + auto) and download them as a pack.
+
+Database
+New Tables: transactions, transaction_links, transaction_events.
+Entitlements: Add transactions, auto_linking, exports_zip to entitlements table (Pro plan gets all, Normal plan gets limited/none?). Design decision: Pro gets all. Normal gets none for now to test enforcement.
+Backend
+Services:
+TransactionsService: CRUD, Status, Link/Unlink.
+AutoLinkService: Heuristics (Same Customer/Supplier, Dates, Totals).
+Routes:
+GET /api/transactions
+POST /api/transactions
+GET /api/transactions/:id
+PATCH /api/transactions/:id
+POST /api/transactions/:id/link
+POST /api/transactions/:id/unlink
+GET /api/transactions/:id/suggestions
+POST /api/transactions/:id/apply-suggestions
+GET /api/transactions/:id/download.zip
+GET /api/doc/:id/transactions
+Frontend
+New Tab: TransactionsTab.
+Features: List view, Create Modal, Detail View (Linked Docs List), Suggestions Panel, Link Modal.
+Verification
+Smoke Test: scripts/smoke_phase4.js (Auth Required).
+Create Transaction -> 200
+Link Doc -> 200
+Suggest -> 200 (Mock/Heuristic)
+Download Zip -> 200
+Check Entitlements (fail if Normal plan)

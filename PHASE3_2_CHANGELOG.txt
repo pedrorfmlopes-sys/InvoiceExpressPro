@@ -1,0 +1,24 @@
+PHASE 3.2 CHANGELOG
+===================
+
+Adapter Enforcement (server/src/storage/getDocsAdapter.js):
+- Strict DB_CLIENT validation (sqlite, sqlite3, pg, postgres).
+- Maps to canonical 'sqlite' or 'pg'.
+- Logs `[Storage] Using DB Adapter`.
+- Fallback to JSON only if `ALLOW_JSON_FALLBACK=true`, otherwise CRASHES on start if DB_CLIENT invalid.
+
+Features:
+- Admin Bootstrap now defaults to 'pro' plan (UserService.js).
+- Seed Migration `20240103_fix_entitlements.js`:
+  - Enforces Pro Plan has 'ai_extract' (limited) and 'pro_reports'.
+  - Enforces Normal Plan has them DISABLED.
+  - Upgrades existing admin to 'pro' if needed.
+
+Testing:
+- `scripts/smoke_phase3_2.js`:
+  - Step 1: Login, PATCH /api/doc/:id (Update Customer). Verified in-memory.
+  - Step 2: Restart Server, GET /api/doc/:id. Verified persistence.
+  
+Validation Results:
+- DB Persistence Proof: SUCCESS.
+- Auth Mode Required: SUCCESS.
