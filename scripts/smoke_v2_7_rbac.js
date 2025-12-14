@@ -49,19 +49,25 @@ async function run() {
     // OK, let's use the DB direct approach for the USER creation since this is a smoke test script running in same env usually.
 
     try {
-        const knex = require('../server/src/db/knex');
-        const UserService = require('../server/src/services/UserService'); // Only works if local
+        // Ensure user exists via QA endpoint
+        console.log('   [INFO] ensuring regular user via QA endpoint...');
+        const loginAdm = await clientAdmin.post('/auth/login', { email: ADMIN_EMAIL, password: ADMIN_PASS }); // Ensure fresh token/context
+        // We need orgId from admin's context to add user to same org (or just let helper handle it if we pass it)
+        // Check if seedUser expects orgId. Yes.
+        // Get Admin Context
+        const meResult = await clientAdmin.get('/auth/me');
+        const orgId = meResult.data.org.id;
 
-        // Ensure user exists
-        const user = await UserService.findByEmail(USER_EMAIL);
-        if (!user) {
-            console.log('   [INFO] Creating regular user via DB...');
-            // Need org id from admin
-            const adminCtx = await UserService.getUserContext(loginAdmin.data.user.id);
-            await UserService.createRegularUser(USER_EMAIL, USER_PASS, 'Regular User', adminCtx.org.id);
-        }
+        await clientAdmin.post('/auth/qa/seed-user', {
+            email: USER_EMAIL,
+            password: USER_PASS,
+            name: 'Regular User',
+            orgId
+        });
+
     } catch (e) {
-        console.warn('   [WARN] Could not create user via DB (maybe remote?). Assuming user exists or manual setup.');
+        console.warn('   [WARN] User seed failed:', e.message, e.response ? e.response.data : '');
+        // If it fails, maybe user exists, continue to try login
     }
 
     // 3. User Login

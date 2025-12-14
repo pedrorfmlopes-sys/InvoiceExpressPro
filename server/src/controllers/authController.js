@@ -33,6 +33,20 @@ exports.bootstrap = async (req, res) => {
     }
 };
 
+exports.seedUser = async (req, res) => {
+    try {
+        const { email, password, name, orgId } = req.body;
+        // Idempotency check
+        const existing = await UserService.findByEmail(email);
+        if (existing) return res.json({ ok: true, userId: existing.id, note: 'already_exists' });
+
+        const result = await UserService.createRegularUser(email, password, name, orgId);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
