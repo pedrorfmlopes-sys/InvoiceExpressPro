@@ -34,14 +34,13 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:16
         env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: password
+          POSTGRES_USER: invoicestudio
+          POSTGRES_PASSWORD: mysecretpassword
           POSTGRES_DB: invoicestudio
         ports:
           - 5432:5432
-        # Health check to ensure DB is ready
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -51,7 +50,7 @@ jobs:
       AUTH_MODE: required
       JWT_SECRET: super_secret_ci_key
       DB_CLIENT: pg
-      DATABASE_URL: postgres://user:password@localhost:5432/invoicestudio
+      DATABASE_URL: postgres://invoicestudio:mysecretpassword@localhost:5432/invoicestudio
     steps:
       - uses: actions/checkout@v3
       - name: Setup Node
@@ -59,12 +58,28 @@ jobs:
         with:
           node-version: '18'
       - run: npm ci
+      
+      # Wait for PG to be truly ready for connections
+      - name: Wait for PG
+        run: |
+          until pg_isready -h localhost -p 5432 -U invoicestudio; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+      
       - name: Migrate PG
         run: npm run db:migrate
+        
       - name: Start Server & Smoke (PG)
         run: |
           npm start &
           PID=$!
+          
+          # Wait for Server Health (using curl loop or simple sleep)
+          echo "Waiting for server..."
           sleep 5
+          # Could use: until curl -s http://localhost:3000/api/health; do sleep 2; done
+          
           node scripts/smoke_v2_4_pg.js
+          
           kill $PID

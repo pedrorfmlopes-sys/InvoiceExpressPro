@@ -21,23 +21,29 @@ api.interceptors.request.use(config => {
 }, error => Promise.reject(error));
 
 // Response Interceptor: Handle 401
+let isAuthFailing = false;
+
 api.interceptors.response.use(response => {
     return response;
 }, async error => {
     const originalRequest = error.config;
 
-    // If 401 and we haven't retried yet
+    // Retry once on 401 to handle expiration or initial fail
+    // If no refresh token mechanism, this acts mainly as a guard against instant loops
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
+        if (isAuthFailing) return Promise.reject(error); // Prevent multiple alerts/redirects
+
         originalRequest._retry = true;
+        isAuthFailing = true; // Lock
 
-        // Trigger generic auth failure (logout UI)
-        // We do NOT auto-login with hardcoded creds in the client for security.
-        // The instruction for "bootstrap+login" in 401 is interpreted as a Dev/Smoke pattern,
-        // but for the user-facing client, we should redirect to login.
-
-        // Remove invalid token
+        // LOGOUT ON 401
+        // We do not have a silent refresh token flow yet.
+        // Any 401 means the session is dead.
         localStorage.removeItem('token');
         onAuthFailure();
+
+        // Reset lock after a short delay (optional, but good for SPA transition)
+        setTimeout(() => { isAuthFailing = false; }, 2000);
 
         return Promise.reject(error);
     }

@@ -9,23 +9,26 @@ class DbDocsAdapter {
         if (status) query = query.where('status', status);
         if (docType) query = query.where((b) => b.where('docType', docType).orWhere('docTypeId', docType));
 
+        // Dates: Assume 'date' column or 'created_at'. Requirement says consistent filter.
+        // Using 'date' (invoice date) as primary filter usually makes sense for business logic.
         if (from) query = query.where('date', '>=', from);
         if (to) query = query.where('date', '<=', to);
 
         if (q) {
+            const isPg = knex.client.config.client === 'pg';
+            const op = isPg ? 'ilike' : 'like'; // PG: Case-insensitive ilike, SQLite: like (default insensitive)
             const like = `%${q}%`;
+
             query = query.where((b) => {
-                b.where('docNumber', 'like', like)
-                    .orWhere('supplier', 'like', like)
-                    .orWhere('customer', 'like', like)
-                    .orWhere('origName', 'like', like)
-                // Cast total to string for search if needed, or just skip numeric search for simplicity/perf
-                // SQLite/PG handle this differently. Keeping it simple string match if widely supported or skip.
+                b.where('docNumber', op, like)
+                    .orWhere('supplier', op, like)
+                    .orWhere('customer', op, like)
+                    .orWhere('origName', op, like);
             });
         }
 
-        // Count
-        const countQuery = query.clone().count('* as count').first();
+        // Count: Must be clean
+        const countQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
         const totalParams = await countQuery;
         const total = parseInt(totalParams.count || totalParams['count(*)'] || 0, 10);
 

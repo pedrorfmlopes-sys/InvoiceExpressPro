@@ -283,8 +283,12 @@ exports.listDocs = async (req, res) => {
         const project = req.query.project || 'default';
         const { page = 1, limit = 50, q, status, docType, from, to } = req.query;
 
+        // Normalize
+        const p = Math.max(1, parseInt(page, 10) || 1);
+        const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+
         const result = await Adapter.getDocs(project, {
-            page, limit, q, status, docType, from, to
+            page: p, limit: l, q, status, docType, from, to
         });
 
         res.json(result); // { rows, total, page, limit }
