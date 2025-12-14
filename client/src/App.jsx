@@ -105,9 +105,60 @@ export default function App() {
     await checkAuth();
   };
 
+  const handleDownload = async (e) => {
+    e.preventDefault();
+    try {
+      const data = await downloadFile('/api/export.xlsx', { project });
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement('a'); link.href = url; link.setAttribute('download', `export_${project}.xlsx`);
+      document.body.appendChild(link); link.click(); link.remove();
+    } catch (err) { alert('Download falhou'); }
+  };
+
+  const createProject = async () => {
+    const name = prompt('Nome do projeto:');
+    if (name) {
+      // Use existing endpoint or keep as is if it worked before
+      await api.post('/api/projects', { name });
+      window.location.reload();
+    }
+  };
+
+  // Tabs Configuration
+  const TABS = [
+    { id: 'dashboard', label: '📊 Dashboard', Component: ReportsTab },
+    { id: 'corev2', label: '📄 Core V2', Component: CoreV2Tab },
+    { id: 'transactions', label: '💼 Transactions', Component: TransactionsTab },
+    { id: 'config', label: '⚙️ Config', Component: ConfigTab },
+    ...(ENABLE_LEGACY ? [
+      { id: 'process', label: 'Process (V1)', Component: ProcessTab },
+      { id: 'teacher', label: 'Teacher', Component: TeacherTab },
+      { id: 'explore', label: 'Explore (Old)', Component: ExploreTab },
+      { id: 'normalization', label: 'Normalization', Component: NormalizationTab },
+      { id: 'audit', label: 'Audit', Component: AuditTab },
+    ] : [])
+  ];
+
+  const handleLoginSuccess = async () => {
+    setIsAuthenticated(true);
+    await checkAuth();
+  };
+
   const handleLogout = () => {
     resetAuthState();
   };
+
+  if (isLoading) return <div className="p-10 flex justify-center text-slate-400">Loading...</div>;
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Filter Tabs based on Role
+  let visibleTabs = TABS.filter(t => !t.hidden);
+  if (role !== 'admin') {
+    visibleTabs = visibleTabs.filter(t => t.id !== 'config'); // Hide Config/Admin
+  }
 
 
   const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div style={{ padding: 20 }}>Not Found</div>);
