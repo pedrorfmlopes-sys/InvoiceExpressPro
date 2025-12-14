@@ -55,10 +55,11 @@ export default function App() {
 
       setIsAuthenticated(true);
     } catch (err) {
-      if (err.response && err.response.status === 401) {
-        setIsAuthenticated(false);
-        setUser(null);
-      }
+      console.error('[App] Auth Check Failed:', err);
+      // Clean state safely
+      setIsAuthenticated(false);
+      setUser(null);
+      setRole('user');
     } finally {
       setIsLoading(false);
     }
@@ -127,9 +128,14 @@ export default function App() {
   let visibleTabs = TABS.filter(t => !t.hidden);
   if (role !== 'admin') {
     visibleTabs = visibleTabs.filter(t => t.id !== 'config'); // Hide Config/Admin
-    // If current active tab is forbidden, switch to safe default
-    if (activeTab === 'config') setActiveTab('corev2');
   }
+
+  // Effect to switch tab if current is forbidden
+  useEffect(() => {
+    if (role !== 'admin' && activeTab === 'config') {
+      setActiveTab('corev2');
+    }
+  }, [role, activeTab]);
 
   const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div style={{ padding: 20 }}>Not Found</div>);
 
