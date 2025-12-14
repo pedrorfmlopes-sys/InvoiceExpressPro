@@ -14,16 +14,17 @@ exports.exportXlsx = async (req, res) => {
                         Array.isArray(raw?.docs) ? raw.docs :
                             [];
 
-        if (!Array.isArray(raw) && !raw?.items) console.warn('[exportXlsx] Unexpected docs shape', raw);
-
-        if (docs.length === 0) {
-            // Return empty XLSX (safe UX)
+        if (
+            !Array.isArray(raw) &&
+            !Array.isArray(raw?.items) &&
+            !Array.isArray(raw?.rows) &&
+            !Array.isArray(raw?.docs)
+        ) {
+            console.warn('[exportXlsx] Unexpected docs shape', raw);
         }
 
         if (docs.length === 0) {
             // Return empty XLSX (safe UX)
-            // Or use 400 if strictly debugging. User preferred safe UX (200 empty).
-            // We'll proceed to generate empty sheet.
         }
 
         // Transform for Export
@@ -32,7 +33,8 @@ exports.exportXlsx = async (req, res) => {
             Type: d.docType,
             Number: d.docNumber,
             Date: d.date,
-            Supplier: typeof d.supplier === 'object' ? d.supplier.name : d.supplier,
+            Supplier: (d.supplier && typeof d.supplier === 'object') ? (d.supplier.name || '') : (d.supplier || ''),
+            Customer: (d.customer && typeof d.customer === 'object') ? (d.customer.name || '') : (d.customer || ''),
             Total: d.total,
             Status: d.status,
             File: d.origName || ''
