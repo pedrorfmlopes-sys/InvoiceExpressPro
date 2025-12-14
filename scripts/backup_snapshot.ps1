@@ -1,30 +1,94 @@
-# PowerShell Backup Script for Invoice Studio
+# PowerShell Backup Script for Invoice Studio (Robust)
 $version = "v2.8.0"
 $timestamp = Get-Date -Format "yyyyMMdd_HHmm"
-$backupDir = "backups/$version_$timestamp"
+$backupRoot = "backups"
+$backupDir = "$backupRoot/${version}_$timestamp"
 
-# Create Backup Dir
+# 1. Prepare Directory
+if (-not (Test-Path $backupRoot)) { New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null }
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-Write-Host "Created backup dir: $backupDir"
+Write-Host "Created backup dir: $backupDir" -ForegroundColor Cyan
 
-# 1. DB (SQLite) - Only copy if present
-if (Test-Path "server/data/invoice.db") {
-    Write-Host "Backing up SQLite DB..."
-    Copy-Item "server/data/invoice.db" "$backupDir/invoice.db"
-    Copy-Item "server/data/uploads" "$backupDir/uploads" -Recurse -ErrorAction SilentlyContinue
-} else {
-    Write-Host "SQLite DB not found (skipped)."
+# 2. Data Backup (Robust detection)
+# Priority: data/ -> server/data/
+$dataSrc = ""
+if (Test-Path "data") {
+    $dataSrc = "data"
+}
+elseif (Test-Path "server/data") {
+    $dataSrc = "server/data"
 }
 
-# 2. Project Zip (excluding node_modules)
+if ($dataSrc -ne "") {
+    $destData = "$backupDir/data_backup"
+    Write-Host "Backing up data from [$dataSrc] to [$destData]..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Force -Path $destData | Out-Null
+    Copy-Item -Path "$dataSrc/*" -Destination $destData -Recurse -Force
+}
+else {
+    Write-Host "No 'data/' or 'server/data/' folder found. Skipping DB backup." -ForegroundColor Gray
+}
+
+# 3. Clean Zip (Allowlist approach)
 $zipName = "$backupDir/project_source.zip"
-Write-Host "Zipping project source (this may take a moment)..."
+if (Test-Path $zipName) { Remove-Item $zipName -Force }
 
-# Using Compress-Archive (might be slow for large folders, but standard)
-# We select items manually to skip node_modules
-$exclude = @("node_modules", ".git", "client/node_modules", "client/dist", "backups")
-$items = Get-ChildItem -Path . -Exclude $exclude
+Write-Host "Zipping project source (allowlist)..." -ForegroundColor Cyan
 
-Compress-Archive -Path $items -DestinationPath $zipName -Update
+# Define Allowlist (Relative paths)
+$allowlist = @(
+    "client/src", 
+    "client/public", 
+    "client/index.html",
+    "client/package.json", 
+    "client/vite.config.*", 
+    "client/tsconfig*.json",
+    "server/src", 
+    "server/package.json",
+    "server/server.js",
+    "scripts", 
+    "docs", 
+    "package.json", 
+    "package-lock.json", 
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "docker-compose.yml", 
+    "README.md", 
+    ".env.example",
+    "knexfile.js"
+)
 
-Write-Host "Backup Complete: $zipName"
+# Collect files
+$filesToZip = @()
+foreach ($pattern in $allowlist) {
+    # Resolve wildcards and recursion
+    $matches = Get-ChildItem -Path . -Include $pattern -Recurse -Depth 0 -ErrorAction SilentlyContinue
+    if (-not $matches) {
+        # Try finding path directly if no wildcards/recurse logic needed for top level
+        if (Test-Path $pattern) {
+            $matches = Get-Item $pattern
+        }
+    }
+    
+    if ($matches) {
+        $filesToZip += $matches
+    }
+}
+
+# Compress
+if ($filesToZip.Count -gt 0) {
+    Compress-Archive -Path $filesToZip -DestinationPath $zipName -CompressionLevel Optimal
+    
+    # 4. Report
+    $zipItem = Get-Item $zipName
+    $sizeMb = [math]::Round($zipItem.Length / 1MB, 2)
+    
+    Write-Host "`n----------------------------------------" -ForegroundColor Green
+    Write-Host "Backup Complete!" -ForegroundColor Green
+    Write-Host " - Snapshot: $backupDir"
+    Write-Host " - Zip Size: $sizeMb MB"
+    Write-Host "----------------------------------------"
+}
+else {
+    Write-Host "Error: No files found to zip!" -ForegroundColor Red
+}

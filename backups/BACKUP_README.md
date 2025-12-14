@@ -34,15 +34,20 @@ docker exec -t <container_name> pg_dump -U invoicestudio invoicestudio > backups
 To create a portable archive excluding `node_modules`.
 
 **PowerShell Helper Script:**
-We provide `scripts/backup_snapshot.ps1` to automate this.
+We provide `scripts/backup_snapshot.ps1` to automate this. It uses an **allowlist** to include only source code and clean config files, ensuring a lightweight and clean backup (no `node_modules` or build artifacts).
 
 ```powershell
 .\scripts\backup_snapshot.ps1
 ```
 
 **Manual:**
-Use 7-Zip or standard Zip tools to compress the root folder, excluding:
+Use 7-Zip or standard Zip tools to compress the root folder, explicitly including:
+- `client/src`, `client/public`
+- `server/src`
+- `scripts`, `docs`
+- Root config files (`package.json`, `README.md`, etc.)
+
+Excluding:
 - `node_modules`
-- `client/node_modules`
-- `.git` (optional, keep if you want history)
-- `dist` folders (optional)
+- `dist` / `build` folders
+- `.git`
