@@ -51,11 +51,10 @@ async function run() {
     try {
         // Ensure user exists via QA endpoint
         console.log('   [INFO] ensuring regular user via QA endpoint...');
-        const loginAdm = await clientAdmin.post('/auth/login', { email: ADMIN_EMAIL, password: ADMIN_PASS }); // Ensure fresh token/context
-        // We need orgId from admin's context to add user to same org (or just let helper handle it if we pass it)
-        // Check if seedUser expects orgId. Yes.
+
+        // We need orgId from admin's context to add user to same org
         // Get Admin Context
-        const meResult = await clientAdmin.get('/auth/me');
+        const meResult = await clientAdmin.get('/auth/me', { headers: { Authorization: `Bearer ${adminToken}` } });
         const orgId = meResult.data.org.id;
 
         await clientAdmin.post('/auth/qa/seed-user', {
@@ -63,10 +62,14 @@ async function run() {
             password: USER_PASS,
             name: 'Regular User',
             orgId
-        });
+        }, { headers: { Authorization: `Bearer ${adminToken}` } });
 
     } catch (e) {
-        console.warn('   [WARN] User seed failed:', e.message, e.response ? e.response.data : '');
+        console.warn('   [WARN] User seed failed:', e.message);
+        if (e.response) {
+            console.warn('   [DEBUG] Status:', e.response.status);
+            console.warn('   [DEBUG] Data:', JSON.stringify(e.response.data));
+        }
         // If it fails, maybe user exists, continue to try login
     }
 

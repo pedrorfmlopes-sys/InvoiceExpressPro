@@ -38,10 +38,18 @@ exports.seedUser = async (req, res) => {
         const { email, password, name, orgId } = req.body;
         // Idempotency check
         const existing = await UserService.findByEmail(email);
-        if (existing) return res.json({ ok: true, userId: existing.id, note: 'already_exists' });
+        if (existing) {
+            return res.json({
+                user: { id: existing.id, email: existing.email },
+                note: 'already_exists'
+            });
+        }
 
         const result = await UserService.createRegularUser(email, password, name, orgId);
-        res.json(result);
+        res.json({
+            user: { id: result.userId, email: email },
+            note: 'created'
+        });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
