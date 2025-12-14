@@ -33,11 +33,16 @@ const cleanup = () => {
     // Hard Kill the process tree (more reliable on Windows)
     if (isWin) {
         try {
-            // /T = Terminate child processes (tree)
-            // /F = Forcefully
+            // Priority 1: Kill by Known PID Tree
+            // /T = Terminate child processes (tree), /F = Forcefully
             spawn('taskkill', ['/pid', server.pid, '/f', '/t']);
-            // Also try to find any node.exe listening on 3000 just in case PID changed or spawned poorly
-            spawn('cmd', ['/c', 'for /f "tokens=5" %a in (\'netstat -aon ^| find ":3000"\') do taskkill /f /pid %a']);
+
+            // Priority 2: Fallback by Port (Optional & Safer)
+            // Only if explicitly enabled to avoid killing random services on dev machines
+            if (process.env.RUNNER_FORCE_KILL_PORT === '1') {
+                // Safety: /fi "IMAGENAME eq node.exe" -> only kill node processes
+                spawn('cmd', ['/c', 'for /f "tokens=5" %a in (\'netstat -aon ^| find ":3000"\') do taskkill /f /fi "IMAGENAME eq node.exe" /pid %a']);
+            }
         } catch (e) {
             console.error('Cleanup Err:', e.message);
         }
