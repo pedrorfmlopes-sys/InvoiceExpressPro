@@ -1,0 +1,30 @@
+CAPABILITIES MATRIX (V2.5)
+
+[Authentic]
+- Auth: Required (Login UI, JWT, LocalStorage)
+- Access: RBAC (Implicit - Single Project Context)
+- Audit: Basic Audit Log (V1) + Transaction Log (V2)
+
+[Core V2]
+- Intake: Upload (Multer, Staging), DragDrop
+- Extraction: PDF Text (pdf-parse), Regex Heuristic, AI (OpenAI GPT-3.5)
+- Validation: DocType Canonization, Quality Gates (Missing Fields, Suspicious)
+- Storage: Documents Table (JSON fields + Columns)
+- Organization: DocType Config (Synonyms, Keywords)
+- Pagination: Server-side (Page/Limit), Filtering (Status, DocType, Date, Search)
+
+[Transactions]
+- Grouping: Transaction Header (Title, Counterparty)
+- Links: Linking Documents to Transactions
+- Export: Download ZIP (Authenticated) using Blob
+
+[Infrastructure]
+- DB: Sqlite (Dev), Postgres (Prod)
+- Adapter: KnexJS Adapter Pattern
+- CI: GitHub Actions (Smoke Tests for SQLite & PG)
+- Env: Windows Support (dev scripts), Docker (Prod)
+
+[Legacy (Hidden)]
+- V1 Process Flow (ProcessTab)
+- V1 Teacher (Regex Trainer)
+- V1 Reports

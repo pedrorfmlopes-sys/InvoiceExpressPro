@@ -1,0 +1,38 @@
+INVENTORY TREE (V2.5)
+
+/server
+  /src
+    /controllers
+      /v2
+        coreController.js (Upload, Extract, Pagination)
+        transactionController.js (Transactions)
+    /storage
+      DbDocsAdapter.js (Knex Adapter, Pagination)
+      /db
+        knex.js
+        /migrations
+          ...
+          20250117_pagination_indexes.js
+    server.js
+/client
+  /src
+    App.jsx (Auth, Routing, Legacy Flags)
+    /api
+      apiClient.js (Axios, Interceptors)
+    /components
+      Login.jsx
+    /tabs
+      CoreV2Tab.jsx (Paginated, Search, Edit)
+      TransactionsTab.jsx (Refactored)
+      (Legacy: ProcessTab, TeacherTab, etc)
+/scripts
+  smoke_v2_4_pg.js (Updated Smoke)
+  /windows
+    start_pg.cmd
+    run_smoke_pg.cmd
+/.github
+  /workflows
+    ci-smoke.yml
+/docs
+  CAPABILITIES_MATRIX.txt
+  SELF_HOST_QUICKSTART.md
