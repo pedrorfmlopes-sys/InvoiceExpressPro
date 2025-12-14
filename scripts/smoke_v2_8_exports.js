@@ -71,7 +71,11 @@ async function run() {
             headers: { Authorization: `Bearer ${token}` },
             responseType: 'stream'
         });
-        if (v2.status !== 200) throw new Error(`V2 Status ${v2.status}`);
+        if (v2.status !== 200) {
+            const preview = await readStreamPreview(v2.data);
+            console.error('[FAIL] V2 Status', v2.status, 'Body preview:', preview);
+            throw new Error(`V2 Status ${v2.status}`);
+        }
 
         let v2Bytes = 0;
         v2.data.on('data', c => v2Bytes += c.length);
@@ -86,6 +90,23 @@ async function run() {
         console.error('\n[FAIL]', e.message);
         process.exit(1);
     }
+}
+
+async function readStreamPreview(stream, maxBytes = 4096) {
+    return new Promise((resolve) => {
+        let size = 0;
+        const chunks = [];
+        stream.on('data', (c) => {
+            if (size < maxBytes) {
+                chunks.push(c);
+                size += c.length;
+            }
+            if (size >= maxBytes) stream.destroy();
+        });
+        stream.on('close', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        stream.on('error', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    });
 }
 
 run();

@@ -585,6 +585,7 @@ exports.exportXlsx = async (req, res) => {
         stream.on('error', cleanup);
         res.on('finish', cleanup);
     } catch (e) {
+        console.error('[v2 export.xlsx] error:', e);
         res.status(500).json({ error: e.message });
     }
 };
