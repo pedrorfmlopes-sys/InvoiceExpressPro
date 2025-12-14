@@ -28,17 +28,30 @@ const cleanup = () => {
     console.log('[Runner] Stopping server...');
     serverKilled = true;
 
-    // Kill the process tree (more reliable on Windows)
-    if (/^win/.test(process.platform)) {
-        spawn('taskkill', ['/pid', server.pid, '/f', '/t']);
+    // Hard Kill the process tree (more reliable on Windows)
+    if (isWin) {
+        try {
+            // /T = Terminate child processes (tree)
+            // /F = Forcefully
+            spawn('taskkill', ['/pid', server.pid, '/f', '/t']);
+            // Also try to find any node.exe listening on 3000 just in case PID changed or spawned poorly
+            spawn('cmd', ['/c', 'for /f "tokens=5" %a in (\'netstat -aon ^| find ":3000"\') do taskkill /f /pid %a']);
+        } catch (e) {
+            console.error('Cleanup Err:', e.message);
+        }
     } else {
         server.kill('SIGTERM');
     }
 };
 
-process.on('exit', cleanup);
+process.on('exit', () => { cleanup(); });
 process.on('SIGINT', () => { cleanup(); process.exit(); });
 process.on('SIGTERM', () => { cleanup(); process.exit(); });
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    cleanup();
+    process.exit(1);
+});
 
 // 2. Wait for Health
 const checkHealth = async () => {
