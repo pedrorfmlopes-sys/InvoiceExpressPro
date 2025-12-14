@@ -523,7 +523,22 @@ exports.exportXlsx = async (req, res) => {
     try {
         const project = req.query.project || 'default';
         const { includeRaw } = req.query;
-        const docs = await Adapter.getDocs(project);
+        const raw = await Adapter.getDocs(project);
+        const docs =
+            Array.isArray(raw) ? raw :
+                Array.isArray(raw?.rows) ? raw.rows :
+                    Array.isArray(raw?.items) ? raw.items :
+                        Array.isArray(raw?.docs) ? raw.docs :
+                            [];
+
+        if (
+            !Array.isArray(raw) &&
+            !Array.isArray(raw?.rows) &&
+            !Array.isArray(raw?.items) &&
+            !Array.isArray(raw?.docs)
+        ) {
+            console.warn('[v2 export.xlsx] Unexpected docs shape:', raw);
+        }
 
         const rows = docs.map(d => {
             const row = {
