@@ -27,8 +27,8 @@ class DbDocsAdapter {
             });
         }
 
-        // Count: Must be clean
-        const countQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
+        // Count: Must be clean of any pagination or ordering
+        const countQuery = query.clone().clearSelect().clearOrder().clear('limit').clear('offset').count('* as count').first();
         const totalParams = await countQuery;
         const total = parseInt(totalParams.count || totalParams['count(*)'] || 0, 10);
 

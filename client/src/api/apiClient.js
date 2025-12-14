@@ -28,22 +28,19 @@ api.interceptors.response.use(response => {
 }, async error => {
     const originalRequest = error.config;
 
-    // Retry once on 401 to handle expiration or initial fail
-    // If no refresh token mechanism, this acts mainly as a guard against instant loops
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    // Logout on 401 (Single-flight Guard)
+    // We do not have a silent refresh token flow. Any 401 invalidates the session.
+    if (error.response && error.response.status === 401) {
         if (isAuthFailing) return Promise.reject(error); // Prevent multiple alerts/redirects
 
-        originalRequest._retry = true;
         isAuthFailing = true; // Lock
-
-        // LOGOUT ON 401
-        // We do not have a silent refresh token flow yet.
-        // Any 401 means the session is dead.
         localStorage.removeItem('token');
         onAuthFailure();
 
-        // Reset lock after a short delay (optional, but good for SPA transition)
-        setTimeout(() => { isAuthFailing = false; }, 2000);
+        // Lock remains true until page reload or re-login event implies a reset.
+        // For now, we leave it locked to prevent any further 401 spam from existing parallel requests.
+        // A simple timeout releases it in case the app doesn't reload and user stays on public page.
+        setTimeout(() => { isAuthFailing = false; }, 5000);
 
         return Promise.reject(error);
     }

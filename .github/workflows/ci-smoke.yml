@@ -75,10 +75,9 @@ jobs:
           npm start &
           PID=$!
           
-          # Wait for Server Health (using curl loop or simple sleep)
-          echo "Waiting for server..."
-          sleep 5
-          # Could use: until curl -s http://localhost:3000/api/health; do sleep 2; done
+          # Wait for Server Health
+          echo "Waiting for server to be ready..."
+          timeout 30s bash -c 'until curl -s -f http://127.0.0.1:3000/api/health; do sleep 2; done' || (echo "Server failed to start" && exit 1)
           
           node scripts/smoke_v2_4_pg.js
           

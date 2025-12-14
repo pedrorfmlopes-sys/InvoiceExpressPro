@@ -15,21 +15,17 @@ Centralized `axios` client handles token injection and 401 retries (redirect to 
 let isAuthFailing = false;
 
 api.interceptors.response.use(response => response, async error => {
-    const originalRequest = error.config;
-
-    // Retry once on 401 to handle expiration or initial fail
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    // Logout on 401 (Single-flight Guard)
+    // We do not have a silent refresh token flow. Any 401 invalidates the session.
+    if (error.response && error.response.status === 401) {
         if (isAuthFailing) return Promise.reject(error); // Prevent multiple alerts/redirects
 
-        originalRequest._retry = true;
         isAuthFailing = true; // Lock
-
-        // LOGOUT ON 401 - Session Dead
         localStorage.removeItem('token');
         onAuthFailure();
         
-        // Reset lock after a short delay
-        setTimeout(() => { isAuthFailing = false; }, 2000);
+        // Lock remains true (released by timeout safely)
+        setTimeout(() => { isAuthFailing = false; }, 5000);
 
         return Promise.reject(error);
     }
