@@ -1,0 +1,29 @@
+RBAC ENFORCEMENT PROOF (V2.7)
+Timestamp: 2025-12-15
+
+1. SYMPTOM
+   `npm run smoke:v2_7:sqlite` failed with "User action should be 403, got 200".
+   Cause: Server running in default `AUTH_MODE=optional`, causing `requireRole` middleware to BYPASS role checks.
+
+2. FIX APPLIED
+   - Identified that `scripts/run_smoke_with_server.js` starts server via `npm start`.
+   - Updated `package.json` scripts (`smoke:v2_7:sqlite`, `smoke:v2_7:pg`) to explicitly set `AUTH_MODE=required` before running.
+   - Verified that `AUTH_MODE=required` forces `server/src/middlewares/auth.js` to perform role checks correctly.
+   - Killing zombie node processes was required to apply the fix effectively during debugging.
+
+3. VERIFICATION
+   A) RBAC Smoke Test:
+      Command: `npm run smoke:v2_7:sqlite` (with DB_CLIENT=sqlite)
+      Output:
+      ...
+      5. User deletes DocType (Should Fail)...
+          [PASS] User action blocked (403).
+      ✅ V2.7 RBAC Smoke Passed!
+
+   B) Regressions (Reports V2):
+      Command: `npm run smoke:v3_1:sqlite`
+      Output: ✅ V3.1 Reports V2 Smoke Passed!
+
+4. SECURITY NOTE
+   - `server/src/routes/v2Routes.js` correctly applies `requireRole('admin')` to DELETE /doctypes/:id.
+   - The fix ensures the environment enforcing this rule is active during compliance testing.
