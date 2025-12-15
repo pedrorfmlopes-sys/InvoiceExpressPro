@@ -45,9 +45,8 @@ export default function ExploreTab({ project }) {
   async function load() {
     try {
       const url = qp(`/api/excel.json`, project);
-      const res = await fetch(url);
-      // Se 404/500, assumir vazio mas não crashar
-      const j = res.ok ? await res.json() : { rows: [] };
+      const res = await api.get(url);
+      const j = res.data;
       if (j.error) console.warn('[ExploreTab] load warning:', j.error);
 
       const all = Array.isArray(j.rows) ? j.rows.map(xlsToUiRow) : [];
@@ -74,8 +73,8 @@ export default function ExploreTab({ project }) {
 
   React.useEffect(() => {
     load();
-    fetch(qp('/api/config/doctypes', project))
-      .then(r => r.json())
+    api.get(qp('/api/config/doctypes', project))
+      .then(r => r.data)
       .then(j => {
         // Backend devolve array direto ou {items: []}
         const list = Array.isArray(j) ? j : (Array.isArray(j?.items) ? j.items : []);
@@ -287,12 +286,8 @@ export default function ExploreTab({ project }) {
         const headers = { 'Content-Type': 'application/json' };
         if (apiKey) headers['X-OpenAI-Key'] = apiKey;
 
-        const res = await fetch(qp('/api/reports/pro-pdf', project), {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(bodyObj)
-        });
-        const data = await res.json();
+        const res = await api.post(qp('/api/reports/pro-pdf', project), bodyObj, { headers });
+        const data = res.data;
         if (data.error) throw new Error(data.error);
 
         const a = document.createElement('a');

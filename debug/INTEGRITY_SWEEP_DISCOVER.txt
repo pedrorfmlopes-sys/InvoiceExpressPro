@@ -1,0 +1,39 @@
+INTEGRITY SWEEP DISCOVER REPORT
+Timestamp: 2025-12-15
+
+1. client/src/tabs/ProcessTab.jsx
+   - Line 75: fetch(qp('/api/health', project))
+   - Line 76: fetch(qp('/api/config/doctypes', project))
+   - Line 77: fetch(qp('/api/config/secrets', project))
+   - Line 90: fetch(qp('/api/dirs', project))
+   - Line 113: fetch(u) in pollProgress
+   - Line 142: fetch(qp(`/api/batch/${encodeURIComponent(_batchId)}`, project))
+   - Line 186: fetch(qp('/api/health', project))
+   - Line 225: fetch(qp(`/api/batch/${encodeURIComponent(batchId)}`, project))
+   - Line 269: axios.patch(...) -> CRITICAL ERROR (axios not imported)
+   - Line 291: fetch(qp(`/api/batch/${encodeURIComponent(batchId)}`, project))
+   - Line 433: axios.patch(...) -> CRITICAL ERROR (axios not imported)
+   - Line 452: fetch(qp(`/api/batch/${encodeURIComponent(batchId)}`, project))
+
+2. client/src/tabs/ExploreTab.jsx
+   - Line 48: fetch(url) in load
+   - Line 77: fetch(qp('/api/config/doctypes', project))
+   - Line 290: fetch(qp('/api/reports/pro-pdf', project), ...)
+
+3. client/src/tabs/AuditTab.jsx
+   - Line 10: fetch(url) in load
+
+4. client/src/tabs/TeacherTab.jsx
+   - Line 24: fetch(qp('/api/templates', project))
+
+5. client/src/shared/ui.jsx
+   - Uses api.request (SAFE)
+   - Did not export raw axios (SAFE)
+
+6. client/src/api/apiClient.js
+   - Internal use of axios (SAFE/INTENDED)
+
+Action Plan:
+Replace all instances above with `api` imported from `../api/apiClient`.
+Ensure `api` is imported where missing (AuditTab, etc).
+Fix CRITICAL bug in ProcessTab where `axios` is used but not defined.

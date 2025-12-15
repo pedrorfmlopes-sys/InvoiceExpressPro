@@ -72,9 +72,14 @@ export default function ProcessTab({ project }) {
 
   useEffect(() => {
     refreshDirs()
-    fetch(qp('/api/health', project)).then(r => r.json()).then(j => setCurrentExcelPath(j.excelOutputPath || ''))
-    fetch(qp('/api/config/doctypes', project)).then(r => r.json()).then(j => setDoctypes(j.items || []))
-    fetch(qp('/api/config/secrets', project)).then(r => r.json()).then(j => setSecretsPresent(!!j.openaiApiKeyPresent))
+      (async () => {
+        try {
+          const r = await api.get(qp('/api/health', project));
+          const j = r.data; setCurrentExcelPath(j.excelOutputPath || '')
+        } catch (e) { /* ignore */ }
+        api.get(qp('/api/config/doctypes', project)).then(r => setDoctypes(r.data.items || [])).catch(() => setDoctypes([]))
+        api.get(qp('/api/config/secrets', project)).then(r => setSecretsPresent(!!r.data.openaiApiKeyPresent)).catch(() => setSecretsPresent(false))
+      })();
   }, [project])
 
   useEffect(() => {
@@ -87,7 +92,7 @@ export default function ProcessTab({ project }) {
   }, []);
 
   async function refreshDirs() {
-    const j = await fetch(qp('/api/dirs', project)).then(r => r.json()).catch(() => ({}))
+    const j = await api.get(qp('/api/dirs', project)).then(r => r.data).catch(() => ({}))
     const entries = j.entries || []
     setDirList(entries)
     if (entries.length && !entries.includes(excelDir)) setExcelDir(entries[0])
@@ -110,7 +115,7 @@ export default function ProcessTab({ project }) {
       // 1. Check Progress
       try {
         const u = `/api/progress/${encodeURIComponent(_batchId)}?project=${encodeURIComponent(project)}`;
-        const res = await fetch(u);
+        const res = await api.get(u);
 
         if (res.status === 404) {
           // Batch perdida/inexistente -> Abortar
@@ -121,7 +126,7 @@ export default function ProcessTab({ project }) {
         }
 
         if (res.ok) {
-          const j = await res.json();
+          const j = res.data;
           if (j.status === 'finished' || (j.done && j.done >= (j.total || total || 1))) {
             isDone = true;
             setProcPct(100);
@@ -139,9 +144,9 @@ export default function ProcessTab({ project }) {
         shouldStop = true;
         // One-time fetch batch data
         try {
-          const resB = await fetch(qp(`/api/batch/${encodeURIComponent(_batchId)}`, project));
+          const resB = await api.get(qp(`/api/batch/${encodeURIComponent(_batchId)}`, project));
           if (resB.ok) {
-            const b = await resB.json();
+            const b = resB.data;
             const rows = b.rows || [];
             if (rows.length) {
               setBatchRows(rows);
@@ -183,7 +188,7 @@ export default function ProcessTab({ project }) {
       setLoading(true); setUploadPct(0); setProcPct(0); resetUL(); setBatchRows([]); setSelected(new Set()); setEdits({})
       if (outputMode === 'append') {
         await api.post(qp('/api/set-output', project), { dir: excelDir, name: excelFilename }, { headers: { 'Content-Type': 'application/json' } })
-        const j = await fetch(qp('/api/health', project)).then(r => r.json()); setCurrentExcelPath(j.excelOutputPath || '')
+        const j = await api.get(qp('/api/health', project)).then(r => r.data); setCurrentExcelPath(j.excelOutputPath || '')
       }
       const fd = new FormData(); files.forEach(f => fd.append('files', f))
       const newBatch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
@@ -222,7 +227,7 @@ export default function ProcessTab({ project }) {
     await api.delete(qp(`/api/doc/${encodeURIComponent(id)}`, project))
     if (batchId) {
       try {
-        const b = await fetch(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.json())
+        const b = await api.get(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.data)
         setBatchRows(b.rows || [])
       } catch {
         setBatchRows(prev => prev.filter(r => r.id !== id))
@@ -266,7 +271,7 @@ export default function ProcessTab({ project }) {
       if (String(e.customer || '') !== String(r.customer || '')) diff.customer = e.customer
       if (Number(e.total || 0) !== Number(r.total || 0)) diff.total = Number(e.total || 0)
       if (Object.keys(diff).length) {
-        patchPromises.push(axios.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-bulk' } }))
+        patchPromises.push(api.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-bulk' } }))
       }
     }
     try {
@@ -288,7 +293,7 @@ export default function ProcessTab({ project }) {
       // refresh
       if (batchId) {
         try {
-          const b = await fetch(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.json())
+          const b = await api.get(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.data)
           setBatchRows(b.rows || [])
         } catch {
           // sem endpoint, limpa tudo do lote atual
@@ -430,7 +435,7 @@ export default function ProcessTab({ project }) {
                         if (String(e.customer || '') !== String(r.customer || '')) diff.customer = e.customer
                         if (Number(e.total || 0) !== Number(r.total || 0)) diff.total = Number(e.total || 0)
                         if (Object.keys(diff).length) {
-                          await axios.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
+                          await api.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
                           setToast({ open: true, text: 'Guardado ✓' })
                         }
                       }}>Guardar</button>
@@ -441,7 +446,7 @@ export default function ProcessTab({ project }) {
                         if (e.docType !== r.docType) diff.docType = e.docType
                         if (e.docNumber !== r.docNumber) diff.docNumber = e.docNumber
                         if (Object.keys(diff).length) {
-                          await axios.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
+                          await api.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
                         }
                         try {
                           await api.post(qp('/api/doc/finalize', project), { id: r.id, docType: e.docType, docNumber: e.docNumber })
@@ -449,7 +454,7 @@ export default function ProcessTab({ project }) {
                           // refresh deste lote
                           if (batchId) {
                             try {
-                              const b = await fetch(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.json())
+                              const b = await api.get(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.data)
                               setBatchRows(b.rows || [])
                             } catch {
                               setBatchRows(prev => prev.filter(x => x.id !== r.id))

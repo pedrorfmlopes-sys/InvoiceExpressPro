@@ -21,7 +21,7 @@ export default function TeacherTab({ project }) {
   const redo = () => { if (!redoRef.current.length) return; const nextJson = redoRef.current.pop(); undoRef.current.push(JSON.stringify(regions)); setRegions(JSON.parse(nextJson)) }
 
   async function load() {
-    const j = await fetch(qp('/api/templates', project)).then(r => r.json()).catch(() => [])
+    const j = await api.get(qp('/api/templates', project)).then(r => r.data).catch(() => [])
     const arr = Array.isArray(j) ? j : (j.items || [])
     setItems(arr.map(it => ({ name: it.name, path: it.path || '' })))
   }
