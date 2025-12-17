@@ -1,0 +1,40 @@
+Legacy Modules Isolation Proof
+==============================
+
+1. Modules Created & Migrated
+-----------------------------
+a) Processing (server/src/modules/processing)
+   - Controller migrated from extractController.js
+   - Routes: POST /extract, GET /progress/:batchId, GET /batch/:batchId
+   - Shim created at server/src/controllers/extractController.js
+
+b) Exports (server/src/modules/exports)
+   - Controller migrated from exportController.js
+   - Routes: POST /export.xlsx
+   - Shim created at server/src/controllers/exportController.js
+
+c) Normalize (server/src/modules/normalize)
+   - Controller migrated from normalizeController.js
+   - Routes: GET/POST/DELETE /normalize
+   - Shim created at server/src/controllers/normalizeController.js
+
+d) Audit (server/src/modules/audit)
+   - Controller migrated from auditController.js
+   - Routes: GET /audit
+   - Shim created at server/src/controllers/auditController.js
+
+e) Health (server/src/modules/health)
+   - New endpoint: GET /api/health/modules
+
+2. App Integration
+------------------
+- app.js updated to mount new module routers.
+- Direct mounts to old route files removed (except parity config/templates).
+- Project context standardized to `req.project`.
+
+3. Verification results
+-----------------------
+- smoke:v2_7:rbac -> PASS
+- smoke:v2_9_auth_refresh -> PASS
+- smoke:v3_0_reports -> PASS
+- smoke:v3_1_reports_v2 -> PASS

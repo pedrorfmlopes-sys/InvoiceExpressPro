@@ -63,6 +63,7 @@ app.use('/api/reports', reports.routerLegacy);
 
 // Core V2
 app.use('/api/v2', coreV2.router);
+app.use('/api/settings', require('./modules/settings').router);
 
 // Parity Routes
 // Parity Components (Modularized)

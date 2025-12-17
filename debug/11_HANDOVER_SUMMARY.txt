@@ -1,0 +1,59 @@
+HANDOVER SUMMARY
+================
+
+Project: InvoiceStudio Gravity Refactor
+Date: 2025-12-15
+
+-------------------------------------------------------------------------------
+1. MODULE INVENTORY
+-------------------------------------------------------------------------------
+The following modules have been isolated and standardized (req.project, strict routes).
+
+| Module         | Path                     | Status | Strict | Prefixes                         |
+|----------------|--------------------------|--------|--------|----------------------------------|
+| audit          | server/src/modules/audit      | CLOSED | YES    | /api/audit                       |
+| coreV2         | server/src/modules/coreV2     | CLOSED | YES    | /api/v2                          |
+| docs           | server/src/modules/docs       | CLOSED | YES    | /api/doc, /api/transactions/:id/link |
+| exports        | server/src/modules/exports    | CLOSED | YES    | /api/export                      |
+| health         | server/src/modules/health     | OPEN   | YES    | /api/health                      |
+| normalize      | server/src/modules/normalize  | CLOSED | YES    | /api/normalize                   |
+| processing     | server/src/modules/processing | CLOSED | YES    | /api/extract                     |
+| reports        | server/src/modules/reports    | CLOSED | YES    | /api/reports, /api/v2/reports    |
+| transactions   | server/src/modules/transactions| CLOSED | YES   | /api/transactions                |
+
+*Note: 'reportsV2' logic is contained within 'reports' module but exposes separate routes.*
+
+-------------------------------------------------------------------------------
+2. AUTOMATED QA (SMOKE TESTS)
+-------------------------------------------------------------------------------
+All critical functionalities are covered by these scripts. GATES for Deployment.
+
+Command: node scripts/<script_name>
+
+[x] smoke_m1_docs.js            (Docs listing & consistency)
+[x] smoke_m2_processing.js      (Extraction/Processing flows)
+[x] smoke_m3_exports.js         (Export endpoints)
+[x] smoke_m4_normalize.js       (Normalization logic)
+[x] smoke_m5_audit.js           (Audit logs)
+[x] smoke_m6_transactions.js    (Transaction CRUD)
+[x] smoke_m7_coreV2.js          (Core V2 entities)
+[x] smoke_m8_reports_legacy.js  (Legacy report routing)
+[x] smoke_m9_reports_v2.js      (V2 report summary & isolation)
+[x] smoke_health.js             (System health check)
+
+-------------------------------------------------------------------------------
+3. FRONTEND HARDENING
+-------------------------------------------------------------------------------
+- API Client: Centralized in client/src/api/apiClient.js
+- Contract Guards: Implemented in client/src/utils/contractGuards.js
+- Error UX: Validated in SystemHealthTab.
+
+-------------------------------------------------------------------------------
+4. REMAINING RISKS & NOTES
+-------------------------------------------------------------------------------
+- **Reports Pro PDF**: The "Pro" report uses OpenAI API. Ensure `OPENAI_API_KEY` is set in environment or frontend config if enabled. Smoke tests do NOT cover the live OpenAI call to save costs/complexity.
+- **Windows/Sqlite**: Ensure `npm run db:migrate` is run on new deployments as SQLite file is not git-tracked.
+- **Auth**: 'finance' mode is default. 'ad' mode requires extra config not fully covered in these smokes.
+
+-------------------------------------------------------------------------------
+END OF HANDOVER

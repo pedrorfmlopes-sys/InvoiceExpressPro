@@ -53,7 +53,8 @@ class DocService {
     if (!finalNumber) throw new Error('docNumber vazio');
 
     // Check duplicates
-    const all = await Adapter.getDocs(projectId);
+    const res = await Adapter.getDocs(projectId);
+    const all = Array.isArray(res) ? res : (res.rows || []);
     const dup = all.find(r =>
       r.id !== id &&
       r.status === 'processado' &&

@@ -1,0 +1,27 @@
+GATE HARDENING NOTE
+===================
+Date: 2025-12-15
+
+Objective:
+Remove `shell: true` from `scripts/run_gate.js` to eliminate Node.js DeprecationWarning (DEP0190) and improve security, whilst maintaining Windows/Linux compatibility.
+
+Problem:
+- `shell: true` allows command injection and triggers a warning in Node 22+.
+- `spawn('npm', ... { shell: false })` fails on Windows because `npm` is a batch file (`npm.cmd`).
+- `spawn('npm.cmd', ... { shell: false })` triggered `spawn EINVAL` on this environment (potentially strict node/windows interaction).
+
+Solution:
+1. Logic split for Windows vs Others.
+2. On Windows (`win32`), specifically for `npm` commands:
+   - Use `cmd.exe` as the executable.
+   - Pass arguments: `['/c', 'npm', ...originalArgs]`.
+   - Keep `shell: false`.
+3. This mimics how `npm.cmd` works internally but executed explicitly via `cmd.exe` without invoking the shell flag on `spawn`.
+
+Verification:
+- `npm run gate:precommit`: PASS (Exit Code 0).
+- `npm run gate:release`: PASS (Exit Code 0).
+- DeprecationWarning DEP0190: GONE.
+
+Status:
+HARDENED & VERIFIED.

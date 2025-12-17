@@ -1,0 +1,21 @@
+Project Duplication Removal Proof
+=================================
+
+1. Files Modified
+-----------------
+[MODIFIED] server/src/modules/coreV2/controller.js
+  - Replaced ~13 occurrences of `req.query.project` with `req.project`.
+  - Confirmed usage of global context.
+
+[MODIFIED] server/src/modules/transactions/controller.js
+  - Replaced ~6 occurrences of `req.query.project` with `req.project`.
+  - Confirmed usage of global context.
+
+2. Verification Steps
+---------------------
+- Smoke Test: `smoke:v2_7:rbac` (PASSED)
+- Grep Search: No functional `req.query.project` found in modules/coreV2 or modules/transactions.
+
+3. Goal Achieved
+----------------
+The modules `coreV2` and `transactions` now strictly rely on `req.project` provided by `attachProjectContext` middleware. They no longer duplicate the resolution logic or fallback defaults locally.

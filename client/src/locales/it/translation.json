@@ -16,6 +16,32 @@
         "audit": "Audit",
         "config": "Impostazioni",
         "workspace": "Area di Lavoro",
-        "system": "Sistema"
+        "system": "Sistema",
+        "process": "Elaborare (V2)"
+    },
+    "process": {
+        "title": "Elaborare Documenti",
+        "dropzone": "Trascina file PDF qui o clicca per selezionare",
+        "btn_process": "Elaborare",
+        "uploading": "Caricamento...",
+        "processing": "Analisi...",
+        "table": {
+            "type": "Tipo",
+            "doc_no": "N. Doc",
+            "date": "Data",
+            "supplier": "Fornitore",
+            "total": "Totale",
+            "status": "Stato",
+            "actions": "Azioni"
+        },
+        "alerts": {
+            "incomplete": "Campi mancanti",
+            "low_conf": "Bassa fiducia"
+        },
+        "actions": {
+            "finalize": "Finalizza e Salva",
+            "delete": "Elimina",
+            "view": "Vedi PDF"
+        }
     }
 }

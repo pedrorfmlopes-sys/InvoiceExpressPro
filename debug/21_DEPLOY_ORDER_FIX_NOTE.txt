@@ -1,0 +1,25 @@
+DEPLOY ORDER FIX NOTE
+=====================
+Date: 2025-12-15
+
+Objective:
+Ensure `deploy_runner.js` works correctly in new Workdirs (Safe Mode) where `node_modules` are initially missing.
+
+Problem:
+Previous order (Gate -> Install) caused "vite not recognized" errors because `gate:release` (which runs `vite build`) ran before `npm ci`. Also, `npm ci --omit=dev` excluded vite in production install.
+
+Solution:
+1. Reordered Orchestrator:
+   - Step 1: `stepInstall` (FULL `npm ci` including devDeps to allow build).
+   - Step 2: `stepGate` (Runs verification/build with devDeps present).
+   - Step 3: `stepPrune` (NEW: Runs `npm prune --production` to clean up dev deps for runtime).
+   - Step 4: `stepBackup`.
+   - Step 5: `stepMigrate`.
+   - Step 6: `stepRestart`.
+
+2. Verification:
+   - `npm run deploy:dry` output confirms new order.
+   - `npm run deploy` (Simulated with STOP_AFTER_GATE) confirms successful install and gate execution in Workdir (vite found).
+
+Status:
+PATCHED & VERIFIED.

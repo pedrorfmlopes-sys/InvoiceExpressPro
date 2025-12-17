@@ -1,0 +1,15 @@
+Contract Guards Implementation Note
+===================================
+
+Files Modified:
+- [NEW] client/src/utils/contractGuards.js: Contains `ContractError` class and guard functions (`isHealthModulesResponse`, etc.).
+- [MOD] client/src/api/apiClient.js: Guard added to `getHealthModules`.
+- [MOD] client/src/modules/reportsV2/api.js: Guard added to `getSummary`.
+- [MOD] client/src/components/ChartsAll.jsx: Guard added to `getLegacySuppliers` call.
+- [MOD] client/src/tabs/ExploreTab.jsx: Guard added to `load` (Excel/Docs).
+- [MOD] client/src/tabs/SystemHealthTab.jsx: UI Error handling logic.
+
+Guard Logic:
+- Each guard checks for critical shape properties (e.g., `modules` array presence).
+- If validation fails, throws `ContractError` with endpoint info and keys received.
+- Does NOT log full payload to console (security/privacy).

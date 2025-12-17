@@ -1,0 +1,8 @@
+Health Modules Check
+====================
+Endpoint: GET /api/health/modules
+
+Response:
+{"ok":true,"modules":[{"name":"audit","hasRoutes":true,"closed":false},{"name":"coreV2","hasRoutes":true,"closed":true},{"name":"docs","hasRoutes":true,"closed":true},{"name":"exports","hasRoutes":true,"closed":false},{"name":"health","hasRoutes":true,"closed":false},{"name":"normalize","hasRoutes":true,"closed":false},{"name":"processing","hasRoutes":true,"closed":false},{"name":"reports","hasRoutes":true,"closed":true},{"name":"transactions","hasRoutes":true,"closed":true}],"runtime":{"authMode":"required","dbClient":"sqlite","nodeEnv":"undefined"}}
+
+(Note: 'closed' status logic in controller shim is hardcoded list, correctly identifying coreV2, transactions, docs, reports)

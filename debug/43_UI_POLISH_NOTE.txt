@@ -1,0 +1,38 @@
+# UI Polish V2 - Delivery Note
+
+Visual Transformation to "Premium Glass" Dashboard.
+
+## Changes Overview
+
+### 1. Theme Engine (`theme.css`)
+- **New Glass variables**: Increased opacity (`0.85`), larger blur (`16px`), and refined shadows (`0 12px 40px`).
+- **Typography & Radius**: Standardized card radius to `20px` (premium feel) and buttons to `12px`.
+- **Topbar**: Increased height to `72px` for better hierarchy.
+
+### 2. Sidebar Refactor
+- **Fixed Width**: Locked to `260px`.
+- **Brand**: New gradient logo + "Invoice Studio" strong typography.
+- **Navigation**:
+  - Grouped into "Menu" and "System".
+  - Active state: "Pill" shape with left accent bar (`var(--accent-primary)`).
+  - Hover effects: Subtle white/black overlay.
+
+### 3. Dashboard Refactor
+- **Stat Cards**: Removed heavy gradients. Now uses clean glass panels with subtle accent icons and tracking typography.
+- **Recent Docs**: Redesigned as a clean list with filetype icons and clear separation.
+- **System Health**:
+  - **LOGIC FIX**: Now displays "OK" for modules unless explicitly `closed: true`.
+  - **UI**: Visual indicators (green/red dots) + monospace footer for DB/Auth details.
+
+## Verification
+- **Build**: `npm run build:client` ✅ PASS
+- **Smoke**: `npm run smoke:ui` ✅ PASS
+- **Visuals**:
+  - Dark Mode: Deep blue background, crisp glass panels.
+  - Light Mode: Clean slate colors, subtle shadows.
+
+## Files Changed
+- `client/src/theme.css`
+- `client/src/components/layout/Sidebar.jsx`
+- `client/src/components/ui/StatCard.jsx`
+- `client/src/tabs/DashboardNew.jsx`

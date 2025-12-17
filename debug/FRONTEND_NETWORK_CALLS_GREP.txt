@@ -1,0 +1,23 @@
+# FRONTEND NETWORK CALLS GREP
+
+## 1. Cache Control Headers (If-None-Match, ETag, Cache-Control)
+Result: **NO MATCHES FOUND**
+- The client code does NOT mention `If-None-Match`, `ETag`, or `cache-control`.
+- This implies any 304 behavior is purely automatic (browser/axios default).
+
+## 2. API Endpoints involved in Bootstrap
+Search: "/auth/me", "/projects"
+
+**client/src/App.jsx**:
+- **Line 88**: `api.get('/api/auth/me')`
+- **Line 89**: `api.get('/api/projects')`
+
+**Context**:
+These lines are inside `Promise.all`.
+```javascript
+const [meRes, pRes] = await Promise.all([
+  api.get('/api/auth/me'),
+  api.get('/api/projects')
+]);
+```
+If either of these returns a 304 (empty body) and Axios resolves it without merging cached data (unlikely for standard Axios, but possible if interceptors interfere), `meRes.data` or `pRes.data` might be undefined.

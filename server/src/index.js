@@ -1,4 +1,6 @@
 // server/src/index.js
+require('dotenv').config(); // Load env vars
+
 // SECURITY GUARD: Block optional auth in production
 if (process.env.NODE_ENV === 'production' && (process.env.AUTH_MODE === 'optional' || !process.env.AUTH_MODE)) {
     console.error('FATAL: AUTH_MODE=optional is not allowed in production!');

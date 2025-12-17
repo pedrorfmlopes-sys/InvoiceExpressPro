@@ -1,0 +1,39 @@
+Before Endpoints Snapshot
+=========================
+
+Processing:
+- POST /api/extract
+- GET /api/progress/:batchId
+- GET /api/batch/:batchId
+
+Exports:
+- POST /api/export.xlsx
+
+Normalize:
+- GET /api/normalize
+- POST /api/normalize
+- DELETE /api/normalize
+
+Audit:
+- GET /api/audit
+
+(Note: /api/excel.json and others mentioned in prompt prompt are likely handled by exportController but mounted elsewhere or I need to find them. Prompt mentioned /api/excel.json, refresh, etc. Let's check docController/reportsController if they are handling them or if I missed a route file.
+Found in docController or reportsController previously:
+- /api/excel.json -> mounted in docs module now (legacy docRoutes line 14).
+- /api/export.xlsx -> exportRoutes.js line 5.
+- /api/export.csv -> not seen in exportRoutes.js, probably processed inside exportController via format param or handled by reports module.
+- /api/export.pdf -> same.
+
+The Prompt asks to isolate "Export/Data" including these. If they are scattered, I should consolidate them into `modules/exports` if possible, OR leave them if they are strictly bound to other modules.
+However, `exportRoutes.js` only has `/export.xlsx`.
+`docRoutes.js` (now `modules/docs/routes.js`) has `/excel.json`.
+I will focus on modularizing what is explicitly in `exportRoutes.js` and `extractRoutes.js` etc., while being mindful of others.
+The Prompt explicitly lists: /api/excel.json in "Export/Data".
+If I move `exportController`, I must ensure `modules/docs` (which uses `excel.json`) still works. `modules/docs` imports `docController` which imports `DocService`. `docController.getExcelJson` handles it.
+Wait, `docController.getExcelJson` is dealing with `excel.json`.
+The user prompt says "Modularizar o legacy core... Export/Data... /api/excel.json".
+This suggests I should potentially move `getExcelJson` to `modules/exports`?
+Or just ensure `exportController` (which handles .xlsx) is modularized.
+SAFE BET: Modularize `exportRoutes.js` (endpoints: /export.xlsx) into `modules/exports`.
+Review `exportController.js` content to see what it covers.
+)

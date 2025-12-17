@@ -1,0 +1,14 @@
+Routes Dump (Strict Reports Phase)
+==================================
+
+/api/v2/reports (Strict V2)
+  - GET /summary
+  - GET /top-suppliers
+  - ...
+
+/api/reports (Strict Legacy)
+  - GET /suppliers
+  - GET /monthly
+  - ...
+
+(No cross-contamination)

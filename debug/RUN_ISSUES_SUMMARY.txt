@@ -1,0 +1,50 @@
+# RESUMO DE PROBLEMAS DE EXECUÇÃO & PLANO DE RESOLUÇÃO
+
+## 1. Problemas Identificados
+
+### A. Bloqueios de Ficheiros (OneDrive)
+- **Sintoma:** Erros `EPERM: operation not permitted` ou `UNKNOWN: unknown error, read` ao tentar ler/escrever em `node_modules` ou iniciar o servidor.
+- **Causa:** A pasta do projeto está dentro do OneDrive (`C:\Users\pedro\OneDrive\...`). O OneDrive bloqueia ficheiros para sincronização enquanto o `npm` ou `node` tentam usá-los.
+- **Impacto:** `npm install` falha frequentemente; `nodemon` crasha ao detetar mudanças; o wrapper `server/server.js` falha a ler o ficheiro de destino.
+
+### B. Falha no Wrapper de Arranque (`server/server.js`)
+- **Sintoma:** Ao correr `npm start`, o script `server/server.js` tenta carregar `src/index.js` mas falha com erro de leitura de sistema de ficheiros (`node:fs`).
+- **Causa:** Provável conflito de permissões ou locking no ficheiro `server.js` ou `src/index.js` momentâneo.
+- **Estado:** O arranque direto via `node server/src/index.js` é mais fiável.
+
+### C. Portas Presas
+- **Sintoma:** O backend (porta 3000) por vezes fica "preso" num processo fantasma que não termina corretamente quando o terminal é fechado, impedindo novos arranques (`EADDRINUSE`).
+
+---
+
+## 2. Plano de Resolução
+
+### Passo 1: Workaround Imediato (Para correr AGORA)
+1. **Frontend:** Mantenha o terminal do frontend a correr (já está em porta 5173).
+2. **Backend:**
+    - Abra um terminal novo (PowerShell ou CMD).
+    - Navegue para a pasta do projeto.
+    - Execute diretamente o entrypoint real:
+      ```powershell
+      node server/src/index.js
+      ```
+    - *Nota:* Se der erro de porta ocupada (EADDRINUSE), force o fecho do node anterior:
+      ```powershell
+      taskkill /F /IM node.exe
+      ```
+      (Cuidado: isto pode fechar outros processos Node).
+
+### Passo 2: Solução Definitiva (Recomendada)
+1. **Mover para Fora do OneDrive:**
+    - Mova a pasta do projeto para `C:\Dev\InvoiceStudioGRVTY` ou similar (fora de Users\OneDrive).
+    - Isto elimina 90% dos erros de `EPERM` e lentidão do `npm`.
+
+2. **Simplificar Scripts (`package.json`):**
+    - Alterar `npm start` para chamar diretamente o `src/index.js` em vez do wrapper, se o wrapper continuar a dar problemas.
+    - Exemplo de alteração em `package.json`:
+      ```json
+      "start": "node server/src/index.js"
+      ```
+
+3. **Configuração de Desenvolvimento:**
+    - Usar `STOP_AFTER_GATE=1` no deploy runner provou que o sistema funciona bem em `C:\Dev`. Replicar esse ambiente para desenvolvimento diário.

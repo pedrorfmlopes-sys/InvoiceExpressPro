@@ -1,0 +1,14 @@
+Error UX Implementation Note
+==============================
+
+How to Reproduce (Simulation):
+1. In `apiClient.js` or `SystemHealthTab.jsx`, temporarily corrupt the valid response using `res.data = {}` before the guard check.
+2. Visit System Health tab.
+
+Expected UI:
+1. Main Area: "System health check failed (Invalid API Response)." in red.
+2. Action: "Retry" button visible.
+3. Details: A collapsible "Technical Details (Admin)" section appears.
+4. Content: Inside details, seeing `{"endpoint": "...", "keys": []}`.
+
+This ensures admins can identify "Why did it fail?" (API changed? Network error?) without exposing raw data to casual users or cluttering the UI.

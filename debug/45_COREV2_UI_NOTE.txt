@@ -1,0 +1,29 @@
+# Core V2 UI Upgrade - Delivery Note
+
+UI transformation of the Core V2 tab into a Glass Dashboard layout.
+
+## Modern Layout (3-Card System)
+1. **Upload & Process (Top Left)**:
+   - Dedicated GlassCard with clearer Dropzone instructions.
+   - Distinct "Processing" state with visual feedback.
+    
+2. **Quick Actions (Top Right)**:
+   - Compact Actions card for "Refresh" and "Export All".
+   - Consistent `.btn` styling.
+
+3. **Explore Docs (Bottom / Full Width)**:
+   - **Filters**: Sticky header with Search, Status, and DocType filters.
+   - **Table**: Zebra striping, hover effects, and clean typography.
+   - **Empty State**: Friendly "No documents found" message with a "Upload Files" CTA button that focuses/opens the dropzone.
+
+## UX Improvements (Extras)
+- **Consistent Icons**: Small, clean icon buttons for table actions (Edit, Link, Finalize).
+- **Disabled Feedback**: If actions (like Finalize) are disabled, the checkmark is dimmed and provides a tooltip explanation (e.g., "Missing Doc Type").
+- **Bulk Actions**: Appears contextually when items are selected, with a pulsing glass effect.
+
+## Verification
+- **Build**: `npm run build:client` ✅ PASS
+- **Smoke**: `npm run smoke:ui` ✅ PASS (Verified navigation to Core V2 and main components via test IDs).
+
+## Files Changed
+- `client/src/tabs/CoreV2Tab.jsx`

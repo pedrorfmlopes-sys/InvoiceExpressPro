@@ -1,0 +1,35 @@
+> invoice-studio@1.0.0 dev:zero
+> node scripts/dev_workdir_runner.js
+
+[INFO] ZERO-STRESS RUNNER
+[INFO] Source: C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main
+[INFO] Target: C:\Dev\InvoiceStudioDevWorkdir
+[WARN] Port 3000 is busy (PID 43800). Killing...
+[OK] Killed PID 43800.
+[INFO] Port 5173 is free.
+[INFO] --- 1. Preparing Dev Workdir: C:\Dev\InvoiceStudioDevWorkdir ---
+[INFO] Robocopying source...
+[OK] Workdir Ready.
+[INFO] Installing dependencies for ROOT...
+[INFO] Running: npm ci
+...
+[INFO] Installing dependencies for CLIENT...
+[INFO] Running: npm ci
+...
+[INFO] --- 3. DB Setup (C:\Dev\InvoiceStudioDevWorkdir\db\database.sqlite) ---
+[INFO] Running: npm run db:migrate
+...
+[INFO] Running: npm run db:seed:smoke
+...
+[INFO] --- 4. Starting Servers ---
+
+✅ BACKEND:  http://localhost:3000
+✅ FRONTEND: http://localhost:5173
+✅ HEALTH:   http://localhost:3000/api/health/modules
+
+[INFO] Running: npm run dev
+...
+[nodemon] starting `node server/server.js`
+VITE v5.4.21  ready in 582 ms
+Local:    http://localhost:5173/
+Network: use --host to expose

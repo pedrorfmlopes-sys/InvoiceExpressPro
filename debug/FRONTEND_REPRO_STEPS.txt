@@ -1,0 +1,36 @@
+# FRONTEND REPRO STEPS
+
+## 1. Context
+The issue is likely that `npm run dev` (Vite backend + API proxy) behaves differently than standard prod or older setups regarding caching.
+If `checkAuth()` calls `/api/auth/me` and the server/browser decides "It hasn't changed" (304), we must ensure the `axios` promise still resolves with `res.data`.
+
+## 2. Repro Steps
+1. **Start Dev**: `npm run dev` (Ensure both Client :5173 and Server :3000 are up).
+2. **Open Browser**: Go to `http://localhost:5173`.
+3. **Login**: Enter valid credentials. Click Login.
+   - *Result*: Should see Dashboard.
+4. **Refresh Page**: Press F5.
+   - This triggers `App.jsx` -> `useEffect` -> `checkAuth`.
+   - Browser might send `If-None-Match` for `/me` call if it was cached previously.
+   - If server returns 304, watch the console.
+5. **Logout & Login Again**:
+   - Manually logout.
+   - Login again immediately.
+   - **FAILURE CONDITION**: If `checkAuth` throws "cannot read property user of undefined", it means `meRes.data` was empty.
+   - You will see the Login screen flash, then reset (because `catch` -> `resetAuthState`).
+
+## 3. What to verify in Network Tab
+1. Filter by `XHR/Fetch`.
+2. Look for `/api/auth/me`.
+3. **Status Code**: Is it `200 OK` or `304 Not Modified`?
+   - If **304**: Check the Response tab in DevTools. Is it empty? (It usually is for 304).
+   - If it is 304 and empty, Axios *should* use the cached response.
+   - If Axios is configured incorrectly or `If-Modified-Since` logic is manual, `res.data` might be undefined.
+
+## 4. Current Code Vulnerability
+`client/src/App.jsx:87`:
+```javascript
+const [meRes, pRes] = await Promise.all([...]);
+setUser(meRes.data.user); // <--- BOOM if meRes.data is undefined
+```
+We do not check if `meRes` or `meRes.data` exists before accessing `.user`.

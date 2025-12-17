@@ -1,0 +1,59 @@
+# UI V2 Transformation - Delivery Note
+
+## Status
+- **Build**: PASS (`npm run build:client`)
+- **Smoke**: PASS (`npm run smoke:ui`)
+- **Backend Integ**: PASS (Recent Docs & System Health live data connected)
+
+## Visual Changes (V2)
+
+### 1. AppShell
+- **Sidebar**: Fixed left sidebar with modern "Invoice Studio" branding and gradient logo.
+- **Theme**: "Glass" aesthetics implemented with `theme.css`.
+    - Dark Mode: Deep blue/slate backgrounds (`--bg-base: #0B1221`) with blur effects.
+    - Light Mode: Clean white/gray surface.
+
+### 2. Dashboard Structure (Strict Adherence)
+The new Dashboard (`DashboardNew.jsx`) loads automatically on entry.
+
+**Row 1: Stat Cards**
+- **Docs Total**: Displays total document count (Live/Opportunistic).
+- **Pending**: Displays pending upload count (Live/Opportunistic).
+- **Processed Today**: Placeholder (Mock).
+- **Errors**: 0 (Mock).
+
+**Row 2: 3-Card Grid**
+1.  **Recent Docs**:
+    - Fetches real data from `/api/v2/docs?limit=5`.
+    - Shows Filename + Status + Amount + Date.
+    - Handles empty state elegantly.
+2.  **Quick Actions**:
+    - "Upload New" (Redirect guidance).
+    - "Export Excel" (Triggers `/api/export.xlsx`).
+    - "Generate AI Report" (Pro PDF).
+3.  **System Health**:
+    - Fetches real status from `/api/health/modules`.
+    - Lists modules (coreV2, transactions, etc) with OK/ERR badges.
+    - Footer shows DB Client (sqlite) and Auth Mode.
+
+**Row 3: Charts**
+- **Hidden by default** to keep the UI clean and fast.
+- Toggle "Show Charts" reveals the heavyweight `ChartsAll` component.
+
+## Validation Steps (Manual)
+1.  **Login**: Access `/`.
+2.  **Check Layout**: Confirm Sidebar is fixed and "Recent Docs" etc are clearly searching.
+3.  **Data Check**:
+    - Look at "System Health" card. It should show 'coreV2' and 'health' as OK.
+    - Look at "Recent Docs". If no docs, it shows "No recent documents".
+4.  **Charts**: Click "Show Charts" and verify bar charts load below.
+
+## Files Changed/Created
+- `client/src/tabs/DashboardNew.jsx` (REFACTORED)
+- `client/src/theme.css` (UPDATED)
+- `client/src/components/layout/AppShell.jsx` (VERIFIED)
+- `client/src/components/layout/Sidebar.jsx` (VERIFIED)
+
+## Stability
+Smoke tests verified navigation to all core tabs does not crash.
+Server running on port 3000 verified connected.

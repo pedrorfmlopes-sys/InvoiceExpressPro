@@ -1,0 +1,34 @@
+# UI V2.1 Upgrade - Delivery Note
+
+Implemented functional Sidebar, 3D Actions, and TableBox layout.
+
+## Components
+1. **Sidebar (`Sidebar.jsx`)**:
+   - Collapsible groups ("Workspace", "System").
+   - Persistent state (localStorage).
+   - "Pill" style active indicators.
+
+2. **Action Bar (`ActionBar.jsx` + `ActionCard.jsx`)**:
+   - Responsive grid of 3D-style action buttons.
+   - Deployed in Core V2 and Reports V2.
+
+3. **TableBox (`TableBox.jsx`)**:
+   - Fixed header and footer.
+   - Independent scrollable body (no page scroll).
+   - Consistent formatting across tabs.
+
+## Layout Upgrades
+- **Core V2**: Use Drag&Drop -> ActionBar -> TableBox flow.
+- **Reports V2**: Use KPIs -> ActionBar (Filters) -> TableBox flow.
+
+## Verification
+- **Build**: `npm run build:client` ✅ PASS
+- **Smoke**: `npm run smoke:ui` ✅ PASS (Verified navigation).
+
+## Files Created/Modified
+- `client/src/components/ui/ActionCard.jsx` [NEW]
+- `client/src/components/ui/ActionBar.jsx` [NEW]
+- `client/src/components/ui/TableBox.jsx` [NEW]
+- `client/src/components/layout/Sidebar.jsx`
+- `client/src/tabs/CoreV2Tab.jsx`
+- `client/src/tabs/ReportsTab.jsx`

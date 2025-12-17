@@ -5,6 +5,7 @@ import './theme.css' // New Theme Tokens
 
 import { THEMES } from './shared/ui' // Keeping for reference if used elsewhere, but we might eventually deprecate
 import ProcessTab from './tabs/ProcessTab'
+import ProcessV2Tab from './tabs/ProcessV2Tab' // New Processing Module
 import ExploreTab from './tabs/ExploreTab'
 import CoreV2Tab from './tabs/CoreV2Tab'
 import NormalizationTab from './tabs/NormalizationTab'
@@ -166,6 +167,7 @@ export default function App() {
   // Tabs Configuration
   const TABS = [
     { id: 'dashboard', label: t('sidebar.dashboard'), Component: DashboardNew },
+    { id: 'process_v2', label: t('sidebar.process'), Component: ProcessV2Tab }, // Process V2
     { id: 'reports_v2', label: 'Reports V2', Component: ReportsTab },
     { id: 'corev2', label: 'Core V2', Component: CoreV2Tab },
     { id: 'transactions', label: 'Transactions', Component: TransactionsTab },

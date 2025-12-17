@@ -1,0 +1,23 @@
+# Import Fixes - Delivery Note
+
+Fixed Vite import crash by creating missing components and exports.
+
+## Fixes Implemented
+1. **SuggestionModal**:
+   - Created `client/src/components/SuggestionModal.jsx` (Minimal stub).
+   - Exports `useSuggestionModal`.
+
+2. **TransactionModal**:
+   - Created `client/src/components/TransactionModal.jsx` (Minimal stub).
+   - Exports `TransactionModal`.
+
+3. **Tooltip**:
+   - Added `Tooltip` export to `client/src/shared/ui.jsx` (was missing).
+
+## Verification
+- **Build**: `npm run build:client` ✅ PASS
+
+## Files Created/Modified
+- `client/src/components/SuggestionModal.jsx` [NEW]
+- `client/src/components/TransactionModal.jsx` [NEW]
+- `client/src/shared/ui.jsx` [MODIFIED]

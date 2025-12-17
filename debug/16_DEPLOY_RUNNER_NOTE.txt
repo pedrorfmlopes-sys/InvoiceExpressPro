@@ -1,0 +1,33 @@
+DEPLOY RUNNER NOTE
+==================
+Date: 2025-12-15
+
+Objective:
+Simplify the deployment process into a single command with fail-safes and dry-run capability, improving reliability and reducing manual error risks (e.g., forgetting backups or migrations).
+
+Commands:
+1. `npm run deploy:dry`
+   - Runs `gate:release` (Build + Smokes) for verification.
+   - SIMULATES backup, dependency install, database migration, and restart.
+   - Logs simulated actions with (DRY) prefix.
+   - Safe to run anywhere.
+
+2. `npm run deploy`
+   - Runs `gate:release`.
+   - ACTUALLY performs:
+     - SQLite backup (if using sqlite) to `backups/database_<timestamp>.sqlite`.
+     - `npm ci --production` (server and client).
+     - `npm run db:migrate`.
+     - `pm2 restart` (if PM2_APP_NAME env var is set).
+
+Env Vars:
+- `DB_CLIENT`: 'sqlite' or 'pg'.
+- `SQLITE_FILENAME`: Path to DB file (default: `db/database.sqlite`).
+- `PM2_APP_NAME`: Name of the PM2 process to restart (optional).
+
+Validation:
+- `npm run deploy:dry` verified successfully with Exit Code 0.
+- Output log: `debug/16_DEPLOY_DRY_RUN_OUTPUT.txt` shows correct execution of gate checks and simulation of other steps.
+
+Status:
+IMPLEMENTED & VERIFIED.

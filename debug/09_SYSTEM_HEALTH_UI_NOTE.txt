@@ -1,0 +1,25 @@
+System Health UI Implementation
+===============================
+
+1. Route/Tab:
+   - Path: / (SPA, loaded via Tab)
+   - Tab ID: `health`
+   - Label: 🏥 System Health
+
+2. Files Created/Modified:
+   - [NEW] client/src/tabs/SystemHealthTab.jsx
+   - [MOD] client/src/App.jsx (Added tab, import, RBAC filter)
+   - [MOD] client/src/api/apiClient.js (Added `getHealthModules`)
+
+3. Validation:
+   - Log in as Admin.
+   - Verify "🏥 System Health" tab appears in navigation.
+   - Click tab.
+   - Verify table loads with modules (coreV2, health, etc.).
+   - Verify "Closed" and "Strict" badges.
+   - Verify "Refresh" button works.
+   - Log in as User (non-admin).
+   - Verify tab is MOT visible.
+
+4. Backend Dependency:
+   - Relies on `GET /api/health/modules` (Implemented in previous mission).

@@ -75,6 +75,10 @@ exports.extract = async (req, res) => {
 
     // Get Secrets for AI
     const secrets = await ConfigService.getSecrets(project);
+    // Allow Client override (Legacy V1 parity)
+    if (req.headers['x-openai-key']) {
+        secrets.openaiApiKey = req.headers['x-openai-key'];
+    }
     const hasKey = !!secrets.openaiApiKey;
 
     // Init progress
@@ -103,7 +107,11 @@ exports.extract = async (req, res) => {
                             messages: [
                                 {
                                     role: "system", content: `You are an expert invoice data extractor for Portuguese documents.
-                                Extract the following fields into JSON: docType (Fatura, Recibo, etc), docNumber, date (YYYY-MM-DD), dueDate (YYYY-MM-DD), supplier, customer, total (number), currency (EUR), notes.
+                                Extract the following fields into JSON: docType, docNumber, date (YYYY-MM-DD), dueDate (YYYY-MM-DD), supplier, customer, total (number), currency (EUR), notes.
+                                
+                                Field 'docType' MUST be one of: 'Fatura', 'Recibo', 'Fatura-Recibo', 'Nota de Credito', 'Guia de Remessa'. 
+                                If uncertain, choose the closest match.
+                                
                                 If a field is not found, use null.
                                 Normalize numbers to float (e.g. "1.000,00" -> 1000.0).` },
                                 { role: "user", content: `Extract from this text:\n\n${text.substring(0, 3000)}` } // Cap context

@@ -1,0 +1,15 @@
+
+> invoice-studio@1.0.0 dev:safe:dry
+> node scripts/dev_workdir_runner.js --dry
+
+ [36m[INFO] DEV SAFE LAUNCHER [0m
+ [36m[INFO] Source: C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main [0m
+ [36m[INFO] Target: C:\Dev\InvoiceStudioDevWorkdir [0m
+ [33m[WARN] OneDrive Detected! Using Safe Mode copy strategy. [0m
+ [36m[INFO] --- 1. Preparing Dev Workdir: C:\Dev\InvoiceStudioDevWorkdir --- [0m
+ [33m[WARN] (DRY) Would Robocopy C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main -> C:\Dev\InvoiceStudioDevWorkdir [0m
+ [36m[INFO] --- 2. Installing Dependencies (With DevDeps) --- [0m
+ [33m[WARN] (DRY) [C:\Dev\InvoiceStudioDevWorkdir] Would execute: npm ci [0m
+ [33m[WARN] (DRY) [C:\Dev\InvoiceStudioDevWorkdir\client] Would execute: npm ci [0m
+ [36m[INFO] --- 3. Starting Dev Server --- [0m
+ [33m[WARN] (DRY) Would start npm run dev [0m

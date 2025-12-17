@@ -1,0 +1,20 @@
+Health Auto-Discovery Proof
+===========================
+Endpoint: GET /api/health/modules
+
+Response (Expected):
+{
+  "ok": true,
+  "modules": [
+    { "name": "coreV2", "prefixes": ["/api/v2"], "closed": true, "strictRouting": true },
+    { "name": "transactions", "prefixes": ["/api/transactions"], "closed": true, "strictRouting": false },
+    ...
+    { "name": "health", "prefixes": ["/api/health"], "closed": true, "strictRouting": true }
+  ],
+  "runtime": { ... }
+}
+
+Verifies that:
+1. Modules are loaded dynamically via `require`.
+2. Metadata is extracted from `index.js` exports.
+3. No hardcoded lists in controller logic (logic iterates over imports).

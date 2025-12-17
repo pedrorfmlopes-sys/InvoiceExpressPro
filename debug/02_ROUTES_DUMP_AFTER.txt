@@ -1,0 +1,53 @@
+Routes Dump (After Refactor)
+=============================
+
+/api/auth
+  POST /login
+  POST /refresh
+  GET /me
+
+/api (Protected Base)
+  - Middleware: requireAuth
+  - Middleware: attachProjectContext
+
+/api/project (Legacy)
+  GET /
+  POST /
+  DELETE /:name
+
+/api/docs (Legacy)
+  GET /
+  POST /
+  PATCH /:id
+  DELETE /:id
+
+/api/v2 (Core Module)
+  POST /upload
+  POST /extract
+  GET /docs
+  PATCH /docs/:id
+  POST /docs/finalize
+  ...
+  POST /transactions (sub-mount in v2, delegates to Transactions Controller)
+  GET /transactions
+
+/api/transactions (Transactions Module)
+  GET /
+  POST /
+  GET /:id
+  PATCH /:id
+  POST /:id/link
+  POST /:id/unlink
+  GET /:id/suggestions
+  POST /:id/apply-suggestions
+  GET /:id/download.zip
+
+/api/v2/reports (Reports V2 Module)
+  GET /summary
+  GET /top-suppliers
+  ...
+
+/api/doc (Extensions)
+  GET /:id/transactions
+
+(Other parity routes: /api/config, /api/reports, etc. preserved)

@@ -16,6 +16,32 @@
         "audit": "Audit",
         "config": "Settings",
         "workspace": "Workspace",
-        "system": "System"
+        "system": "System",
+        "process": "Process (V2)"
+    },
+    "process": {
+        "title": "Process Documents",
+        "dropzone": "Drag PDF files here or click to select",
+        "btn_process": "Process",
+        "uploading": "Uploading...",
+        "processing": "Analyzing...",
+        "table": {
+            "type": "Type",
+            "doc_no": "Doc #",
+            "date": "Date",
+            "supplier": "Supplier",
+            "total": "Total",
+            "status": "Status",
+            "actions": "Actions"
+        },
+        "alerts": {
+            "incomplete": "Missing fields",
+            "low_conf": "Low confidence"
+        },
+        "actions": {
+            "finalize": "Finalize & Save",
+            "delete": "Delete",
+            "view": "View PDF"
+        }
     }
 }

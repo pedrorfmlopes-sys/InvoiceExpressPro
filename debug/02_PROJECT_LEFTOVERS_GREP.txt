@@ -1,0 +1,46 @@
+Project Leftovers Grep (Post-Refactor)
+========================================
+
+Query: req\.query\.project|project\s*\|\|\s*'default'
+
+1. Controllers (Candidates for next refactor phase)
+---------------------------------------------------
+server/src/modules/coreV2/controller.js:
+  const project = req.query.project || 'default'; (Multiple occurrences)
+
+server/src/modules/transactions/controller.js:
+  const project = req.query.project || 'default'; (Multiple occurrences)
+
+server/src/modules/reportsV2/controller.js:
+  const project = req.query.project;
+
+server/src/controllers/configController.js:
+  const project = req.query.project;
+
+server/src/controllers/extractController.js:
+  const project = req.query.project;
+
+server/src/controllers/normalizeController.js:
+  const project = req.query.project;
+
+server/src/controllers/reportsController.js:
+  const project = req.query.project || ...
+
+server/src/controllers/templatesController.js:
+  const project = req.query.project;
+
+server/src/controllers/auditController.js:
+  const project = req.query.project;
+
+2. Routes (Cleaned / Comments)
+------------------------------
+server/src/modules/transactions/routes.js:
+  // In Phase 3, req.ctx has orgId. req.query.project handles project.
+
+server/src/routes/reportsRoutes.js:
+  res.json(..., project: req.query.project);
+
+3. Middlewares (Valid Usage)
+----------------------------
+server/src/middlewares/context.js:
+  project = req.query.project; (Source of Truth)

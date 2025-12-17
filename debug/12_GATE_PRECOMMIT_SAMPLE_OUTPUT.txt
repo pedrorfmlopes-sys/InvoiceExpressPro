@@ -1,0 +1,159 @@
+
+> invoice-studio@1.0.0 gate:precommit
+> node scripts/run_gate.js precommit
+
+
+=== GATE RUNNER: PRECOMMIT ===
+Environment: { DB_CLIENT: 'sqlite3', AUTH_MODE: 'required', QA_MODE: 'true' }
+
+> EXEC: npm run build:client
+(node:25272) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> invoice-studio@1.0.0 build:client
+> cd client && npm run build
+
+
+> build
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 131 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+[2mdist/[22m[35massets/index-C4Sm1vd8.css  [39m[1m[2m  8.18 kB[22m[1m[22m[2m │ gzip:   2.45 kB[22m
+[2mdist/[22m[36massets/index-DkdMU1nS.js   [39m[1m[33m739.07 kB[39m[22m[2m │ gzip: 230.81 kB[22m[2m │ map: 2,824.08 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 2.26s[39m
+
+> EXEC: node scripts/run_smoke_with_server.js node scripts/smoke_health.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_health.js
+--- Health Module Smoke Test ---
+GET http://localhost:3000/api/health/modules
+Status: [33m200[39m
+Body: {
+  "ok": true,
+  "modules": [
+    {
+      "name": "coreV2",
+      "prefixes": [
+        "/api/v2"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "transactions",
+      "prefixes": [
+        "/api/transactions"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "docs",
+      "prefixes": [
+        "/api"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "reports",
+      "prefixes": [
+        "/api/v2/reports",
+        "/api/reports"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "processing",
+      "prefixes": [
+        "/api"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "exports",
+      "prefixes": [
+        "/api"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "normalize",
+      "prefixes": [
+        "/api/normalize"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "audit",
+      "prefixes": [
+        "/api/audit"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "health",
+      "prefixes": [
+        "/api/health"
+      ],
+      "closed": true,
+      "strictRouting": true
+    }
+  ],
+  "runtime": {
+    "authMode": "required",
+    "dbClient": "sqlite"
+  }
+}
+✅ Health Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC: node scripts/run_smoke_with_server.js node scripts/smoke_m1_docs.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m1_docs.js
+--- Smoke M1: Docs ---
+GET http://localhost:3000/api/excel.json
+✅ Docs Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC: node scripts/run_smoke_with_server.js node scripts/smoke_m9_reports_v2.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m9_reports_v2.js
+--- Smoke M9: Reports V2 ---
+GET http://localhost:3000/api/v2/reports/summary
+Status: [33m200[39m
+✅ Reports V2 Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+=== GATE SUMMARY: PRECOMMIT ===
+┌─────────┬──────────────────────────────────────────────────────┬────────┬──────────┐
+│ (index) │ Command                                              │ Status │ Duration │
+├─────────┼──────────────────────────────────────────────────────┼────────┼──────────┤
+│ 0       │ 'npm run build:client'                               │ 'PASS' │ '7.03s'  │
+│ 1       │ 'node scripts/run_smoke_with_server.js node scri...' │ 'PASS' │ '1.76s'  │
+│ 2       │ 'node scripts/run_smoke_with_server.js node scri...' │ 'PASS' │ '1.91s'  │
+│ 3       │ 'node scripts/run_smoke_with_server.js node scri...' │ 'PASS' │ '1.90s'  │
+└─────────┴──────────────────────────────────────────────────────┴────────┴──────────┘
+
+✅ ALL CHECKS PASSED

@@ -1,0 +1,30 @@
+# DEV SAFE WORKDIR
+
+## Problem
+Running `npm run dev` directly inside OneDrive causes:
+- EPERM errors due to file locking.
+- Slow performance.
+- Database corruption/locks.
+
+## Solution: `npm run dev:safe`
+This command automates the "Copy to C:\Dev" workflow for development.
+
+### How it works
+1. Detects if running in OneDrive.
+2. Robocopy (Mirror) the project to `C:\Dev\InvoiceStudioDevWorkdir`.
+   - Excludes heavy/generated files (`node_modules`, `.git`, `dist`).
+   - Keeps your source code changes in sync (one-way copy).
+3. Runs `npm ci` (Install) in the target dir (only if needed, but script runs it every time right now to be safe, can be optimized).
+4. Runs `npm run dev` in the target dir.
+
+### Usage
+- **Run**: `npm run dev:safe`
+- **Dry Run**: `npm run dev:safe:dry`
+
+### Workflow
+1. Edit code in your OneDrive folder (VS Code).
+2. Stop the running dev server (Ctrl+C).
+3. Run `npm run dev:safe` again to sync changes and restart.
+   - *Future improvement: Watch mode to sync changes automatically? For now, manual restart or use 'concurrently' with a watch script if desired.*
+
+This ensures your heavy Node processing happens on a safe filesystem, while you keep your code in OneDrive for backup/sync.

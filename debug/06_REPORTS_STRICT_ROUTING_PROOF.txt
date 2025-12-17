@@ -1,0 +1,35 @@
+Reports Strict Routing Proof
+============================
+
+1. Strategy Implemented
+-----------------------
+- Split `reports/routes.js` into:
+    - `routesV2.js` (Summary, Top Lists, Export)
+    - `routesLegacy.js` (Suppliers, Monthly, Customers)
+- Updated `reports/index.js` to export `routerV2` and `routerLegacy`.
+- Updated `app.js` to mount:
+    - `routerV2` -> `/api/v2/reports`
+    - `routerLegacy` -> `/api/reports`
+
+2. Validated Endpoints (Strict Separation)
+------------------------------------------
+V2 Prefix Only (/api/v2/reports):
+- /summary
+- /top-suppliers
+- /top-customers
+- /monthly-totals
+- /pdf
+- /pdf-pro
+- /export
+
+Legacy Prefix Only (/api/reports):
+- /suppliers
+- /monthly
+- /customers
+- /pro-pdf
+
+3. Verification
+---------------
+- Smoke Test: PASS (Legacy /api/docs and general RBAC unaffected)
+- Negative Check: Implicitly enforced by router separation. A legacy router mounted on /api/reports literally does not have the V2 routes defined.
+

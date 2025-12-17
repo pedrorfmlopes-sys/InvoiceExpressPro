@@ -1,0 +1,19 @@
+
+> invoice-studio@1.0.0 deploy:dry
+> node scripts/deploy_runner.js --dry
+
+[36m[INFO] DEPLOY RUNNER (Dry: true)[0m
+[36m[INFO] --- 1. Verification Gate ---[0m
+[33m[WARN] (DRY) Would execute: npm run gate:release[0m
+[36m[INFO] --- 2. Database Backup ---[0m
+[33m[WARN] SQLite file not found at C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\db\database.sqlite, skipping backup.[0m
+[36m[INFO] --- 3. Dependencies ---[0m
+[33m[WARN] (DRY) Would execute: npm ci --production[0m
+[33m[WARN] (DRY) Would execute: npm ci --production --prefix client[0m
+[36m[INFO] --- 4. Migrations ---[0m
+[33m[WARN] (DRY) Would execute: npm run db:migrate[0m
+[36m[INFO] --- 5. Restart ---[0m
+[33m[WARN] PM2_APP_NAME not set. Manual restart required.[0m
+[36m[INFO] Hint: npm start OR pm2 restart <id>[0m
+[32m[OK] 
+✅ DEPLOY SEQUENCE COMPLETE[0m

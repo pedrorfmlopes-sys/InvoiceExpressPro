@@ -1,0 +1,36 @@
+Reports Module Isolation Proof
+==============================
+
+1. Checklist
+------------
+[x] Created server/src/modules/reports
+[x] Merged reportsV2 code into modules/reports
+[x] Shimmed reportsV2 to preserve compatibility
+[x] Merged legacy reportsController logic into modules/reports/controller.js
+[x] Consolidated routes into modules/reports/routes.js
+[x] Updated app.js to mount 'reports' module on both legacy and v2 prefixes
+[x] Deleted legacy route/controller files
+[x] Updated controller to use req.project (Context)
+
+2. Endpoints Mapped (Preserved)
+-------------------------------
+Mounted at /api/v2/reports (via app.js mount):
+- GET /summary
+- GET /top-suppliers
+- GET /top-customers
+- GET /monthly-totals
+- POST /pdf
+- POST /pdf-pro
+- GET /export
+
+Mounted at /api/reports (via app.js mount):
+- GET /suppliers
+- GET /monthly
+- GET /customers
+- POST /pro-pdf
+
+(Note: Due to unified routes, V2 endpoints are technically accessible via legacy prefix and vice versa, but all original paths work as expected.)
+
+3. Smoke Test
+-------------
+PASS (v2.7 RBAC)

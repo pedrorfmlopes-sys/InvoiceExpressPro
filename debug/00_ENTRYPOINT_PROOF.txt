@@ -1,0 +1,44 @@
+Entrypoint Analysis Proof
+=========================
+
+1. Package.json Scripts
+-----------------------
+"start": "npm run build:client && node server/server.js"
+"dev": "concurrently \"nodemon server/server.js\" \"npm:dev:client\""
+
+2. Real Entrypoint
+------------------
+The command `npm start` executes `npm run build:client` followed by `node server/server.js`.
+Thus, the initial entrypoint file is:
+server/server.js
+
+3. Execution Flow
+-----------------
+server/server.js
+  -> redirects to ./src/index via `require('./src/index')`
+server/src/index.js
+  -> requires ./app
+  -> starts listening on PORT
+server/src/app.js
+  -> imports express
+  -> mounts middlewares (cors, json, cookie-parser)
+  -> mounts routes
+
+4. Route Mounting Point
+-----------------------
+File: server/src/app.js
+Mounts:
+- /api/auth -> ./routes/authRoutes
+- /api -> requireAuth (middleware)
+- /api -> ./routes/projectRoutes
+- /api -> ./routes/docRoutes
+- /api -> ./routes/extractRoutes
+- /api/v2/reports -> ./modules/reportsV2 (module)
+- /api/v2 -> ./routes/v2Routes
+- ... (others)
+
+5. Port Configuration
+---------------------
+Defined in server/src/index.js:
+const PORT = process.env.PORT || DEFAULTS.PORT;
+(Defaults typically come from ./config/constants.js)

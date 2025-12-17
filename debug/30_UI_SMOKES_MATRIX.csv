@@ -1,0 +1,8 @@
+Page,Status,Error
+Login,FAIL,Sidebar not found (Timeout/Crash)
+Dashboard,BLOCKED,Dependent on Login
+System Health,BLOCKED,Dependent on Login
+Reports V2,BLOCKED,Dependent on Login
+Core V2,BLOCKED,Dependent on Login
+Transactions,BLOCKED,Dependent on Login
+Configuration,BLOCKED,Dependent on Login

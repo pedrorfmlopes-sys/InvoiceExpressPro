@@ -1,0 +1,17 @@
+# UI Crashers Fix & Smoke Stability Note
+
+## Problem Solved
+- **Crash "suppliers is not defined":** Identified missing state declarations in `ChartsAll.jsx` (likely lost in previous refactor or merge). Restored `useState` for `suppliers`, `monthly`, `customers`, `totals` and `useRef`.
+- **Stability:** Added `ErrorBoundary` component and wrapped `AppShell` content area. This ensures that if a tab crashes, the user sees a "Something went wrong" message instead of a white/black screen, and can reload.
+
+## Verification
+- **Build:** `npm run build:client` PASS.
+- **Smoke:** `npm run smoke:ui` PASS.
+  - Login: OK (Admin@smoke.test)
+  - Dashboard: OK (No ReferenceError crash)
+  - Navigation: OK (System Health, Reports, Core, Transactions, Config)
+
+## Status
+- Frontend is now stable enough for deep testing.
+- No backend changes made.
+- No playwright config changes made.

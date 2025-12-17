@@ -16,6 +16,49 @@
         "audit": "Auditoria",
         "config": "Configuração",
         "workspace": "Espaço de Trabalho",
-        "system": "Sistema"
+        "system": "Sistema",
+        "process": "Processar (V2)"
+    },
+    "process": {
+        "title": "Processar Documentos",
+        "dropzone": "Arrasta ficheiros PDF para aqui ou clica para selecionar",
+        "btn_process": "Processar",
+        "uploading": "A enviar...",
+        "processing": "A analisar...",
+        "table": {
+            "type": "Tipo",
+            "doc_no": "Nº Doc",
+            "date": "Data",
+            "due_date": "Vencimento",
+            "supplier": "Fornecedor",
+            "total": "Total",
+            "status": "Estado",
+            "actions": "Ações"
+        },
+        "alerts": {
+            "incomplete": "Campos em falta",
+            "low_conf": "Confiança baixa"
+        },
+        "actions": {
+            "finalize": "Finalizar e Guardar",
+            "delete": "Eliminar",
+            "view": "Ver PDF",
+            "swap": "Trocar",
+            "replace": "Substituir",
+            "cancel": "Cancelar"
+        },
+        "modal": {
+            "drag_title": "Ação de Arrastar",
+            "drag_msg": "Pretendes trocar os valores ou substituir o destino?",
+            "view_title": "Visualizar Documento"
+        }
+    },
+    "doctypes": {
+        "fatura": "Fatura",
+        "recibo": "Recibo",
+        "nota_credito": "Nota de Crédito",
+        "guia_remessa": "Guia de Remessa",
+        "fatura_recibo": "Fatura-Recibo",
+        "other": "Outro"
     }
 }
