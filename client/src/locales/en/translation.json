@@ -1,0 +1,21 @@
+{
+    "config": {
+        "title": "Settings",
+        "regional": "Regional & Interface",
+        "language": "System Language",
+        "apikey": "OpenAI API Key",
+        "logo": "Application Logo",
+        "doctypes": "Document Types",
+        "save": "Save",
+        "clear": "Clear",
+        "upload": "Upload Logo",
+        "reload": "Reload"
+    },
+    "sidebar": {
+        "dashboard": "Dashboard",
+        "audit": "Audit",
+        "config": "Settings",
+        "workspace": "Workspace",
+        "system": "System"
+    }
+}

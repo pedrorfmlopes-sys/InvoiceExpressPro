@@ -1,0 +1,41 @@
+MODULE STABILITY CONTRACT
+=========================
+Effective Date: 2024-12-15
+
+This document defines the stability guarantees for "Closed Modules" within the Invoice Studio backend. Modules listed here are considered core infrastructure and must strictly adhere to the following rules to ensure frontend compatibility and prevent regression.
+
+RULES FOR CLOSED MODULES
+------------------------
+1. ZERO BREAKING CHANGES:
+   - Existing endpoints (Method + Path) must NEVER be altered or removed.
+   - Response shapes (JSON keys, data types) must NEVER be changed.
+   - Additions (new fields, new endpoints) are permitted but must be purely additive.
+
+2. UI-AGNOSTIC LOGIC:
+   - Modules must not contain logic specific to a temporary UI state unless explicitly flagged.
+   - The UI is responsible for adapting to the data provided by the module.
+
+3. CONTEXT RESOLUTION:
+   - Modules must NEVER resolve technical context (e.g., Project, Org) from raw inputs like `req.query` or `req.headers` locally.
+   - All context MUST be derived from the global middleware (`req.ctx` / `req.project`).
+   - "Default" fallbacks are permitted only as a final safety net for background jobs or specific legacy edge cases.
+
+CLOSED MODULES LIST
+-------------------
+The following modules are currently subject to this contract:
+
+1. [coreV2] (server/src/modules/coreV2)
+   - Status: STABLE
+   - Includes: Upload, Extraction, Doc Management.
+
+2. [transactions] (server/src/modules/transactions)
+   - Status: STABLE
+   - Includes: Transaction Line Items, Linking.
+
+3. [docs] (server/src/modules/docs)
+   - Status: STABLE
+   - Includes: Document Pipeline (Update, Delete, Finalize, Pdf View).
+
+4. [reports] (server/src/modules/reports)
+   - Status: STABLE
+   - Includes: V2 Aggregations and Legacy Reports.

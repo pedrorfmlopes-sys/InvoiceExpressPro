@@ -7,21 +7,7 @@ export const setOnAuthFailure = (fn) => {
     onAuthFailure = fn;
 };
 
-const api = axios.create({
-    baseURL: '', // Relative to current origin
-    withCredentials: true // Send cookies
-});
-
-// Request Interceptor: Attach Token
-api.interceptors.request.use(config => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-}, error => Promise.reject(error));
-
-// Refresh Logic
+// -- Token Refresh State --
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -33,14 +19,42 @@ const processQueue = (error, token = null) => {
             prom.resolve(token);
         }
     });
+
     failedQueue = [];
 };
 
-// Response Interceptor: Handle 401 & Refresh
+const api = axios.create({
+    baseURL: '', // Relative to current origin
+    withCredentials: true // Send cookies
+});
+
+// Request Interceptor: Attach Token & Anti-Cache Headers
+api.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Anti-Cache Headers (Crucial for /me and /projects)
+    config.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+    config.headers['Pragma'] = 'no-cache';
+    config.headers['Expires'] = '0';
+
+    return config;
+}, error => Promise.reject(error));
+
+// ... (refresh logic) ...
+
+// Response Interceptor: Handle 401 & Refresh & 304
 api.interceptors.response.use(response => {
     return response;
 }, async error => {
     const originalRequest = error.config;
+
+    // Handle 304 or Empty Data causing crashes
+    // If Axios fails to handle 304 transparently (empty body), we reject with specific code
+    if (error.response && error.response.status === 304) {
+        return Promise.reject({ ...error, code: 'ERR_304_EMPTY' });
+    }
 
     // Guard: If 401 (Unauthorized)
     if (error.response && error.response.status === 401) {
@@ -123,6 +137,18 @@ export const downloadFile = async (url, params = {}) => {
         responseType: 'blob'
     });
     return response.data;
+};
+
+import { isHealthModulesResponse, ContractError } from '../utils/contractGuards';
+
+// ... (existing helper)
+
+export const getHealthModules = async () => {
+    const res = await api.get('/api/health/modules');
+    if (!isHealthModulesResponse(res.data)) {
+        throw new ContractError('/api/health/modules', { keys: Object.keys(res.data) });
+    }
+    return res.data;
 };
 
 export default api;

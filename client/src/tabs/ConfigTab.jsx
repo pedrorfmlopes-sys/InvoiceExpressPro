@@ -2,8 +2,11 @@
 import React from 'react'
 import { qp } from '../shared/ui'
 import api from '../api/apiClient'
+import { LanguageSelector } from '../components/LanguageSelector'
+import { useTranslation } from 'react-i18next'
 
 export default function ConfigTab({ project }) {
+  const { t } = useTranslation();
   const [key, setKey] = React.useState(localStorage.getItem('OPENAI_API_KEY') || '')
   const [logo, setLogo] = React.useState(null)
 
@@ -96,51 +99,69 @@ export default function ConfigTab({ project }) {
   React.useEffect(() => { loadSecrets() }, [project]);
 
   return (
-    <div className="card">
-      <div className="card__title">Configurações</div>
+    <div className="flex flex-col gap-6 fade-in h-full overflow-y-auto pb-8 custom-scrollbar">
 
-      <div className="grid-2">
-        <div>
-          <div className="label">OpenAI API Key</div>
-          <input className="input" placeholder="sk-..." value={key} onChange={e => setKey(e.target.value)} />
-          <div className="row mt-8">
-            <button className="btn primary" onClick={saveKey}>Guardar (Server)</button>
-            <button className="btn" onClick={clearKey}>Limpar</button>
-          </div>
-          <div className="muted mt-8">Guardada em data/config/secrets.json.</div>
+      {/* 1. Regional & Interface */}
+      <div className="glass-panel">
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-xl">🌍</span>
+          <h3 className="font-bold text-lg">{t('config.regional')}</h3>
+        </div>
+        <LanguageSelector />
+      </div>
+
+      {/* 2. System Configs */}
+      <div className="glass-panel">
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-xl">⚙️</span>
+          <h3 className="font-bold text-lg">{t('config.title')}</h3>
         </div>
 
-        <div>
-          <div className="label">Logo da aplicação (PNG)</div>
-          <input
-            type="file"
-            accept="image/png"
-            onChange={e => {
-              const f = e.target.files?.[0]; if (!f) return
-              const r = new FileReader(); r.onload = () => setLogo(r.result); r.readAsDataURL(f)
-            }}
-          />
-          <div className="row mt-8">
-            <button className="btn" disabled={!logo || busy} onClick={uploadLogo}>Guardar logo</button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <div className="label mb-2 font-medium">{t('config.apikey')}</div>
+            <input className="input" placeholder="sk-..." value={key} onChange={e => setKey(e.target.value)} />
+            <div className="flex gap-4 mt-4">
+              <button className="btn primary" onClick={saveKey}>{t('config.save')}</button>
+              <button className="btn" onClick={clearKey}>{t('config.clear')}</button>
+            </div>
+            <div className="text-xs text-[var(--text-muted)] mt-2">Guardada em data/config/secrets.json.</div>
+          </div>
+
+          <div>
+            <div className="label mb-2 font-medium">{t('config.logo')}</div>
+            <input
+              type="file"
+              accept="image/png"
+              className="mb-4 text-sm"
+              onChange={e => {
+                const f = e.target.files?.[0]; if (!f) return
+                const r = new FileReader(); r.onload = () => setLogo(r.result); r.readAsDataURL(f)
+              }}
+            />
+            <div className="row">
+              <button className="btn" disabled={!logo || busy} onClick={uploadLogo}>{t('config.save')}</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="card mt-16">
-        <div className="card__title">Tipos de Documento</div>
-        <div className="muted">Um por linha (ex.: Fatura, Encomenda, Proposta, Recibo, NotaCredito, Documento).</div>
+      {/* 3. Doc Types */}
+      <div className="glass-panel">
+        <div className="card__title mb-4">{t('config.doctypes')}</div>
+        <div className="text-sm text-[var(--text-muted)] mb-4">Um por linha (ex.: Fatura, Encomenda, Proposta, Recibo, NotaCredito, Documento).</div>
         <textarea
-          className="input mt-8"
-          style={{ minHeight: 160, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}
+          className="input w-full p-4 font-mono text-sm bg-[var(--bg-base)]"
+          style={{ minHeight: 160 }}
           value={raw}
           onChange={e => setRaw(e.target.value)}
           placeholder="Fatura&#10;Encomenda&#10;Proposta&#10;Recibo&#10;NotaCredito&#10;Documento"
         />
-        <div className="row mt-12" style={{ gap: 8 }}>
-          <div className="muted">Atuais: <b>{items.length}</b></div>
-          <div style={{ justifySelf: 'end', display: 'flex', gap: 8 }}>
-            <button className="btn" disabled={busy} onClick={loadTypes}>Recarregar</button>
-            <button className="btn primary" disabled={busy} onClick={saveTypes}>Guardar Tipos</button>
+        <div className="flex items-center justify-between mt-4" style={{ gap: 8 }}>
+          <div className="text-xs opacity-50">Atuais: <b>{items.length}</b></div>
+          <div className="flex gap-4">
+            <button className="btn" disabled={busy} onClick={loadTypes}>{t('config.reload')}</button>
+            <button className="btn primary" disabled={busy} onClick={saveTypes}>{t('config.save')}</button>
           </div>
         </div>
       </div>

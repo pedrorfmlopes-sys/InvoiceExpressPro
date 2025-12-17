@@ -1,4 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* client/src/styles.css */
+
 /* Temas, layout, DnD, viewer, ícones com cor, tabelas alinhadas, ações alinhadas */
 
 :root[data-theme="dark"] {

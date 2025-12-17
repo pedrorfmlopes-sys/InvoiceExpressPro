@@ -2,20 +2,28 @@
 import React from 'react'
 import { CollapsibleCard, fmtEUR, qp, saveNodeAsPng } from '../shared/ui'
 import api from '../api/apiClient'
+import { isReportsLegacySuppliersResponse, ContractError } from '../utils/contractGuards';
 
 const ChartsAll = React.forwardRef(function ChartsAll({ project }, ref) {
-  const [suppliers, setSuppliers] = React.useState([])
-  const [monthly, setMonthly] = React.useState([])
-  const [customers, setCustomers] = React.useState([])
-  const [totals, setTotals] = React.useState({ sup: 0, mon: 0, cus: 0, rowsSup: 0, rowsMon: 0, rowsCus: 0 })
-  const refSup = React.useRef(null), refMon = React.useRef(null), refCus = React.useRef(null)
-
+  const [suppliers, setSuppliers] = React.useState([]);
+  const [monthly, setMonthly] = React.useState([]);
+  const [customers, setCustomers] = React.useState([]);
+  const [totals, setTotals] = React.useState({ sup: 0, rowsSup: 0, mon: 0, rowsMon: 0, cus: 0, rowsCus: 0 });
+  const refSup = React.useRef(null);
+  const refMon = React.useRef(null);
+  const refCus = React.useRef(null);
   async function load() {
     const [a, b, c] = await Promise.all([
-      api.get(qp('/api/reports/suppliers', project)).then(r => r.data),
+      api.get(qp('/api/reports/suppliers', project)).then(r => {
+        if (!isReportsLegacySuppliersResponse(r.data)) throw new ContractError('/api/reports/suppliers', { keys: Object.keys(r.data) });
+        return r.data;
+      }),
       api.get(qp('/api/reports/monthly', project)).then(r => r.data),
       api.get(qp('/api/reports/customers', project)).then(r => r.data),
-    ]).catch(() => [[], [], []])
+    ]).catch((e) => {
+      if (e instanceof ContractError) console.error(e);
+      return [[], [], []];
+    })
     const sup = Array.isArray(a) ? a : (a.rows || [])
     const mon = Array.isArray(b) ? b : (b.rows || [])
     const cus = Array.isArray(c) ? c : (c.rows || [])

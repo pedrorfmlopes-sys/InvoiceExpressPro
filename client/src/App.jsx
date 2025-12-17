@@ -1,146 +1,157 @@
-// client/src/App.jsx
+﻿// client/src/App.jsx
 import React, { useEffect, useState } from 'react'
 import './styles.css'
+import './theme.css' // New Theme Tokens
 
-import { THEMES } from './shared/ui'
+import { THEMES } from './shared/ui' // Keeping for reference if used elsewhere, but we might eventually deprecate
 import ProcessTab from './tabs/ProcessTab'
 import ExploreTab from './tabs/ExploreTab'
 import CoreV2Tab from './tabs/CoreV2Tab'
 import NormalizationTab from './tabs/NormalizationTab'
+import DashboardNew from './tabs/DashboardNew' // New Dashboard
 import ReportsTab from './tabs/ReportsTab'
-import ReportsV2Tab from './modules/reportsV2/ReportsV2Tab'
+
 import AuditTab from './tabs/AuditTab'
 import TeacherTab from './tabs/TeacherTab'
 import ConfigTab from './tabs/ConfigTab'
 import TransactionsTab from './tabs/TransactionsTab'
+import SystemHealthTab from './tabs/SystemHealthTab'
 
 import Login from './components/Login'
-import api, { setOnAuthFailure, logout, downloadFile } from './api/apiClient'
+import { AppShell } from './components/layout/AppShell' // New Layout
+import { ErrorBoundary } from './components/ErrorBoundary'
+import api, { setOnAuthFailure, logout } from './api/apiClient'
+import { useTranslation } from 'react-i18next'
 
 export default function App() {
+  const { t } = useTranslation();
   // Feature Flag
   const ENABLE_LEGACY = import.meta.env.VITE_ENABLE_LEGACY === 'true';
 
   // -- State: UI --
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'ocean')
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark') // Default to dark per request "Premium"
+  const [accent, setAccent] = useState(localStorage.getItem('accent') || 'teal')
   const [project, setProject] = useState(localStorage.getItem('project') || 'default')
   const [projects, setProjects] = useState([])
-  const [activeTab, setActiveTab] = useState('corev2');
+  const [activeTab, setActiveTab] = useState('dashboard'); // Default to Dashboard
 
-  // -- State: Auth --
+  // -- State: Auth & Boot --
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'))
-  const [isLoading, setIsLoading] = useState(true);
+  // bootStatus: 'idle' | 'loading' | 'ready' | 'error'
+  const [bootStatus, setBootStatus] = useState('idle');
+  const [bootError, setBootError] = useState(null);
   const [user, setUser] = useState(null);
   const [role, setRole] = useState('user');
 
   // Helper: Reset Auth State
-  const resetAuthState = () => {
+  const resetAuthState = (fullReset = false) => {
     setIsAuthenticated(false);
     setUser(null);
     setRole('user');
-    // Clear token from localStorage/cookies locally
-    localStorage.removeItem('token');
+    // Only clear token if explicit logout or 401 (fullReset)
+    // For network errors/304, we might want to keep it to allow retry
+    if (fullReset) {
+      localStorage.removeItem('token');
+      setBootStatus('idle'); // Back to login
+    }
   };
 
   // -- Effects --
 
   // 1. Auth Init
   useEffect(() => {
-    // Global handler for API 401s (e.g. token expired)
     setOnAuthFailure(() => {
-      resetAuthState();
+      resetAuthState(true);
     });
 
     if (localStorage.getItem('token')) {
       checkAuth();
     } else {
-      setIsLoading(false);
+      setBootStatus('idle'); // Ready for login
     }
   }, []);
 
-  // 2. Tab Guard (Role-based)
+  // 2. Tab Guard
   useEffect(() => {
     if (!isAuthenticated) return;
-    // Redirect if on forbidden tab
     if (role !== 'admin' && activeTab === 'config') {
-      setActiveTab('corev2');
+      setActiveTab('dashboard');
     }
   }, [isAuthenticated, role, activeTab]);
 
-  // 3. Persistence
+  // 3. Persistence (Theme & Accent)
   useEffect(() => {
-    if (!THEMES.includes(theme)) setTheme('ocean');
     document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.accent = accent;
     localStorage.setItem('theme', theme)
-  }, [theme]);
+    localStorage.setItem('accent', accent)
+  }, [theme, accent]);
 
   useEffect(() => { localStorage.setItem('project', project); }, [project]);
 
   // -- Logic --
 
-  async function checkAuth() {
+  async function checkAuth(retryCount = 0) {
+    if (bootStatus !== 'ready') setBootStatus('loading');
+    setBootError(null);
+
     try {
-      // Parallel fetch: Verify Token (via Me) and get Projects
-      const [meRes, pRes] = await Promise.all([
-        api.get('/api/auth/me'),
-        api.get('/api/projects')
-      ]);
+      // 1. Fetch User (Critical)
+      // Retry logic for 304/Empty body
+      let meRes;
+      try {
+        meRes = await api.get('/api/auth/me');
+      } catch (err) {
+        // Retry once on specific errors (like 304 empty or network glitch)
+        if (retryCount < 1) {
+          console.log('[App] /me failed, retrying with cache-buster...', err.message);
+          await new Promise(r => setTimeout(r, 500));
+          return checkAuth(retryCount + 1);
+        }
+        throw err;
+      }
+
+      // Validate User Data (Prevent crash)
+      if (!meRes || !meRes.data || !meRes.data.user) {
+        throw new Error('Invalid user data received (empty body?)');
+      }
 
       setUser(meRes.data.user);
       setRole(meRes.data.role || 'user');
 
-      const list = pRes.data.projects || [];
-      setProjects(list);
-      if (list.length && !list.includes(project)) setProject(list[0]);
+      // 2. Fetch Projects (Non-Critical)
+      try {
+        const pRes = await api.get('/api/projects');
+        const list = pRes.data.projects || [];
+        setProjects(list);
+        if (list.length && !list.includes(project)) setProject(list[0]);
+      } catch (pErr) {
+        console.warn('[App] Failed to load projects (non-fatal):', pErr);
+        setProjects([]);
+      }
 
       setIsAuthenticated(true);
+      setBootStatus('ready');
+
     } catch (err) {
       console.error('[App] Auth Check Failed:', err);
-      resetAuthState();
-    } finally {
-      setIsLoading(false);
+
+      // If it's a 401, we consider it a hard failure -> Login
+      if (err.response && err.response.status === 401) {
+        resetAuthState(true);
+      } else {
+        // Other errors (Network, 304, 500) -> Show Error Screen with Retry
+        setBootError(err.message || 'Failed to connect');
+        setBootStatus('error');
+        // Do NOT clear token yet, user might just need to retry
+      }
     }
   }
 
   const handleLoginSuccess = async () => {
-    setIsAuthenticated(true);
-    await checkAuth();
+    setIsAuthenticated(true); // Optimistic
+    await checkAuth(); // Boot
   };
-
-  const handleDownload = async (e) => {
-    e.preventDefault();
-    try {
-      const data = await downloadFile('/api/export.xlsx', { project });
-      const url = window.URL.createObjectURL(new Blob([data]));
-      const link = document.createElement('a'); link.href = url; link.setAttribute('download', `export_${project}.xlsx`);
-      document.body.appendChild(link); link.click(); link.remove();
-    } catch (err) { alert('Download falhou'); }
-  };
-
-  const createProject = async () => {
-    const name = prompt('Nome do projeto:');
-    if (name) {
-      // Use existing endpoint or keep as is if it worked before
-      await api.post('/api/projects', { name });
-      window.location.reload();
-    }
-  };
-
-  // Tabs Configuration
-  const TABS = [
-    { id: 'dashboard', label: '📊 Dashboard', Component: ReportsTab },
-    { id: 'reports_v2', label: '📈 Reports V2', Component: ReportsV2Tab },
-    { id: 'corev2', label: '📄 Core V2', Component: CoreV2Tab },
-    { id: 'transactions', label: '💼 Transactions', Component: TransactionsTab },
-    { id: 'config', label: '⚙️ Config', Component: ConfigTab },
-    ...(ENABLE_LEGACY ? [
-      { id: 'process', label: 'Process (V1)', Component: ProcessTab },
-      { id: 'teacher', label: 'Teacher', Component: TeacherTab },
-      { id: 'explore', label: 'Explore (Old)', Component: ExploreTab },
-      { id: 'normalization', label: 'Normalization', Component: NormalizationTab },
-      { id: 'audit', label: 'Audit', Component: AuditTab },
-    ] : [])
-  ];
 
   const handleLogout = async () => {
     try {
@@ -148,90 +159,89 @@ export default function App() {
     } catch (e) {
       console.error('Logout failed:', e);
     } finally {
-      resetAuthState();
+      resetAuthState(true);
     }
   };
 
-  if (isLoading) return <div className="p-10 flex justify-center text-slate-400">Loading...</div>;
+  // Tabs Configuration
+  const TABS = [
+    { id: 'dashboard', label: t('sidebar.dashboard'), Component: DashboardNew },
+    { id: 'reports_v2', label: 'Reports V2', Component: ReportsTab },
+    { id: 'corev2', label: 'Core V2', Component: CoreV2Tab },
+    { id: 'transactions', label: 'Transactions', Component: TransactionsTab },
+    { id: 'config', label: t('sidebar.config'), Component: ConfigTab },
+    { id: 'health', label: 'System Health', Component: SystemHealthTab },
+    ...(ENABLE_LEGACY ? [
+      { id: 'process', label: 'Process (V1)', Component: ProcessTab },
+      { id: 'teacher', label: 'Teacher', Component: TeacherTab },
+      { id: 'explore', label: 'Explore (Old)', Component: ExploreTab },
+      { id: 'normalization', label: 'Normalization', Component: NormalizationTab },
+      { id: 'audit', label: t('sidebar.audit'), Component: AuditTab },
+    ] : [])
+  ];
 
-  if (!isAuthenticated) {
+  // -- Render States --
+
+  // 1. Loading
+  if (bootStatus === 'loading') {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[var(--bg-base)] text-[var(--text-muted)] gap-4">
+        <div className="text-2xl animate-pulse">Invoice Studio</div>
+        <div className="text-sm opacity-75">Loading Gravity...</div>
+      </div>
+    );
+  }
+
+  // 2. Error (Retry)
+  if (bootStatus === 'error') {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[var(--bg-base)] text-[var(--text-main)] gap-6">
+        <div className="p-6 rounded-xl border border-red-500/20 bg-red-500/10 max-w-md text-center">
+          <h3 className="text-lg font-bold text-red-400 mb-2">Connection Issue</h3>
+          <p className="text-sm opacity-80 mb-4">{bootError}</p>
+          <div className="flex gap-4 justify-center">
+            <button onClick={() => checkAuth(0)} className="btn primary">Retry</button>
+            <button onClick={() => resetAuthState(true)} className="btn">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Login
+  if (!isAuthenticated && bootStatus !== 'ready') {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
+
+  // 4. Ready (App Shell) -> Proceed to existing render logic
 
   // Filter Tabs based on Role
   let visibleTabs = TABS.filter(t => !t.hidden);
   if (role !== 'admin') {
-    visibleTabs = visibleTabs.filter(t => t.id !== 'config'); // Hide Config/Admin
+    visibleTabs = visibleTabs.filter(t => t.id !== 'config' && t.id !== 'health');
   }
 
-
-  const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div style={{ padding: 20 }}>Not Found</div>);
+  const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div className="p-10">Tab Not Found</div>);
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 relative overflow-hidden font-sans">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold shadow-md">
-            IS
-          </div>
-          <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-700 to-slate-900 tracking-tight">Invoice Studio</h1>
-          <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-medium border border-indigo-100">Pro</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-500 hidden sm:block">
-            {user ? `${user.name} (${role})` : ''}
-          </span>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-slate-500 hover:text-red-500 transition-colors"
-          >
-            Sign Out
-          </button>
-          <a href="https://github.com/pedrorfmlopes/InvoiceStudioGRVTY" target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-600">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-            </svg>
-          </a>
-        </div>
-      </div>
-
-      {/* Main Tabs */}
-      <div className="flex border-b border-slate-200 bg-white px-6 gap-6 pt-2">
-        {visibleTabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`pb-3 px-1 text-sm font-medium transition-all relative ${activeTab === tab.id
-              ? 'text-indigo-600'
-              : 'text-slate-500 hover:text-slate-700'
-              }`}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" />
-            )}
-          </button>
-        ))}
-        <div className="project-selector" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-          <label className="text-sm text-slate-500 mr-2">Project:</label>
-          <select className="input text-sm" value={project} onChange={e => setProject(e.target.value)}>
-            {projects.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <button onClick={createProject} className="ml-2 px-2 py-1 text-xs bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">+</button>
-        </div>
-        <div className="user-controls" style={{ display: 'flex', alignItems: 'center', marginLeft: 10 }}>
-          <select className="input text-sm" style={{ width: 100 }} value={theme} onChange={e => setTheme(e.target.value)}>
-            {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
+    <AppShell
+      tabs={visibleTabs}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      user={user}
+      role={role}
+      onLogout={handleLogout}
+      theme={theme}
+      setTheme={setTheme}
+      accent={accent}
+      setAccent={setAccent}
+      project={project}
+      projects={projects}
+      setProject={setProject}
+    >
+      <ErrorBoundary>
         <CurrentComponent project={project} />
-      </div>
-    </div>
+      </ErrorBoundary>
+    </AppShell>
   );
 }
