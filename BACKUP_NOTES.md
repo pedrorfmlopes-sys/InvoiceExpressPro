@@ -6,14 +6,19 @@
 ## Identificação Git
 *   **Branch:** `backup/pre-extraction-engine`
 *   **Tag:** `snapshot_pre_extraction_engine`
-*   **Commit Hash:** (A preencher após commit)
+*   **Commit Hash:** `aa2fdce9425f8d90453704a56dae00c744ccb758`
 *   **Remote Push:** Não (Local only, por defeito)
 
 ## Pacote ZIP
 *   **Nome:** `PROJECT_SNAPSHOT_PRE_ENGINE.zip`
 *   **Caminho:** Raiz do projeto
-*   **Tamanho:** (A preencher)
-*   **Conteúdo:** Snapshot total do código + Reports V2 + Mapas de Auditoria.
+*   **Tamanho:** ~36.6 MB
+*   **Conteúdo:** Snapshot total do código + Reports V2 + Mapas de Auditoria + Backups Legacy.
+
+## Verification Log (2026-01-22)
+- **Git Tag Check**: CONFIRMED. Tag `snapshot_pre_extraction_engine` points to commit `aa2fdce9425f8d90453704a56dae00c744ccb758` (plus subsequent fix commits).
+- **ZIP Audit**: PASSED. Excluded `client/dist`, `secrets.json`, and heavy folders.
+- **Remote**: Pushed to `origin`.
 
 ## Exclusões do ZIP
 *   `node_modules/`
