@@ -1,0 +1,28 @@
+Docs Module Isolation Proof
+===========================
+
+1. Checklist
+------------
+[x] Created server/src/modules/docs
+[x] Moved DocService to modules/docs/service.js
+[x] Created Shim at server/src/services/DocService.js (Backwards compatibility)
+[x] Moved docController to modules/docs/controller.js
+[x] Consolidated routes into modules/docs/routes.js
+[x] Updated app.js to mount 'docs' module
+[x] Deleted legacy route files (docRoutes.js, docTransactionsRoutes.js)
+[x] Updated controller to use req.project (Context)
+
+2. Endpoints Mapped (Preserved)
+-------------------------------
+Mounted at /api:
+- PATCH /api/doc/:id  (Matched legacy)
+- DELETE /api/doc/:id (Matched legacy)
+- POST /api/doc/finalize (Matched legacy)
+- POST /api/docs/finalize-bulk (Matched legacy)
+- GET /api/doc/view (Matched legacy)
+- GET /api/excel.json (Matched legacy)
+- GET /api/doc/:id/transactions (Matched legacy /api/doc mount + /:id/transactions)
+
+3. Smoke Test
+-------------
+PASS (v2.7 RBAC)

@@ -1,0 +1,50 @@
+
+> invoice-studio@1.0.0 dev:safe
+> node scripts/dev_workdir_runner.js
+
+ [36m[INFO] DEV SAFE LAUNCHER [0m
+ [36m[INFO] Source: C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main [0m
+ [36m[INFO] Target: C:\Dev\InvoiceStudioDevWorkdir [0m
+ [33m[WARN] OneDrive Detected! Using Safe Mode copy strategy. [0m
+ [36m[INFO] --- 1. Preparing Dev Workdir: C:\Dev\InvoiceStudioDevWorkdir --- [0m
+ [36m[INFO] Robocopying source... [0m
+ [32m[OK] Workdir Ready. [0m
+ [36m[INFO] --- 2. Installing Dependencies (With DevDeps) --- [0m
+ [36m[INFO] Executing: npm ci [0m
+
+<... npm ci output ...>
+
+ [36m[INFO] --- 3. Starting Dev Server --- [0m
+ [36m[INFO] 
+🚀 RUNNING IN SAFE WORKDIR: C:\Dev\InvoiceStudioDevWorkdir [0m
+ [36m[INFO] frontend: http://localhost:5173 [0m
+ [32m[OK] backend:  http://localhost:3000
+ [0m
+ [36m[INFO] Executing: npm run dev [0m
+
+> invoice-studio@1.0.0 dev
+> npm exec -- concurrently "npm run dev:server" "npm run dev:client"
+
+[0] > invoice-studio@1.0.0 dev:server
+[0] > npm exec -- nodemon server/server.js
+[0] 
+[1] > invoice-studio@1.0.0 dev:client
+[1] > cd client && npm run dev
+[1] 
+[1] > dev
+[1] > vite --port 5173
+[1] 
+[0] [nodemon] 3.1.11
+[0] [nodemon] to restart at any time, enter `rs`
+[0] [nodemon] watching path(s): *.*
+[0] [nodemon] watching extensions: js,mjs,cjs,json
+[0] [nodemon] starting `node server/server.js`
+[1]   VITE v5.4.21  ready in 586 ms
+[1] 
+[1]   ➜  Local:    http://localhost:5174/
+[1]   ➜  Network: use --host to expose
+[0] [Legacy Wrapper] delegating to src/index.js...
+[0] [DB] Using SQLITE (C:\Dev\data\db.sqlite)
+[0] [Auth] Loaded. AUTH_MODE: optional
+[0] Mounting Health Module...
+[0] [Health] Loading module...

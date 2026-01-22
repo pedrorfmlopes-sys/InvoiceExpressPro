@@ -1,0 +1,16 @@
+Frontend API Audit
+==================
+
+Methodology:
+- Grep for `fetch(`, `axios.get`, `axios.post`, `axios.create` in `client/src`.
+- Review `client/src/api/apiClient.js`.
+
+Findings:
+1. `client/src/api/apiClient.js`: Centralized Axios instance (`api`). Handles Auth, Refresh, Interceptors.
+2. `fetch(` usages: NONE found.
+3. Direct `axios` usages: NONE found outside `apiClient.js`.
+4. `client/src/modules/reportsV2/api.js`: Uses `apiClient` (imported as `api`). Safe.
+
+Conclusion:
+The frontend already strictly follows the `apiClient` pattern. No refactoring required.
+The System Health UI will respect this pattern.

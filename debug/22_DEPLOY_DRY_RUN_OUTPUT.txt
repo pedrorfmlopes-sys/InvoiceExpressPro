@@ -1,0 +1,56 @@
+
+> invoice-studio@1.0.0 deploy:dry
+> node scripts/deploy_runner.js --dry
+
+[INFO] DEPLOY RUNNER (Dry: true)
+[INFO] ---------------------------------------------------
+[WARN] WARNING: OneDrive detected!
+[OK] SAFE MODE: Switching deployment to C:\Dev\InvoiceStudioDeployWorkdir
+[INFO] RUN_DIR:         C:\Dev\InvoiceStudioDeployWorkdir
+[INFO] DB_CLIENT:       sqlite
+[INFO] SQLITE_FILENAME: C:\Dev\InvoiceStudioDeployWorkdir\db\database.sqlite (Found)
+[INFO] PM2_APP_NAME:    (Not Set)
+[INFO] ---------------------------------------------------
+[INFO] --- 0. Preparing Workdir: C:\Dev\InvoiceStudioDeployWorkdir ---
+[WARN] (DRY) Would create dir C:\Dev\InvoiceStudioDeployWorkdir and copy files via Robocopy
+[INFO] --- 3. Dependencies (Build Mode: Full) ---
+[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm ci
+[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm ci --prefix client
+[INFO] --- 2. Database Backup ---
+[WARN] (DRY) Would copy C:\Dev\InvoiceStudioDeployWorkdir\db\database.sqlite to C:\Dev\InvoiceStudioDeployWorkdir\backups\database_2025-12-15T19-04-41-630Z.sqlite
+[INFO] --- 4. Migrations ---
+[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm run db:migrate
+[INFO] --- 1. Verification Gate ---
+[WARN] NOTE: In OneDrive Dry Run, skipping full server smoke tests to avoid file locking instability.
+[INFO] Action: Verifying Client Build only...
+[INFO] Executing [C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main]: npm run build:client
+
+> invoice-studio@1.0.0 build:client
+> cd client && npm run build
+
+
+> build
+> vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 131 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                  0.43 kB │ gzip:   0.29 kB
+dist/assets/index-C4Sm1vd8.css   8.18 kB │ gzip:   2.45 kB
+dist/assets/index-DkdMU1nS.js    739.07 kB │ gzip: 230.81 kB │ map: 2,824.08 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.08s
+[INFO] --- 3.5. Prune Dev Dependencies ---
+[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm prune --production
+[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm prune --production --prefix client
+[INFO] --- 5. Restart ---
+[WARN] PM2_APP_NAME not set. Manual restart required.
+[INFO] Hint: cd "C:\Dev\InvoiceStudioDeployWorkdir" && npm start
+[OK] 
+✅ DEPLOY SEQUENCE COMPLETE

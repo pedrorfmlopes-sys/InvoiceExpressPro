@@ -1,0 +1,19 @@
+# 22_SQLITE_SCHEMA_BEFORE_SMOKES_NOTE
+
+**Issue:**
+On fresh workdir deployments (especially with SQLite), the `gate:release` command was running smoke tests before the database schema existed. This caused `SQLITE_ERROR: no such table: users`.
+
+**Changes in `scripts/deploy_runner.js`:**
+1.  **Orchestration Order:** Confirmed/Enforced order: `Install` -> `Backup` -> `Migrate` -> `Gate` -> `Prune` -> `Restart`.
+    - `Migrate` now happens *before* `Gate`, ensuring tables exist for smokes.
+2.  **Robust `stepMigrate`:**
+    - Checks if the parent directory of `SQLITE_FILENAME` exists.
+    - If not, creates it recursively (`fs.mkdirSync`).
+    - Executes `npm run db:migrate`.
+3.  **Robust `stepBackup`:**
+    - Checks if `SQLITE_FILENAME` exists.
+    - If strictly missing, logs warning and skips (safe for fresh install).
+    - If exists, performs backup *before* the new migration runs.
+
+**Benefit:**
+Guarantees a valid DB schema for smoke tests in `gate:release`, even on a completely clean directory.

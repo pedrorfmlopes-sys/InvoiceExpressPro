@@ -1,0 +1,15 @@
+
+> invoice-studio@1.0.0 smoke:ui
+> cd client && npx playwright test tests/smoke.spec.js
+
+Running 1 test using 1 worker
+
+Starting Smoke Test...
+Logging in as admin@smoke.test...
+Waiting for AppShell anchor...
+Login failed: No AppShell anchor found
+  1 failed
+    tests\smoke.spec.js:81:3 › Frontend Smoke Test › Smoke: Login -> Navigate All Tabs -> Check Errors 
+
+STATUS: FAIL (Timeout on AppShell).
+NOTE: If 401 error is NOT present in logs, Login was successful but App crashed during bootstrap.

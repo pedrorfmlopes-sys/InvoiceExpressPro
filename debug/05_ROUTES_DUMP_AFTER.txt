@@ -1,0 +1,21 @@
+Routes Dump (Reports Phase)
+===========================
+
+/api/v2/reports
+  - GET /summary
+  - GET /top-suppliers
+  - GET /top-customers
+  - GET /monthly-totals
+  - POST /pdf
+  - POST /pdf-pro
+  - GET /export
+  - ... (and legacy routes aliased)
+
+/api/reports
+  - GET /suppliers
+  - GET /monthly
+  - GET /customers
+  - POST /pro-pdf
+  - ... (and v2 routes aliased)
+
+... (Other modules preserved)

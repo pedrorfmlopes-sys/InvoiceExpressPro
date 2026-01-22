@@ -1,5 +1,6 @@
 import { qp, downloadFile } from '../../shared/ui';
 import api from '../../api/apiClient';
+import { isReportsV2SummaryResponse, ContractError } from '../../utils/contractGuards';
 
 // V2 Reports API Client
 // Note: We reuse 'downloadFile' from shared UI for consistency but wrap endpoints here.
@@ -7,9 +8,17 @@ import api from '../../api/apiClient';
 const BASE = '/api/v2/reports';
 
 export const ReportsV2Api = {
+    // --------------------------------------------------------
+    // Summary
+    // --------------------------------------------------------
+
+    // ...
 
     getSummary: async (project) => {
         const res = await api.get(qp(`${BASE}/summary`, project));
+        if (!isReportsV2SummaryResponse(res.data)) {
+            throw new ContractError('/api/v2/reports/summary', { keys: Object.keys(res.data) });
+        }
         return res.data; // { meta, filters, rows }
     },
 

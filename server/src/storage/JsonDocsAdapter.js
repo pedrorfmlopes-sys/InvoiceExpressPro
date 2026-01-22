@@ -61,6 +61,11 @@ class JsonDocsAdapter extends DbAdapter {
         return rows;
     }
 
+    // Alias for Service compatibility
+    async getDocs(projectId, filters) {
+        return this.getDocuments(projectId, filters);
+    }
+
     async getDocumentById(projectId, id) {
         const rows = await this.getDocuments(projectId);
         return rows.find(r => r.id === id);

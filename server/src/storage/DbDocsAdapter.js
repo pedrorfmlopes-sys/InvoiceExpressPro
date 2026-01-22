@@ -166,6 +166,23 @@ class DbDocsAdapter {
             await knex('config_secrets').insert(row);
         }
     }
+
+    // --- Cleanup ---
+    async resetProjectData(project) {
+        // Order matters for FKs if enforced, though SQLite usually permissive unless PRAGMA enabled.
+        // Safer to delete children first.
+        await knex('doc_links').whereIn('doc_id', function () {
+            this.select('id').from('documents').where({ project });
+        }).delete();
+
+        // Also delete links where this project is the grouping? 
+        // Current doc_links schema is (id, doc_id, group_id).
+        // If we delete docs, we delete their links.
+
+        await knex('transactions').where({ project }).delete();
+        await knex('documents').where({ project }).delete();
+        // Optional: Sub-projects/Categories are considered "Config" usually, so we keep them unless "Delete Project".
+    }
 }
 
 module.exports = new DbDocsAdapter();

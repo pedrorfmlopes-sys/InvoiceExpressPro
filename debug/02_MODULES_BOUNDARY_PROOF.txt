@@ -1,0 +1,50 @@
+Modules Boundary Refactor Proof
+===============================
+
+1. Files Touched
+----------------
+[NEW] server/src/modules/coreV2/
+  - routes.js (Moved from server/src/routes/v2Routes.js)
+  - controller.js (Moved from server/src/controllers/v2/coreController.js)
+  - index.js (Exports router)
+
+[NEW] server/src/modules/transactions/
+  - routes.js (Moved from server/src/routes/transactionsRoutes.js)
+  - controller.js (Moved from server/src/controllers/v2/transactionController.js)
+  - index.js (Exports router)
+
+[MODIFIED] server/src/app.js
+  - Imported coreV2 and transactions modules.
+  - Mounted `coreV2.router` at `/api/v2` (Preserved path).
+  - Mounted `transactions.router` at `/api/transactions` (Preserved path).
+
+[MODIFIED] server/src/middlewares/auth.js
+  - Removed cleanup of `req.query.project` (Logic moved to `context.js` previously).
+
+[MODIFIED] server/src/routes/docTransactionsRoutes.js
+  - Switched to using `req.project` (Global Context).
+
+2. Endpoint Mapping
+-------------------
+
+Module: CoreV2 (/api/v2)
+- POST /api/v2/upload -> coreV2/controller.upload
+- POST /api/v2/extract -> coreV2/controller.extract
+- GET /api/v2/docs -> coreV2/controller.listDocs
+- PATCH /api/v2/docs/:id -> coreV2/controller.updateDoc
+- POST /api/v2/docs/finalize -> coreV2/controller.finalizeDoc
+- GET /api/v2/doctypes -> coreV2/controller.listDocTypes
+- POST /api/v2/doctypes -> coreV2/controller.createDocType
+- ... (and others from v2Routes.js)
+
+Module: Transactions (/api/transactions)
+- GET /api/transactions/ -> transactions/routes.js (List)
+- POST /api/transactions/ -> transactions/routes.js (Create)
+- GET /api/transactions/:id -> transactions/routes.js (Get)
+- PATCH /api/transactions/:id -> transactions/routes.js (Update)
+- POST /api/transactions/:id/link -> transactions/routes.js (Link Doc)
+- ... (Full CRUD + Linking)
+
+3. Smoke Test Result
+--------------------
+PASS (v2.7 RBAC Smoke)

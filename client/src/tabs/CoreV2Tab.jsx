@@ -1,401 +1,573 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
-import { fmtEUR, Badge } from '../shared/ui';
+import { useExplorer } from '../hooks/useExplorer';
+import { GlassCard } from '../components/ui/GlassCard';
+import { LinkDocsModal } from '../components/modals/LinkDocsModal';
+import ProjectSelectorModal from '../components/dossiers/ProjectSelectorModal'; // New
 import api from '../api/apiClient';
-import { debounce } from 'lodash'; // Need lodash or custom debounce? 
-// Usually I'd use a custom hook or simple timeout. I'll use simple timeout.
+import { qp } from '../shared/ui';
+import { createPortal } from 'react-dom';
+
+// -- ICONS --
+const IconArchive = () => <span>🗃️</span>;
+const IconUnarchive = () => <span>🔼</span>;
+const IconLink = () => <span>🔗</span>;
+const IconFolder = () => <span>📁</span>; // New
+const IconTrash = () => <span>🗑️</span>;
+const IconEye = () => <span>👁️</span>;
 
 export default function CoreV2Tab({ project }) {
-    // Data State
-    const [rows, setRows] = useState([]);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(50);
-    const [loading, setLoading] = useState(false);
+    const { t } = useTranslation();
+    const {
+        docs, loading, filters, setFilters, updateDoc,
+        subProjects, categories, reload
+    } = useExplorer(project);
 
-    // Filters
-    const [q, setQ] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
-    const [docTypeFilter, setDocTypeFilter] = useState('');
-
-    // Operations State
-    const [uploading, setUploading] = useState(false);
-    const [processing, setProcessing] = useState(false);
-    const [editing, setEditing] = useState(null);
-    const [draft, setDraft] = useState({});
-
-    // Config & Metadata
-    const [docTypes, setDocTypes] = useState([]);
-    const [suggestionsDoc, setSuggestionsDoc] = useState(null);
-    const [suggestions, setSuggestions] = useState([]);
-    const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-
-    // Selection
+    // -- State --
+    const [editingCell, setEditingCell] = useState(null); // { id, field }
     const [selectedIds, setSelectedIds] = useState(new Set());
-    const [bulkDocType, setBulkDocType] = useState('');
+    const [viewPdfUrl, setViewPdfUrl] = useState(null);
+    const [viewLinksDoc, setViewLinksDoc] = useState(null); // Doc to show links for
+    const [docLinksData, setDocLinksData] = useState([]); // Loaded links
 
-    // Transaction Modal
-    const [showTxModal, setShowTxModal] = useState(false);
-    const [txTitle, setTxTitle] = useState('');
+    // Column Visibility & Order
+    // Initial order needs to match COLUMNS_DEF keys roughly
+    const [columnOrder, setColumnOrder] = useState([
+        'archived', 'docType', 'docNumber', 'date', 'supplier', 'total',
+        'sub_project_id', 'category_id', 'scope', 'links'
+    ]);
+    const [visibleCols, setVisibleCols] = useState(new Set(columnOrder));
+    const [colManagerOpen, setColManagerOpen] = useState(false);
+    const [draggedCol, setDraggedCol] = useState(null);
 
-    // Debounced Load
-    const loadDebounced = useCallback((currPage, currQ, currStatus, currType) => {
-        setLoading(true);
-        api.get(`/api/v2/docs`, {
-            params: {
-                project,
-                page: currPage,
-                limit,
-                q: currQ,
-                status: currStatus,
-                docType: currType
-            }
-        })
-            .then(res => {
-                setRows(res.data.rows || []);
-                setTotal(res.data.total || 0);
-            })
-            .catch(e => console.error(e))
-            .finally(() => setLoading(false));
-    }, [project, limit]); // limit changes -> reload?
+    // Link Modal
+    const [linkModalOpen, setLinkModalOpen] = useState(false);
+    const [linkStartDocs, setLinkStartDocs] = useState([]);
 
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            loadDebounced(page, q, statusFilter, docTypeFilter);
-        }, 300);
-        return () => clearTimeout(handler);
-    }, [page, q, statusFilter, docTypeFilter, loadDebounced]);
+    // Project Selector
+    const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
 
-    // Initial Config Load
-    useEffect(() => {
-        api.get(`/api/v2/doctypes?project=${project}`)
-            .then(res => {
-                const rawTypes = res.data;
-                const list = Array.isArray(rawTypes) ? rawTypes :
-                    Array.isArray(rawTypes.types) ? rawTypes.types : [];
-                setDocTypes(list);
-            })
-            .catch(() => { });
+    // -- Drag & Drop Upload --
+    const onDrop = useCallback(async (acceptedFiles) => {
+        if (!acceptedFiles.length) return;
+        const formData = new FormData();
+        acceptedFiles.forEach(f => formData.append('files', f));
+
+        try {
+            await api.post(qp('/api/extract', project), formData);
+            alert(`Uploaded ${acceptedFiles.length} files. Review in Process tab.`);
+        } catch (e) {
+            alert("Upload failed: " + e.message);
+        }
     }, [project]);
 
-    function load() {
-        // Immediate reload
-        loadDebounced(page, q, statusFilter, docTypeFilter);
-    }
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        onDrop,
+        accept: { 'application/pdf': ['.pdf'] },
+        noClick: true // Don't trigger upload on click grid, only drag
+    });
 
-    // Operations (Same as before, simplified)
 
-    // Selection Logic
-    function toggleSelect(id) {
-        const next = new Set(selectedIds);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        setSelectedIds(next);
-    }
-    function toggleSelectAll() {
-        if (selectedIds.size === rows.length) setSelectedIds(new Set());
-        else setSelectedIds(new Set(rows.map(r => r.id)));
-    }
+    // -- Handlers --
+    const handleLinkClick = (docsToLink) => {
+        setLinkStartDocs(docsToLink);
+        setLinkModalOpen(true);
+    };
 
-    async function applyBulkDocType() {
-        if (!bulkDocType) return alert('Select a type first');
-        if (!confirm(`Apply ${bulkDocType} to ${selectedIds.size} docs?`)) return;
+    const handleLinkConfirm = async (ids) => {
         try {
-            const foundOption = docTypes.find(t => (t.id === bulkDocType) || (t === bulkDocType));
-            const labelPt = (typeof foundOption === 'object') ? foundOption.labelPt : bulkDocType;
-            await api.post(`/api/v2/docs/bulk?project=${project}`, {
-                ids: Array.from(selectedIds),
-                patch: {
-                    docTypeId: typeof foundOption === 'object' ? foundOption.id : null,
-                    docTypeLabel: labelPt,
-                    docType: labelPt
-                }
-            });
-            setSelectedIds(new Set()); setBulkDocType(''); load();
-        } catch (e) { alert('Bulk error: ' + e.message); }
-    }
-
-    // Modal Effect
-    useEffect(() => {
-        if (showTxModal && selectedIds.size > 0 && !txTitle) {
-            const selectedDocs = rows.filter(r => selectedIds.has(r.id));
-            if (selectedDocs.length > 0) {
-                const mainDoc = selectedDocs[0];
-                const entity = mainDoc.customer || mainDoc.supplier || 'Transação';
-                const ref = mainDoc.docNumber || mainDoc.date || new Date().toISOString().split('T')[0];
-                setTxTitle(`${entity} - ${ref}`);
-            }
-        }
-    }, [showTxModal, selectedIds]);
-
-    async function createTransactionFromSelection() {
-        if (selectedIds.size === 0) return;
-        const titleToUse = txTitle || `Transação ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
-        try {
-            const res = await api.post(`/api/v2/transactions?project=${project}`, { title: titleToUse });
-            const txId = res.data.transaction.id;
-            const docIds = Array.from(selectedIds);
-            await api.post(`/api/v2/transactions/${txId}/add-docs?project=${project}`, { docIds });
-            alert('Transaction Created!');
-            setShowTxModal(false); setTxTitle(''); setSelectedIds(new Set());
-        } catch (e) { alert('Error: ' + e.message); }
-    }
-
-    // Suggestions / Linking
-    async function showSuggestions(r) {
-        setSuggestionsDoc(r); setSuggestionsLoading(true);
-        try {
-            const res = await api.get(`/api/v2/docs/${r.id}/link-suggestions?project=${project}`);
-            setSuggestions(res.data.candidates || []);
-        } catch (e) { alert('Error suggestions'); } finally { setSuggestionsLoading(false); }
-    }
-    async function linkDocs(targetId) {
-        try {
-            await api.post(`/api/v2/links?project=${project}`, { fromId: suggestionsDoc.id, toId: targetId });
-            alert('Linked'); setSuggestionsDoc(null);
-        } catch (e) { alert('Error: ' + e.message); }
-    }
-
-    // Upload / Extract
-    const onDrop = async (files) => {
-        setUploading(true);
-        try {
-            const fd = new FormData();
-            files.forEach(f => fd.append('files', f));
-            const res = await api.post(`/api/v2/upload?project=${project}`, fd);
-            await extract(res.data.docs.map(d => d.id));
+            await api.post('/api/explorer/links', { docIds: ids });
+            setLinkModalOpen(false);
+            setSelectedIds(new Set());
+            reload();
         } catch (e) {
-            alert('Upload failed: ' + e.message);
-            setUploading(false); load();
+            alert("Link failed");
         }
     };
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'application/pdf': ['.pdf'] } });
 
-    async function extract(ids) {
-        if (!ids.length) { setUploading(false); load(); return; } // catch-all
-        setProcessing(true);
+    const handleUnlink = async (linkDoc) => {
+        if (!confirm("Unlink this document?")) return;
         try {
-            await api.post(`/api/v2/extract?project=${project}`, { docIds: ids });
-        } catch (e) { alert('Extract error: ' + e.message); }
-        finally { setProcessing(false); setUploading(false); load(); }
-    }
+            await api.delete(`/api/explorer/links/${linkDoc.id}?groupId=${linkDoc.group_id}`);
+            setDocLinksData(prev => prev.filter(d => d.id !== linkDoc.id));
+            reload();
+        } catch (e) { alert("Unlink failed"); }
+    };
 
-    // Inline Edit
-    function startEdit(r) { setEditing(r.id); setDraft(r); }
-    function cancelEdit() { setEditing(null); setDraft({}); }
-    async function saveEdit() {
+    const handleBulkArchive = async (archive) => {
+        if (!confirm(`${archive ? 'Archive' : 'Restore'} ${selectedIds.size} docs?`)) return;
         try {
-            await api.patch(`/api/v2/docs/${editing}?project=${project}`, draft);
-            setEditing(null); load();
-        } catch (e) { alert('Save error: ' + e.message); }
-    }
-    async function updateDocType(id, val) {
-        try {
-            const foundOption = docTypes.find(t => (t.id === val) || (t === val));
-            const patch = {};
-            if (typeof foundOption === 'object') {
-                patch.docTypeId = foundOption.id;
-                patch.docTypeLabel = foundOption.labelPt;
-                patch.docType = foundOption.labelPt;
-            } else { patch.docType = val; }
-            await api.patch(`/api/v2/docs/${id}?project=${project}`, patch);
-            load();
-        } catch (e) { alert('Error: ' + e.message); }
-    }
+            const promises = Array.from(selectedIds).map(id => updateDoc(id, { archived: archive }));
+            await Promise.all(promises);
+            setSelectedIds(new Set());
+            reload();
+        } catch (e) { alert("Action failed"); }
+    };
 
-    async function finalize(r) {
-        const hasType = r.docType || r.docTypeLabel || r.docTypeId;
-        const hasNumber = r.docNumber && String(r.docNumber).trim().length > 0;
-        if (!hasType || !hasNumber) return alert('Impossível finalizar. Falta Tipo ou Nº.');
-        if (!confirm('Finalizar e Arquivar documento?')) return;
+    const handleAssignProject = async (node) => {
         try {
-            await api.post(`/api/v2/docs/finalize?project=${project}`, { ...r });
-            load();
-        } catch (e) { alert('Error: ' + (e.response?.data?.error || e.message)); }
-    }
+            // Logic: For each selected doc, we want to PUT to /dossiers/nodes/NODEID/docs
+            // But Phase 3 API `PUT /nodes/:id/docs` replaces *ALL* docs for that node.
+            // If we want to ADD docs to a node, we must:
+            // 1. Get current docs of node.
+            // 2. Add selected docs.
+            // 3. PUT.
+            // Warning: Concurrency issue if multiple users. But acceptable for now.
 
-    async function exportXlsx() {
+            const currentDocs = (await api.get(`/api/dossiers/nodes/${node.id}/docs`)).data;
+            const currentIds = currentDocs.map(d => d.id);
+            const newIds = Array.from(selectedIds);
+
+            // Merge unique
+            const finalIds = [...new Set([...currentIds, ...newIds])];
+
+            await api.put(`/api/dossiers/nodes/${node.id}/docs`, { docIds: finalIds });
+
+            setProjectSelectorOpen(false);
+            setSelectedIds(new Set());
+            alert(`Documentos atribuídos a: ${node.name}`);
+            reload(); // To update view if we show project column
+        } catch (e) {
+            console.error(e);
+            alert("Falha ao atribuir projeto: " + e.message);
+        }
+    };
+
+
+    const handleBulkDelete = async () => {
+        if (!confirm(`Tem a certeza que quer APAGAR ${selectedIds.size} documentos?\nEsta ação é irreversível.`)) return;
         try {
-            const res = await api.post(`/api/v2/export.xlsx?project=${project}`, {}, { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const a = document.createElement('a'); a.href = url; a.download = `core_v2_export.xlsx`;
-            document.body.appendChild(a); a.click(); a.remove();
-        } catch (e) { alert('Export failed'); }
-    }
+            await api.post('/api/explorer/docs/bulk-delete', { docIds: Array.from(selectedIds) });
+            setSelectedIds(new Set());
+            reload();
+        } catch (e) { alert("Erro ao apagar: " + (e.response?.data?.error || e.message)); }
+    };
 
-    // --- UI ---
-    const totalPages = Math.ceil(total / limit);
+    const handleEdit = (id, field) => {
+        setEditingCell({ id, field });
+    };
+
+    const handleSave = async (id, field, value) => {
+        setEditingCell(null);
+        if (value === undefined) return;
+        try {
+            await updateDoc(id, { [field]: value });
+        } catch (e) {
+            alert("Failed to save");
+            reload();
+        }
+    };
+
+    const handleKeyDown = (e, id, field, value) => {
+        if (e.key === 'Enter') handleSave(id, field, value);
+        if (e.key === 'Escape') setEditingCell(null);
+    };
+
+    const handleDragStart = (e, colKey) => {
+        setDraggedCol(colKey);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e, colKey) => {
+        e.preventDefault();
+        if (draggedCol === colKey) return;
+    };
+
+    const handleDrop = (e, targetKey) => {
+        e.preventDefault();
+        if (!draggedCol || draggedCol === targetKey) return;
+
+        const newOrder = [...columnOrder];
+        const oldIdx = newOrder.indexOf(draggedCol);
+        const newIdx = newOrder.indexOf(targetKey);
+
+        if (oldIdx !== -1 && newIdx !== -1) {
+            newOrder.splice(oldIdx, 1);
+            newOrder.splice(newIdx, 0, draggedCol);
+            setColumnOrder(newOrder);
+        }
+        setDraggedCol(null);
+    };
+
+    const viewRowPdf = (row) => {
+        api.get(qp(`/api/doc/view?id=${row.id}`, project), { responseType: 'blob' })
+            .then(res => {
+                const url = URL.createObjectURL(res.data);
+                setViewPdfUrl(url);
+            })
+            .catch(e => alert("Error opening PDF: " + e.message));
+    };
+
+    // ...
+
+
+
+    const deleteRow = async (id) => {
+        if (!confirm("Delete this document?")) return;
+        try {
+            await api.delete(qp(`/api/doc/${id}`, project));
+            reload();
+        } catch (e) { alert(e.message); }
+    };
+
+    // Load links for popover
+    useEffect(() => {
+        if (viewLinksDoc) {
+            api.get(`/api/explorer/links/${viewLinksDoc.id}`)
+                .then(res => setDocLinksData(res.data))
+                .catch(e => console.error(e));
+        }
+    }, [viewLinksDoc]);
+
+
+    // Columns Def 
+    const COLUMNS_DEF = [
+        { key: 'archived', label: 'Status', width: 80, render: (r) => r.archived ? <span className="text-[var(--text-muted)] text-xs font-bold bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">Archived</span> : <span className="text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30 px-2 py-1 rounded text-xs font-bold">Active</span> },
+        {
+            key: 'docType', label: 'Type', width: 120,
+            editable: true, type: 'select', options: ['fatura', 'recibo', 'nota_credito', 'guia_remessa', 'other']
+        },
+        { key: 'docNumber', label: 'Doc #', width: 120, editable: true },
+        { key: 'date', label: 'Date', width: 100, editable: true, type: 'date' },
+        { key: 'supplier', label: 'Entity', width: 200, editable: true },
+        // RIGHT ALIGN TOTAL
+        { key: 'total', label: 'Total', width: 100, editable: true, align: 'right', format: (v) => v ? `${parseFloat(v).toFixed(2)} €` : '-' },
+        {
+            key: 'sub_project_id', label: 'Sub-Project', width: 150,
+            editable: true, type: 'lookup', options: subProjects
+        },
+        {
+            key: 'category_id', label: 'Category', width: 150,
+            editable: true, type: 'lookup', options: categories
+        },
+        {
+            key: 'links', label: 'Links', width: 60, type: 'custom', render: (r) => (
+                r.linkCount > 0 ? (
+                    <button className="badge bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 hover:scale-110 transition-transform cursor-pointer px-2 py-0.5 rounded text-xs font-bold" onClick={(e) => { e.stopPropagation(); setViewLinksDoc(r); }}>
+                        🔗 {r.linkCount}
+                    </button>
+                ) : <span className="opacity-20">-</span>
+            )
+        },
+        { key: 'actions', label: 'Actions', width: 140, type: 'action' }
+    ];
+
+    const activeColumns = columnOrder
+        .filter(key => visibleCols.has(key))
+        .map(key => COLUMNS_DEF.find(c => c.key === key))
+        .filter(Boolean);
+
+    // -- Renderers --
+    const renderCell = (row, col) => {
+        const isEditing = editingCell?.id === row.id && editingCell?.field === col.key;
+        const val = row[col.key];
+
+        if (isEditing) {
+            // ... (Same editing logic)
+            if (col.type === 'select' || col.type === 'lookup') {
+                const opts = col.type === 'lookup' ? col.options : col.options.map(o => ({ id: o, name: o }));
+                return (
+                    <select
+                        autoFocus
+                        defaultValue={val || ''}
+                        onBlur={(e) => handleSave(row.id, col.key, e.target.value)}
+                        className="w-full bg-[var(--bg-base)] border border-[var(--accent-primary)] outline-none rounded p-1 text-xs"
+                    >
+                        <option value="">-</option>
+                        {opts.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </select>
+                )
+            }
+            if (col.type === 'date') {
+                return (
+                    <input
+                        type="date"
+                        autoFocus
+                        defaultValue={val ? val.substring(0, 10) : ''}
+                        onBlur={(e) => handleSave(row.id, col.key, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, row.id, col.key, e.target.value)}
+                        className="w-full bg-[var(--bg-base)] border border-[var(--accent-primary)] outline-none rounded p-1 text-xs"
+                    />
+                )
+            }
+            return (
+                <input
+                    autoFocus
+                    defaultValue={val}
+                    onBlur={(e) => handleSave(row.id, col.key, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, row.id, col.key, e.target.value)}
+                    className="w-full bg-[var(--bg-base)] border border-[var(--accent-primary)] outline-none rounded p-1 text-xs text-right"
+                />
+            )
+        }
+
+        if (col.render) return col.render(row);
+        if (col.type === 'lookup') {
+            const item = col.options.find(o => o.id === val);
+            return <span className="truncate block" title={item?.name}>{item ? item.name : '-'}</span>;
+        }
+
+        const content = col.format ? col.format(val) : (val || '-');
+
+        return (
+            <div
+                onClick={() => col.editable && handleEdit(row.id, col.key)}
+                className={`w-full h-full min-h-[20px] cursor-pointer flex items-center ${col.align === 'right' ? 'justify-end' : ''} ${!val ? 'opacity-20 hover:opacity-100' : ''}`}
+            >
+                {content}
+            </div>
+        );
+    };
 
     return (
-        <div className="v2-container">
-            <div className="card mb-4" {...getRootProps()} style={{ border: '2px dashed var(--border)', textAlign: 'center', padding: 20, cursor: 'pointer', opacity: uploading ? 0.5 : 1 }}>
-                <input {...getInputProps()} />
-                {uploading ? <p>Uploading & Extracting...</p> : <p>{isDragActive ? 'Drop files here' : 'Drag & drop PDFs here to Start (V2 Flow)'}</p>}
-            </div>
+        <div className="flex flex-col gap-4 h-[calc(100vh-100px)] fade-in relative" {...getRootProps()}>
+            {/* Drop Overlay */}
+            {isDragActive && (
+                <div className="absolute inset-0 z-50 bg-[var(--accent-primary)]/10 border-2 border-[var(--accent-primary)] border-dashed rounded-xl flex items-center justify-center pointer-events-none">
+                    <div className="text-xl font-bold bg-[var(--bg-base)] p-4 rounded shadow">Drop PDF to Upload</div>
+                </div>
+            )}
+            <input {...getInputProps()} />
 
-            <div className="card">
-                {/* Filters Header */}
-                <div className="row mb-2" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div className="card__title">Explore Docs</div>
+            {/* Header / Filters */}
+            <GlassCard className="p-4 flex flex-col gap-4 relative z-20">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-xl font-bold">Explorer</h2>
+                        {/* Default Search */}
+                        <input
+                            className="input-sm w-48"
+                            placeholder="Search..."
+                            value={filters.q || ''}
+                            onChange={e => setFilters({ ...filters, q: e.target.value })}
+                        />
+                        {/* Selection Actions */}
+                        {selectedIds.size > 0 && (
+                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-2 bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] px-3 py-1 rounded-full border border-[var(--accent-primary)]/20">
+                                <span className="font-bold">{selectedIds.size} selected</span>
+                                <div className="h-4 w-px bg-current opacity-20 mx-2"></div>
+                                <button className="btn-xs hover:underline flex items-center gap-1" onClick={() => setProjectSelectorOpen(true)}>
+                                    <IconFolder /> Atribuir Projeto
+                                </button>
+                                <button className="btn-xs hover:underline" onClick={() => handleLinkClick(docs.filter(d => selectedIds.has(d.id)))}>Link</button>
+                                <button className="btn-xs hover:underline" onClick={() => handleBulkArchive(true)}>Archive</button>
+                                <button className="btn-xs hover:underline" onClick={() => handleBulkArchive(false)}>Restore</button>
+                                <div className="h-3 w-px bg-current opacity-20 mx-1"></div>
+                                <button className="btn-xs hover:underline text-red-500 font-bold flex items-center gap-1" onClick={handleBulkDelete}>
+                                    <IconTrash /> Apagar
+                                </button>
+                                <button className="btn-xs hover:underline opacity-50 ml-2" onClick={() => setSelectedIds(new Set())}>Cancel</button>
+                            </div>
+                        )}
+                    </div>
 
-                    <input className="input" placeholder="Search (Num, Entity, Ref)..."
-                        value={q} onChange={e => { setQ(e.target.value); setPage(1); }}
-                        style={{ width: 220 }} />
-
-                    <select className="input" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} title="Estado">
-                        <option value="">All Status</option>
-                        <option value="uploaded">Uploaded</option>
-                        <option value="extracted">Extracted</option>
-                        <option value="saved">Saved</option>
-                        <option value="processado">Processado</option>
-                    </select>
-
-                    <select className="input" value={docTypeFilter} onChange={e => { setDocTypeFilter(e.target.value); setPage(1); }} title="Tipo Documental">
-                        <option value="">All Types</option>
-                        {docTypes.map(t => {
-                            const val = typeof t === 'object' ? t.id : t;
-                            const lab = typeof t === 'object' ? t.labelPt : t;
-                            return <option key={val} value={val}>{lab}</option>
-                        })}
-                    </select>
-
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
-                        {processing && <span className="muted mr-2">Processing...</span>}
-                        <button className="btn" onClick={load}>Refresh</button>
-                        <button className="btn primary" onClick={exportXlsx}>Export All</button>
+                    <div className="flex gap-2">
+                        <button className="btn" onClick={reload}>Refresh</button>
+                        <button className="btn primary" onClick={() => setColManagerOpen(!colManagerOpen)}>Columns</button>
+                        {/* Column Manager Popover logic */}
+                        {colManagerOpen && (
+                            <div className="absolute top-full right-0 mt-2 z-50 bg-[var(--card)] border border-[var(--border)] p-4 rounded-xl shadow-xl w-64 grid grid-cols-1 gap-2 animate-in fade-in zoom-in-95 duration-100">
+                                <h4 className="font-bold mb-2 text-xs uppercase tracking-wider opacity-50">Visible Columns</h4>
+                                {COLUMNS_DEF.map(c => (
+                                    <label key={c.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-[var(--bg-base)] p-1 rounded">
+                                        <input
+                                            type="checkbox"
+                                            checked={visibleCols.has(c.key)}
+                                            onChange={e => {
+                                                const newSet = new Set(visibleCols);
+                                                e.target.checked ? newSet.add(c.key) : newSet.delete(c.key);
+                                                setVisibleCols(newSet);
+                                            }}
+                                        />
+                                        {c.label}
+                                    </label>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Bulk Actions Bar */}
-                {selectedIds.size > 0 && (
-                    <div className="row mb-2 p-2 bg-light" style={{ alignItems: 'center', gap: 10 }}>
-                        <span>{selectedIds.size} selected</span>
-                        <select className="input" style={{ width: 180 }} value={bulkDocType} onChange={e => setBulkDocType(e.target.value)}>
-                            <option value="">Apply DocType...</option>
-                            {docTypes.map(t => { const val = typeof t === 'object' ? t.id : t; const lab = typeof t === 'object' ? t.labelPt : t; return <option key={val} value={val}>{lab}</option> })}
-                        </select>
-                        <button className="btn btn--tiny primary" onClick={applyBulkDocType}>Apply</button>
-                        <div style={{ width: 1, height: 20, background: '#ccc', margin: '0 10px' }}></div>
-                        <button className="btn btn--tiny" onClick={() => setShowTxModal(true)}>📂 Create Transaction</button>
-                    </div>
-                )}
+                {/* Advanced Filters Row */}
+                <div className="flex flex-wrap gap-2 items-center text-sm border-t border-[var(--border)] pt-4">
+                    <select
+                        className="input-sm w-32"
+                        value={filters.archived || 'false'}
+                        onChange={e => setFilters({ ...filters, archived: e.target.value })}
+                    >
+                        <option value="false">Active Only</option>
+                        <option value="true">Archived</option>
+                        <option value="all">All Status</option>
+                    </select>
 
-                {/* Table */}
-                <div style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th style={{ width: 30 }}><input type="checkbox" checked={selectedIds.size === rows.length && rows.length > 0} onChange={toggleSelectAll} /></th>
-                                <th>Status</th>
-                                <th>File</th>
-                                <th>Type</th>
-                                <th>Number</th>
-                                <th>Date</th>
-                                <th>Entity</th>
-                                <th>Total</th>
-                                <th>Actions</th>
+                    <input type="text" placeholder="Start Date" onFocus={e => e.target.type = 'date'} onBlur={e => e.target.type = 'text'}
+                        className="input-sm w-32" onChange={e => setFilters({ ...filters, dateStart: e.target.value })} />
+                    <input type="text" placeholder="End Date" onFocus={e => e.target.type = 'date'} onBlur={e => e.target.type = 'text'}
+                        className="input-sm w-32" onChange={e => setFilters({ ...filters, dateEnd: e.target.value })} />
+
+                    <input
+                        className="input-sm w-32"
+                        placeholder="Supplier..."
+                        onChange={e => setFilters({ ...filters, supplier: e.target.value })}
+                    />
+
+                    <select
+                        className="input-sm w-32"
+                        onChange={e => setFilters({ ...filters, docType: e.target.value })}
+                    >
+                        <option value="">Any Type</option>
+                        <option value="fatura">Fatura</option>
+                        <option value="recibo">Recibo</option>
+                        <option value="nota_credito">Nota Credito</option>
+                        <option value="guia_remessa">Guia Remessa</option>
+                    </select>
+
+                    <select
+                        className="input-sm w-32"
+                        onChange={e => setFilters({ ...filters, hasLinks: e.target.value })}
+                    >
+                        <option value="">Any Link Status</option>
+                        <option value="true">Linked</option>
+                        <option value="false">Unlinked</option>
+                    </select>
+
+                    <div className="h-4 w-px bg-[var(--border)] mx-2"></div>
+
+                    <select
+                        className="input-sm w-32 font-bold"
+                        onChange={e => setFilters({ ...filters, sort: e.target.value })}
+                        defaultValue="date"
+                    >
+                        <option value="date">Sort: Date</option>
+                        <option value="total">Sort: Total</option>
+                        <option value="supplier">Sort: Supplier</option>
+                        <option value="docNumber">Sort: Num</option>
+                    </select>
+                </div>
+            </GlassCard>
+
+            {/* Grid */}
+            <div className="flex-1 overflow-auto border border-[var(--border)] rounded-xl bg-[var(--surface)] relative shadow-inner">
+                <table className="w-full text-sm text-left border-collapse table-fixed">
+                    <thead className="sticky top-0 bg-[var(--card)] z-50 shadow-md font-bold text-[var(--text-muted)] border-b border-[var(--border)]">
+                        <tr>
+                            <th className="p-2 w-10 border-r border-[var(--border)] text-center bg-[var(--card)]">
+                                <input
+                                    type="checkbox"
+                                    onChange={(e) => {
+                                        if (e.target.checked) setSelectedIds(new Set(docs.map(d => d.id)));
+                                        else setSelectedIds(new Set());
+                                    }}
+                                    checked={selectedIds.size === docs.length && docs.length > 0}
+                                />
+                            </th>
+                            {activeColumns.filter(c => c.key !== 'actions').map(c => (
+                                <th
+                                    key={c.key}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, c.key)}
+                                    onDragOver={(e) => handleDragOver(e, c.key)}
+                                    onDrop={(e) => handleDrop(e, c.key)}
+                                    className={`p-2 border-r border-[var(--border)] whitespace-nowrap overflow-hidden text-ellipsis bg-[var(--card)] ${c.align === 'right' ? 'text-right' : ''} cursor-grab active:cursor-grabbing hover:bg-[var(--bg-base)] transition-colors`}
+                                    style={{ width: c.width, opacity: draggedCol === c.key ? 0.5 : 1 }}
+                                >
+                                    {c.label}
+                                </th>
+                            ))}
+                            <th className="p-2 w-[140px] sticky right-0 bg-[var(--card)] z-[60] text-center shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] border-l border-[var(--border)]">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                        {docs.map(row => (
+                            <tr key={row.id} className={`group hover:bg-[var(--surface-hover)] transition-colors ${row.archived ? 'opacity-60 bg-gray-50/5' : ''}`}>
+                                <td className="p-2 border-r border-[var(--border)] text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.has(row.id)}
+                                        onChange={() => {
+                                            const s = new Set(selectedIds);
+                                            s.has(row.id) ? s.delete(row.id) : s.add(row.id);
+                                            setSelectedIds(s);
+                                        }}
+                                    />
+                                </td>
+                                {activeColumns.filter(c => c.key !== 'actions').map(c => (
+                                    <td key={c.key} className="p-2 border-r border-[var(--border)] last:border-0 relative overflow-hidden text-ellipsis whitespace-nowrap">
+                                        {renderCell(row, c)}
+                                    </td>
+                                ))}
+                                {/* Sticky Actions Column */}
+                                <td className="p-2 border-l border-[var(--border)] sticky right-0 bg-[var(--surface)] z-20 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] group-hover:bg-[var(--surface-hover)]">
+                                    <div className="flex gap-2 justify-center">
+                                        <button className="btn-icon text-xs text-blue-500 hover:scale-110 transition-transform" onClick={() => viewRowPdf(row)} title="View"><IconEye /></button>
+                                        <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => handleLinkClick([row])} title="Link"><IconLink /></button>
+                                        <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => updateDoc(row.id, { archived: !row.archived })} title={row.archived ? "Restore" : "Archive"}>
+                                            {row.archived ? <IconUnarchive /> : <IconArchive />}
+                                        </button>
+                                        <button className="btn-icon text-xs text-red-500 hover:scale-110 transition-transform" onClick={() => deleteRow(row.id)} title="Delete"><IconTrash /></button>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {rows.length === 0 ? <tr><td colSpan="9" style={{ textAlign: 'center', padding: 20 }}>No items found.</td></tr> : rows.map(r => {
-                                const isEdit = editing === r.id;
-                                const docTypeOpts = docTypes.length ? docTypes : ['Fatura', 'Nota de Crédito', 'Recibo'];
-                                const currentVal = r.docTypeId || r.docType || '';
-
-                                return (
-                                    <tr key={r.id} className={r.needsReview ? 'row-warning' : ''}>
-                                        <td><input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} /></td>
-                                        <td>
-                                            <Badge>{r.status}</Badge>
-                                            {r.extractionMethod === 'ai' && <small className="text-muted ml-1" title="AI Extracted">🤖</small>}
-                                            {r.needsReview && <span className="tag warning ml-1" title="Review">⚠</span>}
-                                        </td>
-                                        <td style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.origName}>{r.origName}</td>
-
-                                        <td>
-                                            {(!isEdit && !r.needsReviewDocType && r.docTypeLabel) ? (
-                                                <span style={{ cursor: 'pointer', borderBottom: '1px dashed #ccc' }} onClick={() => startEdit(r)}>{r.docTypeLabel}</span>
-                                            ) : (
-                                                <select className="input" style={isEdit ? {} : { border: 'none', background: 'transparent', padding: 0 }}
-                                                    disabled={!isEdit && !r.needsReviewDocType}
-                                                    value={isEdit ? (draft.docTypeId || draft.docType || '') : currentVal}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        if (isEdit) {
-                                                            const found = docTypeOpts.find(t => (typeof t === 'object' ? t.id : t) === val);
-                                                            setDraft(d => ({ ...d, docTypeId: val, docType: typeof found === 'object' ? found.labelPt : val }));
-                                                        } else { updateDocType(r.id, val); }
-                                                    }}>
-                                                    <option value="">{r.docTypeLabel || '(Select)'}</option>
-                                                    {docTypeOpts.map(t => {
-                                                        const val = typeof t === 'object' ? t.id : t;
-                                                        const lab = typeof t === 'object' ? t.labelPt : t;
-                                                        return <option key={val} value={val}>{lab}</option>
-                                                    })}
-                                                </select>
-                                            )}
-                                        </td>
-                                        <td>{isEdit ? <input className="input" value={draft.docNumber || ''} onChange={e => setDraft(d => ({ ...d, docNumber: e.target.value }))} style={{ width: 80 }} /> : r.docNumber}</td>
-                                        <td>{isEdit ? <input type="date" className="input" value={draft.date || ''} onChange={e => setDraft(d => ({ ...d, date: e.target.value }))} /> : r.date}</td>
-                                        <td>{isEdit ? <input className="input" value={draft.customer || ''} onChange={e => setDraft(d => ({ ...d, customer: e.target.value }))} /> : (r.customer || r.supplier || '-')}</td>
-                                        <td>{isEdit ? <input className="input" value={draft.total || ''} onChange={e => setDraft(d => ({ ...d, total: e.target.value }))} style={{ width: 60 }} /> : fmtEUR(r.total)}</td>
-                                        <td>
-                                            {isEdit ? (
-                                                <>
-                                                    <button className="btn btn--tiny primary" onClick={saveEdit}>Save</button>
-                                                    <button className="btn btn--tiny" onClick={cancelEdit}>X</button>
-                                                </>
-                                            ) : (
-                                                <div style={{ display: 'flex', gap: 4 }}>
-                                                    <button className="btn btn--tiny" onClick={() => startEdit(r)}>✎</button>
-                                                    <button className="btn btn--tiny" onClick={() => showSuggestions(r)} title="Link">🔗</button>
-                                                    {r.status !== 'processado' && <button className="btn btn--tiny success" onClick={() => finalize(r)}>✓</button>}
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination Controls */}
-                <div className="row mt-4" style={{ alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-                    <button className="btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>&laquo; Prev</button>
-                    <span>Page <strong>{page}</strong> of {totalPages || 1} <small className="muted">({total} items)</small></span>
-                    <button className="btn" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next &raquo;</button>
-                </div>
+                        ))}
+                    </tbody>
+                </table>
+                {loading && <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center backdrop-blur-sm z-50">Loading...</div>}
+                {!loading && docs.length === 0 && (
+                    <div className="p-8 text-center opacity-50">No documents found with the current filters.</div>
+                )}
             </div>
 
-            {/* Modals - Transaction & Suggestions (Keep Logic Same) */}
-            {showTxModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="card" style={{ width: 500, padding: 20, background: 'var(--bg-card)' }}>
-                        <h3>Create Transaction</h3>
-                        <p>{selectedIds.size} docs selected.</p>
-                        <input className="input" style={{ width: '100%' }} placeholder="Title" value={txTitle} onChange={e => setTxTitle(e.target.value)} />
-                        <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                            <button className="btn" onClick={() => setShowTxModal(false)}>Cancel</button>
-                            <button className="btn primary" onClick={createTransactionFromSelection}>Create</button>
+            {linkModalOpen && <LinkDocsModal
+                onClose={() => setLinkModalOpen(false)}
+                initialDocs={linkStartDocs}
+                onLink={handleLinkConfirm}
+            />}
+
+            {/* View Links Popover/Modal */}
+            {viewLinksDoc && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-transparent" onClick={() => setViewLinksDoc(null)}>
+                    <div className="bg-[var(--card)] border border-[var(--border)] shadow-xl p-4 rounded-xl min-w-[300px]" onClick={e => e.stopPropagation()}>
+                        <h4 className="font-bold mb-2">Linked Documents</h4>
+                        <div className="flex flex-col gap-2 max-h-[300px] overflow-auto">
+                            {docLinksData.map(l => (
+                                <div key={l.id} className="flex justify-between items-center p-2 bg-[var(--bg-base)] rounded text-sm group/link">
+                                    <div>
+                                        <div className="font-bold">{l.docNumber}</div>
+                                        <div className="text-xs opacity-70">{l.total} €</div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button className="text-xs hover:underline text-blue-500" onClick={() => viewRowPdf(l)}>View</button>
+                                        <button className="text-xs hover:underline text-red-500 opacity-0 group-hover/link:opacity-100 transition-opacity" onClick={() => handleUnlink(l)} title="Unlink">Unlink</button>
+                                    </div>
+                                </div>
+                            ))}
+                            {docLinksData.length === 0 && <span className="text-xs opacity-50">Loading or empty...</span>}
                         </div>
+                        <button className="btn mt-4 w-full" onClick={() => setViewLinksDoc(null)}>Close</button>
                     </div>
                 </div>
             )}
 
-            {suggestionsDoc && (
-                <div className="modal-overlay">
-                    <div className="modal">
-                        <h3>Link Suggestions {suggestionsDoc.docNumber}</h3>
-                        {suggestionsLoading ? <p>Loading...</p> : (
-                            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                                <table className="table"><thead><tr><th>Doc</th><th>Score</th><th>Action</th></tr></thead>
-                                    <tbody>{suggestions.map(s => <tr key={s.id}><td>{s.docNumber}</td><td>{s.score}</td><td><button onClick={() => linkDocs(s.id)}>Link</button></td></tr>)}</tbody></table>
-                            </div>
-                        )}
-                        <button className="btn" onClick={() => setSuggestionsDoc(null)}>Close</button>
+            {/* PDF Viewer */}
+            {viewPdfUrl && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+                    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col relative">
+                        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-[var(--surface)] rounded-t-xl">
+                            <h3 className="font-bold text-lg flex items-center gap-2"><IconEye /> View Document</h3>
+                            <button onClick={() => setViewPdfUrl(null)} className="btn text-xl p-0 w-8 h-8 flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 rounded-full transition-all">✕</button>
+                        </div>
+                        <iframe src={viewPdfUrl} className="flex-1 w-full bg-gray-100 dark:bg-gray-800 rounded-b-xl" />
                     </div>
-                </div>
+                </div>, document.body
+            )}
+
+            {projectSelectorOpen && (
+                <ProjectSelectorModal
+                    onClose={() => setProjectSelectorOpen(false)}
+                    onSelect={handleAssignProject}
+                />
             )}
         </div>
     );

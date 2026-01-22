@@ -1,0 +1,361 @@
+
+> invoice-studio@1.0.0 deploy:dry
+> node scripts/deploy_runner.js --dry
+
+[36m[INFO] DEPLOY RUNNER (Dry: true)[0m
+[36m[INFO] --- 1. Verification Gate ---[0m
+[36m[INFO] Executing: npm run gate:release[0m
+
+> invoice-studio@1.0.0 gate:release
+> node scripts/run_gate.js release
+
+
+=== GATE RUNNER: RELEASE ===
+Environment: { DB_CLIENT: [32m'sqlite'[39m, AUTH_MODE: [32m'required'[39m, QA_MODE: [32m'true'[39m }
+
+> EXEC (hardened): npm run build:client
+
+> invoice-studio@1.0.0 build:client
+> cd client && npm run build
+
+
+> build
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 131 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+[2mdist/[22m[35massets/index-C4Sm1vd8.css  [39m[1m[2m  8.18 kB[22m[1m[22m[2m │ gzip:   2.45 kB[22m
+[2mdist/[22m[36massets/index-DkdMU1nS.js   [39m[1m[33m739.07 kB[39m[22m[2m │ gzip: 230.81 kB[22m[2m │ map: 2,824.08 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 1.99s[39m
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_v2_7_rbac.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_v2_7_rbac.js
+--- V2.7 RBAC Smoke Test ---
+0. Setting up Users...
+1. Admin Login...
+   [INFO] Admin Role: admin
+   [INFO] ensuring regular user via QA endpoint...
+3. User Login...
+   [INFO] User Role: user
+4. Admin creates DocType (Should Pass)...
+   [PASS] Admin created DocType.
+5. User deletes DocType (Should Fail)...
+   [PASS] User action blocked (403).
+6. User lists Docs (Should Pass)...
+   [PASS] User can list docs.
+
+✅ V2.7 RBAC Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_v2_9_auth_refresh.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_v2_9_auth_refresh.js
+--- V2.9 Auth Refresh & Role Parity Smoke Test ---
+0. Bootstrap/Check Admin...
+   [INFO] System already initialized (expected).
+1. Admin Login...
+   [PASS] Login successful, token and cookie received.
+2. Verify Role (Initial Token)...
+   [INFO] Role: admin
+   [PASS] Initial role is admin.
+3. Refresh Token...
+   [WARN] Token matches initial (might be intended if rotation is off, but usually different)
+   [PASS] Refresh successful.
+4. Verify Role (New Token)...
+   [INFO] Role: admin
+   [PASS] Role persisted after refresh.
+
+✅ V2.9 Auth Refresh Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_v3_0_reports.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_v3_0_reports.js
+--- V3.0 Reports Smoke Test ---
+0. Bootstrap/Login Admin...
+   [PASS] Login OK.
+Checking Suppliers (/reports/suppliers)...
+   [PASS] Suppliers OK. Rows: 1
+   [INFO] Sample: {"Fornecedor":"—","key":"—","name":"—","count":10,"total":300}
+Checking Monthly (/reports/monthly)...
+   [PASS] Monthly OK. Rows: 1
+   [INFO] Sample: {"month":"unknown","key":"unknown","count":10,"total":300}
+Checking Customers (/reports/customers)...
+   [PASS] Customers OK. Rows: 1
+   [INFO] Sample: {"Cliente":"—","key":"—","name":"—","count":10,"total":300}
+4. Check Default Project fallback...
+Checking Suppliers (Default) (/reports/suppliers)...
+   [PASS] Suppliers (Default) OK. Rows: 1
+   [INFO] Sample: {"Fornecedor":"—","key":"—","name":"—","count":10,"total":300}
+
+✅ V3.0 Reports Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_v3_1_reports_v2.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_v3_1_reports_v2.js
+--- V3.1 Reports V2 (Modular) Smoke Test ---
+1. Login Admin...
+   [PASS] Login OK. Token obtained.
+Checking Summary (/v2/reports/summary)...
+   [PASS] Summary OK. Rows: 1
+Checking Top Suppliers (/v2/reports/top-suppliers?topN=5)...
+   [PASS] Top Suppliers OK. Rows: 1
+Checking Top Customers (/v2/reports/top-customers?topN=5)...
+   [PASS] Top Customers OK. Rows: 1
+Checking Monthly (/v2/reports/monthly-totals)...
+   [PASS] Monthly OK. Rows: 1
+Checking Export CSV...
+   [PASS] Export CSV OK (802 chars)
+Checking Export XLSX...
+   [PASS] Export XLSX OK (18771 bytes)
+Checking PDF Basic...
+   [PASS] PDF Generated
+Checking PDF Pro (Stub)...
+   [PASS] PDF Pro returned 501 (Not Configured) as expected
+
+✅ V3.1 Reports V2 Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m1_docs.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m1_docs.js
+--- Smoke M1: Docs ---
+GET http://localhost:3000/api/excel.json
+✅ Docs Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m2_processing.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m2_processing.js
+--- Smoke M2: Processing ---
+GET http://localhost:3000/api/progress/smoke-test-batch-id
+✅ Processing Smoke Passed (404 expected/handled correctly by controller)
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m3_exports.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m3_exports.js
+--- Smoke M3: Exports ---
+POST http://localhost:3000/api/export.xlsx?project=default
+Status: [33m200[39m
+Bytes: [33m18771[39m
+✅ Exports Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m4_normalize.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m4_normalize.js
+--- Smoke M4: Normalize ---
+GET http://localhost:3000/api/normalize?project=default
+Status: [33m200[39m
+✅ Normalize Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m5_audit.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m5_audit.js
+--- Smoke M5: Audit ---
+GET http://localhost:3000/api/audit?project=default
+Status: [33m200[39m
+✅ Audit Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m6_transactions.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m6_transactions.js
+--- Smoke M6: Transactions ---
+GET http://localhost:3000/api/transactions
+Status: [33m200[39m
+✅ Transactions Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m7_coreV2.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m7_coreV2.js
+--- Smoke M7: CoreV2 ---
+GET http://localhost:3000/api/v2/doctypes
+✅ CoreV2 Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m8_reports_legacy.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m8_reports_legacy.js
+--- Smoke M8: Reports Legacy ---
+GET http://localhost:3000/api/reports/suppliers
+Status: [33m200[39m
+✅ Reports Legacy Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_m9_reports_v2.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_m9_reports_v2.js
+--- Smoke M9: Reports V2 ---
+GET http://localhost:3000/api/v2/reports/summary
+Status: [33m200[39m
+✅ Reports V2 Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+> EXEC (hardened): node scripts/run_smoke_with_server.js node scripts/smoke_health.js
+[Runner] Starting server...
+[Runner] Server is ready!
+[Runner] Running test: node scripts/smoke_health.js
+--- Health Module Smoke Test ---
+GET http://localhost:3000/api/health/modules
+Status: [33m200[39m
+Body: {
+  "ok": true,
+  "modules": [
+    {
+      "name": "coreV2",
+      "prefixes": [
+        "/api/v2"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "transactions",
+      "prefixes": [
+        "/api/transactions"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "docs",
+      "prefixes": [
+        "/api"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "reports",
+      "prefixes": [
+        "/api/v2/reports",
+        "/api/reports"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "processing",
+      "prefixes": [
+        "/api"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "exports",
+      "prefixes": [
+        "/api"
+      ],
+      "closed": true,
+      "strictRouting": false
+    },
+    {
+      "name": "normalize",
+      "prefixes": [
+        "/api/normalize"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "audit",
+      "prefixes": [
+        "/api/audit"
+      ],
+      "closed": true,
+      "strictRouting": true
+    },
+    {
+      "name": "health",
+      "prefixes": [
+        "/api/health"
+      ],
+      "closed": true,
+      "strictRouting": true
+    }
+  ],
+  "runtime": {
+    "authMode": "required",
+    "dbClient": "sqlite"
+  }
+}
+✅ Health Smoke Passed!
+[Runner] Test finished with code 0
+[Runner] Stopping server...
+
+=== GATE SUMMARY: RELEASE ===
+┌─────────┬──────────────────────────────────────────────────────┬────────┬──────────┐
+│ (index) │ Command                                              │ Status │ Duration │
+├─────────┼──────────────────────────────────────────────────────┼────────┼──────────┤
+│ 0       │ [32m'npm run build:client'[39m                               │ [32m'PASS'[39m │ [32m'6.70s'[39m  │
+│ 1       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'2.02s'[39m  │
+│ 2       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.93s'[39m  │
+│ 3       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.80s'[39m  │
+│ 4       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'2.00s'[39m  │
+│ 5       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.86s'[39m  │
+│ 6       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.72s'[39m  │
+│ 7       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.86s'[39m  │
+│ 8       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.81s'[39m  │
+│ 9       │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.82s'[39m  │
+│ 10      │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.84s'[39m  │
+│ 11      │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.86s'[39m  │
+│ 12      │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.87s'[39m  │
+│ 13      │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.89s'[39m  │
+│ 14      │ [32m'node scripts/run_smoke_with_server.js node scri...'[39m │ [32m'PASS'[39m │ [32m'1.81s'[39m  │
+└─────────┴──────────────────────────────────────────────────────┴────────┴──────────┘
+
+✅ ALL CHECKS PASSED
+[36m[INFO] --- 2. Database Backup ---[0m
+[33m[WARN] SQLite file not found at C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\db\database.sqlite, skipping backup.[0m
+[36m[INFO] --- 3. Dependencies ---[0m
+[33m[WARN] (DRY) Would execute: npm ci --production[0m
+[33m[WARN] (DRY) Would execute: npm ci --production --prefix client[0m
+[36m[INFO] --- 4. Migrations ---[0m
+[33m[WARN] (DRY) Would execute: npm run db:migrate[0m
+[36m[INFO] --- 5. Restart ---[0m
+[33m[WARN] PM2_APP_NAME not set. Manual restart required.[0m
+[36m[INFO] Hint: npm start OR pm2 restart <id>[0m
+[32m[OK] 
+✅ DEPLOY SEQUENCE COMPLETE[0m

@@ -1,0 +1,34 @@
+Context Resolver Implementation Proof
+=====================================
+
+1. Files Touched
+----------------
+[NEW] server/src/middlewares/context.js
+  - Implements `attachProjectContext` middleware.
+  - Resolves project from `req.query.project` -> Header `x-project` -> 'default'.
+  - Sets `req.ctx.project` and `req.project`.
+
+[MODIFIED] server/src/app.js
+  - Imports and mounts `attachProjectContext` before API routes.
+
+[MODIFIED] server/src/routes/transactionsRoutes.js
+  - Removed local `req.query.project` resolution inside `getContext`.
+  - Uses global `req.project` (set by middleware).
+
+[MODIFIED] server/src/controllers/projectController.js
+  - Replaced `req.query.project` with `req.project`.
+  - Removed local default fallback logic (handled by middleware).
+
+[MODIFIED] server/src/controllers/docController.js
+  - Replaced `req.query.project` with `req.project`.
+
+2. Summary of Changes
+---------------------
+- Centralized project resolution logic in one place (`context.js`).
+- Reduced code duplication in critical controllers.
+- Maintained backward compatibility (supports `?project=` query param).
+- Verified with existing smoke tests.
+
+3. Smoke Test Result
+--------------------
+PASS (v2.7 RBAC Smoke)

@@ -1,0 +1,23 @@
+MICRO-PATCH NOTE: REAL GATE IN DRY RUN
+========================================
+Date: 2025-12-15
+
+Objective:
+Ensure `npm run deploy:dry` actually runs the Verification Gate (`npm run gate:release`) to validate the build and tests, while continuing to only SIMULATE destructive steps (Backup, Install, Migrate, Restart).
+
+Changes:
+- Modified `scripts/deploy_runner.js`:
+  - `runCommand` accepts optional `forceRun` parameter.
+  - `stepGate` calls `runCommand('npm run gate:release', false, true)`.
+
+Verification:
+- `npm run deploy:dry` output confirms:
+  - "Executing: npm run gate:release" (Real execution)
+  - Gate checks passed (Exit Code 0).
+  - Subsequent steps logged as "(DRY) Would execute..." or "(DRY) Would copy...".
+
+Result:
+Deploy Dry Run now provides high confidence by verifying the codebase state actually passes checks before simulating the deployment logistics.
+
+Status:
+PATCHED & VERIFIED.

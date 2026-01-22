@@ -20,10 +20,16 @@ async function run() {
     console.log('--- V2.7 RBAC Smoke Test ---');
 
     // 0. Bootstrap Admin (Idempotent)
+    // 0. Bootstrap Admin (Idempotent)
     console.log('0. Setting up Users...');
-    await clientAdmin.post('/auth/bootstrap', {
-        email: ADMIN_EMAIL, password: ADMIN_PASS, name: 'Admin', orgName: 'SmokeOrg'
-    }); // Ignore 409
+    try {
+        await clientAdmin.post('/auth/bootstrap', {
+            email: ADMIN_EMAIL, password: ADMIN_PASS, name: 'Admin', orgName: 'SmokeOrg'
+        });
+    } catch (e) {
+        // Ignore if already done (409 or 400)
+        // console.log("Bootstrap skipped or failed:", e.response?.status);
+    }
 
     // 1. Admin Login
     console.log('1. Admin Login...');

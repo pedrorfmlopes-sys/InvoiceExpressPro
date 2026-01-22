@@ -1,0 +1,57 @@
+Module Metadata Proof
+=====================
+(Extracted from server/src/modules/*/index.js)
+
+1. CoreV2
+   - Name: coreV2
+   - Prefixes: ['/api/v2']
+   - Closed: true
+   - StrictRouting: true
+
+2. Transactions
+   - Name: transactions
+   - Prefixes: ['/api/transactions']
+   - Closed: true
+   - StrictRouting: false
+
+3. Docs
+   - Name: docs
+   - Prefixes: ['/api']
+   - Closed: true
+   - StrictRouting: false
+
+4. Reports
+   - Name: reports
+   - Prefixes: ['/api/v2/reports', '/api/reports']
+   - Closed: true
+   - StrictRouting: true
+
+5. Processing
+   - Name: processing
+   - Prefixes: ['/api']
+   - Closed: true
+   - StrictRouting: false
+
+6. Exports
+   - Name: exports
+   - Prefixes: ['/api']
+   - Closed: true
+   - StrictRouting: false
+
+7. Normalize
+   - Name: normalize
+   - Prefixes: ['/api/normalize']
+   - Closed: true
+   - StrictRouting: true
+
+8. Audit
+   - Name: audit
+   - Prefixes: ['/api/audit']
+   - Closed: true
+   - StrictRouting: true
+
+9. Health
+   - Name: health
+   - Prefixes: ['/api/health']
+   - Closed: true
+   - StrictRouting: true

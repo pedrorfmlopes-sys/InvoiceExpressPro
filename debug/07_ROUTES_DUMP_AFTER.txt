@@ -1,0 +1,21 @@
+Routes Dump (Legacy Isolation Phase)
+==================================
+
+/api (Shared Prefix)
+  - POST /extract (Processing)
+  - GET /progress/:batchId (Processing)
+  - GET /batch/:batchId (Processing)
+  - POST /export.xlsx (Exports)
+
+/api/normalize
+  - GET / (Normalize)
+  - POST / (Normalize)
+  - DELETE / (Normalize)
+
+/api/audit
+  - GET / (Audit)
+
+/api/health
+  - GET /modules (Health)
+
+... (Plus Reports, CoreV2, Transactions as before)

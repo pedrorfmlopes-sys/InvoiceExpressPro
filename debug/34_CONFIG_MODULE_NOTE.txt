@@ -1,0 +1,24 @@
+# Backend Config Module Implementation
+
+## Summary
+Implemented `/api/config` endpoints to support the frontend ConfigTab.
+Fixed 404 issue caused by undefined `requireAdmin` (fixed by using `requireRole('admin')`) and verified with `smoke_config.js`.
+
+## Files Added
+- `server/src/modules/config/service.js`: Persistence logic (JSON files in `data/<project>/config/`).
+- `server/src/modules/config/controller.js`: Request handling & masking.
+- `server/src/modules/config/routes.js`: Router with `requireAuth` + `requireRole('admin')`.
+- `server/src/modules/config/index.js`: Module definition.
+- `scripts/smoke_config.js`: Verification script.
+
+## Verification
+- **Smoke Test**: `scripts/smoke_config.js` PASSED.
+- **Validations**:
+  - GET /secrets (Default/Masked) -> 200 OK
+  - POST /secrets -> 200 OK
+  - GET /doctypes -> 200 OK (Defaults)
+  - POST /doctypes -> 200 OK (Updates)
+- **Integration**: Added to `gate:release`.
+
+## Debug Logs (Removed)
+Debug logs used to diagnose 404 have been cleaned up from `app.js`, `routes.js`, and `controller.js`.

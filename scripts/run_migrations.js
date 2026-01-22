@@ -1,4 +1,6 @@
+require('dotenv').config();
 const knex = require('../server/src/db/knex');
+
 
 async function run() {
     console.log('Running migrations...');

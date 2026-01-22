@@ -1,0 +1,11 @@
+Contract File Note
+==================
+Created: docs/MODULE_STABILITY_CONTRACT.txt
+
+This file defines the stability guarantees for:
+- coreV2
+- transactions
+- docs
+- reports
+
+It prohibits breaking changes to existing endpoints and strictly enforces project resolution via middleware.

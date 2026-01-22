@@ -26,7 +26,7 @@ exports.deleteProject = (req, res) => {
 
 exports.health = (req, res) => {
     // Mock health check behaving like legacy
-    const project = req.query.project;
+    const project = req.project;
     const ctx = ProjectService.getContext(project);
     // Legacy checks doctypes clean
     res.json({ ok: true, items: ConfigService.getDocTypes(project) });
@@ -36,7 +36,7 @@ exports.listDirs = (req, res) => {
     // Simplified dir listing (mock or real implementation if necessary)
     // Legacy does fs.readdirSync(ctx.dirs.base)
     // We'll skimp on this as it's secondary, or implement if easy.
-    const project = req.query.project;
+    const project = req.project;
     const ctx = ProjectService.getContext(project);
     const fs = require('fs');
     const path = require('path');
@@ -52,7 +52,7 @@ exports.listDirs = (req, res) => {
 
 exports.mkdir = (req, res) => {
     const { dir } = req.body || {};
-    const project = req.query.project;
+    const project = req.project;
     if (!dir) return res.status(400).json({ error: 'dir required' });
     try {
         const fs = require('fs');

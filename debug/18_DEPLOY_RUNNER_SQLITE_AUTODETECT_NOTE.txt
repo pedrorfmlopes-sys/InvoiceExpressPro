@@ -1,0 +1,26 @@
+DEPLOY RUNNER SQLITE AUTO-DETECT NOTE
+=======================================
+Date: 2025-12-15
+
+Objective:
+Make `deploy_runner.js` smarter about finding the SQLite database if `SQLITE_FILENAME` is not explicitly set, reducing configuration errors.
+
+Mechanism:
+1. Check `ENV.SQLITE_FILENAME`.
+2. If missing, and `DB_CLIENT` is sqlite/sqlite3, scan:
+   - `db/database.sqlite` (Primary)
+   - `database.sqlite` (Legacy root)
+   - `db.sqlite` (Alternative)
+   - `data/database.sqlite` (Docker style)
+3. If found, use it and log "(Found)".
+4. If not found, default to `db/database.sqlite` (will warn later if file missing during backup).
+5. Logging: Script now prints full config at startup.
+
+Verification:
+- `npm run deploy:dry` output confirms:
+  - Configuration block printed.
+  - `SQLITE_FILENAME: ...\db\database.sqlite (Not Found)` (or Found, if file exists).
+  - Gate execution proceeds.
+
+Status:
+AUTO-DETECT IMPLEMENTED & VERIFIED.

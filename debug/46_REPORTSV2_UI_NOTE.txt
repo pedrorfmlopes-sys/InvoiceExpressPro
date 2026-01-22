@@ -1,0 +1,23 @@
+# Reports V2 UI Upgrade - Delivery Note
+
+Transformed `ReportsTab.jsx` into a modern Dashboard layout.
+
+## New Structure
+1. **Header Card**: Title, "Refresh", "Export Data", and "AI Report" buttons.
+2. **KPI Row** (4 Cards):
+   - **Total Value**: Real sum from `/api/reports/monthly`.
+   - **Total Docs**: Real count from `/api/v2/docs`.
+   - **Suppliers / Avg**: Placeholders ("—") pending strict API support, as requested.
+3. **Filters & Table**:
+   - **Filters**: Status and DocType. Resets page on change.
+   - **Table**: Shows filtered list of documents with Status badges and Amount.
+   - **Empty State**: Clean message when no results found.
+4. **Detailed Visuals**:
+   - Legacy Charts (`ChartsAll`) are now hidden by default in a collapsible bottom section ("Show Detailed Visuals").
+
+## Verification
+- **Build**: `npm run build:client` ✅ PASS
+- **Smoke**: `npm run smoke:ui` ✅ PASS (Verified navigation and new Test IDs).
+
+## Files Changed
+- `client/src/tabs/ReportsTab.jsx`

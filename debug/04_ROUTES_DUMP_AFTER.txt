@@ -1,0 +1,21 @@
+Routes Dump (Docs Phase)
+========================
+
+/api (Base)
+  - modules/docs HEAD routes:
+    PATCH /doc/:id
+    DELETE /doc/:id
+    POST /doc/finalize
+    POST /docs/finalize-bulk
+    GET /doc/view
+    GET /excel.json
+    GET /doc/:id/transactions
+
+/api/v2 (Core V2)
+  ... (Preserved)
+
+/api/transactions (Transactions)
+  ... (Preserved)
+
+/api/v2/reports
+  ... (Preserved)

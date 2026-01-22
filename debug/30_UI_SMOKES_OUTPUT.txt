@@ -1,0 +1,16 @@
+
+> invoice-studio@1.0.0 smoke:ui
+> cd client && npx playwright test tests/smoke.spec.js
+
+
+Running 1 test using 1 worker
+[chromium] › smoke.spec.js:81:3 › Frontend Smoke Test › Smoke: Login -> Navigate All Tabs -> Check Errors
+Starting Smoke Test...
+Logging in...
+[error] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[log] [App] Auth Check Failed: [AxiosError: Request failed with status code 401]
+Login not visible, checking for AppShell...
+Login failed or Sidebar not found
+Saved failure evidence to c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\debug\ui_smokes\login_failure_2025-12-15T23-45-00.000Z.png
+  1 failed
+    tests\smoke.spec.js:81:3 › Frontend Smoke Test › Smoke: Login -> Navigate All Tabs -> Check Errors 

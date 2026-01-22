@@ -1,0 +1,45 @@
+Grep Results for Project Resolvers
+================================
+
+Query: req\.query\.project|project\s*\|\|\s*'default'|getContext\(
+
+[BEFORE] Initial Count: ~30+ occurrences (see previous scan or file history)
+
+[AFTER] Remaining Occurrences (Post-Refactor):
+Note: 'transactionsRoutes.js', 'projectController.js', and 'docController.js' are now CLEAN of local project resolution.
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\services\DocService.js
+67:     const ctx = ProjectService.getContext(projectId);
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\services\ProjectService.js
+48:     getContext(projectName) {
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\routes\docTransactionsRoutes.js
+9:         const project = req.query.project || 'default';
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\routes\reportsRoutes.js
+13:     res.json({ message: 'Pro PDF Report Generated', project: req.query.project });
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\routes\transactionsRoutes.js
+9: // In Phase 3, req.ctx has orgId. req.query.project handles project.
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\middlewares\context.js
+23:     if (req.query && req.query.project) {
+24:         project = req.query.project;
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\middlewares\auth.js
+70:     if (req.query.project) {
+71:         req.ctx.project = req.query.project;
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\modules\reportsV2\controller.js
+13:         const rows = await service.getSummary(req.query.project);
+... (other hits in reportsV2 remain, out of scope for this task)
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\controllers\projectController.js
+(CLEANED)
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\controllers\docController.js
+(CLEANED)
+
+File: c:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main\server\src\controllers\v2\coreController.js
+... (v2 controllers remain)

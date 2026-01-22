@@ -1,0 +1,34 @@
+===== ANTIGRAVITY MODELS & RECOMMENDATIONS =====
+
+NOTA: Devido a restrições de permissão (gitignore/workspace), não foi possível ler o ficheiro `mcp_config.json` local para confirmar modelos customizados. A lista abaixo reflete a configuração standard do Antigravity nesta versão.
+
+MODELOS DISPONÍVEIS (Standard):
+1. Gemini 2.0 Flash
+2. Gemini 2.0 Pro
+3. Gemini 1.5 Pro (Legacy/Fallback)
+
+===== RECOMENDAÇÕES DE USO =====
+
+A) MAPPING / ARQUITETURA
+   Recomendado: **Gemini 2.0 Pro**
+   - Porquê: Capacidade de raciocínio superior e gestão de contexto longo.
+   - Uso: Ideal para ler múltiplos ficheiros, entender "big picture" e desenhar mapas de sistema (como na Missão 1).
+
+B) REFACTOR PESADO
+   Recomendado: **Gemini 2.0 Pro**
+   - Porquê: Menor taxa de alucinação em lógica complexa e melhor aderência a constraints.
+   - Uso: Mover código entre módulos, alterar assinaturas de funções críticas, refactor de classes.
+
+C) BUGFIX RÁPIDO
+   Recomendado: **Gemini 2.0 Flash**
+   - Porquê: Velocidade extrema (baixa latência) e "smart enough" para correções locais.
+   - Uso: Corrigir typos, validar null checks, pequenos ajustes de lógica isolada.
+
+D) TESTES (Unitários/Integração)
+   Recomendado: **Gemini 2.0 Flash**
+   - Porquê: Excelente em pattern matching e geração de boilerplate repetitivo.
+   - Uso: Criar suites de testes baseados em código existente, gerar mocks.
+
+===== OUTRAS NOTAS =====
+- Para tarefas de "Reasoning" puro (Brainstorming complexo), usar Pro.
+- Para tarefas de "Bulk" (ex: comentar 50 ficheiros), usar Flash.

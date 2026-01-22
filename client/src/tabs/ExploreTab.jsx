@@ -2,6 +2,7 @@
 import React from 'react';
 import { COLS, fmtEUR, fmtParty, qp, mapDocToLegacyRow, IconEdit, IconEye, IconTrash } from '../shared/ui';
 import api from '../api/apiClient';
+import { isDocListResponse, ContractError } from '../utils/contractGuards';
 import Toast from '../components/Toast';
 import DndConfirmModal from '../components/DndConfirmModal';
 import PdfViewerOverlay from '../components/PdfViewerOverlay';
@@ -47,6 +48,9 @@ export default function ExploreTab({ project }) {
       const url = qp(`/api/excel.json`, project);
       const res = await api.get(url);
       const j = res.data;
+      if (!isDocListResponse(j)) {
+        throw new ContractError('/api/excel.json', { keys: Object.keys(j) });
+      }
       if (j.error) console.warn('[ExploreTab] load warning:', j.error);
 
       const all = Array.isArray(j.rows) ? j.rows.map(xlsToUiRow) : [];

@@ -66,10 +66,8 @@ async function attachContext(req, res, next) {
         }
     }
 
-    // Helper to merge query project if exists
-    if (req.query.project) {
-        req.ctx.project = req.query.project;
-    }
+    // Helper to merge query project: REMOVED (Handled by middlewares/context.js)
+    // if (req.query.project) { ... }
 
     next();
 }

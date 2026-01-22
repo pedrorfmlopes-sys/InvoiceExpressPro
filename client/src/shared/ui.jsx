@@ -8,6 +8,7 @@ export const COLS = ['Fornecedor', 'Fatura', 'Data', 'Total', 'Cliente', 'Vencim
 export const TEACHER_FIELDS = ['Fornecedor', 'Fatura', 'Data', 'Total', 'Cliente', 'Vencimento', 'Portes', 'IBAN', 'NIF', 'Morada', 'Outro']
 
 export function Badge({ children }) { return <span className="badge">{children}</span> }
+export function Tooltip({ children, content }) { return <span title={content}>{children}</span> }
 
 export function fmtEUR(v) {
   const n = typeof v === 'number'

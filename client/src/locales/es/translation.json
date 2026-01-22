@@ -1,0 +1,47 @@
+{
+    "config": {
+        "title": "Configuración",
+        "regional": "Regional e Interfaz",
+        "language": "Idioma del Sistema",
+        "apikey": "Clave API OpenAI",
+        "logo": "Logotipo de la Aplicación",
+        "doctypes": "Tipos de Documento",
+        "save": "Guardar",
+        "clear": "Borrar",
+        "upload": "Subir Logo",
+        "reload": "Recargar"
+    },
+    "sidebar": {
+        "dashboard": "Panel",
+        "audit": "Auditoría",
+        "config": "Configuración",
+        "workspace": "Espacio de Trabajo",
+        "system": "Sistema",
+        "process": "Procesar (V2)"
+    },
+    "process": {
+        "title": "Procesar Documentos",
+        "dropzone": "Arrastra archivos PDF aquí o haz clic para seleccionar",
+        "btn_process": "Procesar",
+        "uploading": "Subiendo...",
+        "processing": "Analizando...",
+        "table": {
+            "type": "Tipo",
+            "doc_no": "Nº Doc",
+            "date": "Fecha",
+            "supplier": "Proveedor",
+            "total": "Total",
+            "status": "Estado",
+            "actions": "Acciones"
+        },
+        "alerts": {
+            "incomplete": "Campos faltantes",
+            "low_conf": "Confianza baja"
+        },
+        "actions": {
+            "finalize": "Finalizar y Guardar",
+            "delete": "Eliminar",
+            "view": "Ver PDF"
+        }
+    }
+}

@@ -1,0 +1,22 @@
+
+--- SMOKE: CONFIG MODULE ---
+Got Auth Headers.
+1. GET /api/config/secrets (Default)
+[PASS] Status 200
+[PASS] Response has hasApiKey
+2. POST /api/config/secrets
+[PASS] Status 200
+3. GET /api/config/secrets (Masked)
+[PASS] Status 200
+[PASS] hasApiKey is true
+   Masked Key: sk-...6789
+[PASS] Key is correctly masked
+4. GET /api/config/doctypes (Default)
+[PASS] Status 200
+[PASS] Returns items array
+5. POST /api/config/doctypes
+[PASS] Status 200
+6. GET /api/config/doctypes (Updated)
+[PASS] Status 200
+[PASS] Items updated
+--- SMOKE PASSED ---

@@ -1,0 +1,5 @@
+Page,Status,Error
+Login,PASS (Auth),App Bootstrap Timeout (Black Screen?)
+Dashboard,BLOCKED,Dependent on AppShell
+System Health,BLOCKED,Dependent on AppShell
+...

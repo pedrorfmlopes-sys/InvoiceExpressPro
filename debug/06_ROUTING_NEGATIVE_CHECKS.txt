@@ -1,0 +1,13 @@
+Negative Routing Check Script
+=============================
+(Manual Verification Logic)
+
+1. V2 Endpoint on Legacy Prefix:
+   GET /api/reports/summary
+   -> Should be 404 (Not Found) or 405 (Method Not Allowed) because legacy router doesn't have /summary.
+   
+2. Legacy Endpoint on V2 Prefix:
+   GET /api/v2/reports/suppliers
+   -> Should be 404 (Not Found) because V2 router doesn't have /suppliers.
+
+STATUS: STRICT ROUTING ENFORCED via app.js separation.

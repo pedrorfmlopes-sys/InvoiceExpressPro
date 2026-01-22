@@ -1,0 +1,37 @@
+# UI Theme Upgrade - "Glass Dashboard"
+
+## Changes Implemented
+
+### 1. Design System & Tokens
+- **File**: `client/src/theme.css`
+- **Features**:
+  - **Dark/Light Mode**: Full support with radial gradients for dark mode and soft linear gradients for light.
+  - **Palettes**: 3 "Accent Sets" implemented via CSS variables:
+    - `teal` (Default, Premium)
+    - `blue` (Corporate)
+    - `mono` (Minimalist/Grayscale)
+  - **Glassmorphism**: `.glass-panel` class with `backdrop-filter: blur(12px)` and semi-transparent backgrounds.
+
+### 2. Layout Components
+- `client/src/components/layout/AppShell.jsx`: Main grid layout (Sidebar Fixed + Main Content).
+- `client/src/components/layout/Sidebar.jsx`: Navigation with active state "glow" and pill designs.
+- `client/src/components/layout/Topbar.jsx`: Contains Search, User Profile, Project Selector, Theme Toggle, and Accent Selector.
+
+### 3. UI Components
+- `client/src/components/ui/GlassCard.jsx`: Reusable container with glass effect.
+- `client/src/components/ui/StatCard.jsx`: Metric card with support for accent gradients.
+
+### 4. Integration (App.jsx)
+- Wrapped application in `<AppShell>`.
+- Replaced `ReportsTab` with new `DashboardNew` (`client/src/tabs/DashboardNew.jsx`).
+- **Persistence**: `theme` and `accent` are saved to `localStorage`.
+- **Routes**: No routes were removed. Existing tabs (Transactions, CoreV2, Health) render inside the new shell content area.
+
+## Usage
+- **Switch Theme**: Click the Sun/Moon icon in the Topbar.
+- **Change Palette**: Use the "Teal / Blue / Mono" dropdown in the Topbar.
+- **Dashboard**: The default view is now the Dashboard with Stat Cards and Charts.
+
+## Verification
+- `npm run build:client` passed successfully.
+- Existing logic (Auth, API) preserved.

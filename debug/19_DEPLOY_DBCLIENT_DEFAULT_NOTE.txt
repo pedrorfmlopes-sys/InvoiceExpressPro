@@ -1,0 +1,18 @@
+MICRO-PATCH NOTE: DB_CLIENT DEFAULT
+=======================================
+Date: 2025-12-15
+
+Objective:
+Align default `DB_CLIENT` value in `scripts/deploy_runner.js` to 'sqlite' (previously 'sqlite3') to match project standards and `run_gate.js` configuration.
+
+Changes:
+- Modified `scripts/deploy_runner.js`:
+  - `const DB_CLIENT = ENV.DB_CLIENT || 'sqlite';`
+
+Verification:
+- `npm run deploy:dry` output confirms:
+  - `DB_CLIENT: sqlite` (in Configuration log)
+  - Gate execution and steps successful.
+
+Status:
+PATCHED & VERIFIED.

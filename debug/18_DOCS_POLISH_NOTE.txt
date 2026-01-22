@@ -1,0 +1,22 @@
+DOCS POLISH NOTE
+================
+Date: 2025-12-15
+
+Objective:
+Enhance documentation with concrete examples and robust troubleshooting instructions to reduce deployment friction.
+
+Files Updated:
+1. docs/DEPLOY_CHECKLIST.md
+   - Added table of "Typical Env Vars" (DB_CLIENT, SQLITE_FILENAME, PM2_APP_NAME, etc.).
+   - Refined Release Steps with "Recommended" (Deploy Runner) vs "Manual".
+   - Added "Post-Deploy Verification" (System Health, API Health).
+
+2. docs/OPERATIONS_RUNBOOK.md
+   - Added "Startup Examples" for Local (Powershell) and Production (PM2 Bash).
+   - Added "Quick Troubleshooting":
+     - SQLite path errors.
+     - PM2 configuration.
+     - Auth Mode requirements.
+
+Status:
+DOCS POLISHED & READY FOR HANDOVER.

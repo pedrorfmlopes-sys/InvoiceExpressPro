@@ -1,0 +1,37 @@
+# LOGIN/BOOTSTRAP FIX (Frontend Only)
+
+## Problem Address
+- The app was freezing after login or refresh due to a race condition with 304 (Not Modified) responses where Axios received empty bodies for `/api/auth/me`.
+- Also, `Promise.all` failure in `checkAuth` caused immediate logout/flash.
+
+## Fix Implemented
+
+### 1. Robust Bootstrap in `App.jsx`
+- **Removed `Promise.all`**: Checks user first, then projects.
+- **Fail-Safe Checks**: Validates `meRes.data.user` exists before crashing.
+- **Retry Logic**: If `/me` fails (e.g., 304 or Network), it retries ONCE with a cache-buster logic.
+- **Boot States**:
+  - `loading`: Shows a sleek pulsating loading screen.
+  - `error`: Shows a clear error message with a **Retry** button (instead of logging out).
+  - `ready`: Renders the AppShell.
+
+### 2. Anti-Cache in `apiClient.js`
+- Added Request Interceptors to enforce:
+  ```
+  Cache-Control: no-store, no-cache, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+  ```
+- This prevents modern browsers (and IE/Edge) from aggressively caching API JSON responses, reducing 304 occurrences.
+
+### 3. Graceful Failure for Secondary Data
+- If `/api/projects` fails, it logs a warning but allows the user to proceed (with empty project list).
+
+## Verification
+1. **Build**: `npm run build:client` PASS.
+2. **Manual Test Spec**:
+   - Login -> Should see "Loading Gravity..." then Dashboard.
+   - Refresh -> Should recover session gracefully.
+   - Network Failure -> Should see "Connection Issue" panel with [Retry] button.
+
+No backend changes were required.

@@ -1,0 +1,39 @@
+# Run Scripts & Stability Update
+
+## Changes Implemented
+
+### 1. Unified Stability Scripts (`scripts/`)
+- `scripts/kill_port.js`: Cross-platform script to kill processes on a specific port.
+- `scripts/run_server_with_env.js`: Bootstraps the server with sane defaults (`DB_CLIENT=sqlite`, `AUTH_MODE=required`) to ensure it never crashes due to missing env vars.
+- `scripts/run_dev_all.js`: Runs both Server (port 3000) and Client (port 5173) in parallel.
+
+### 2. Package.json Updates
+Separated PROD vs DEV life-cycles clearly.
+
+| Script | Purpose |
+|O--------|---------|
+| `npm start` | **PROD**: Runs `node server/src/index.js` ONLY. Does not build. |
+| `npm run start:full` | **PROD**: Builds client + Runs server. |
+| `npm run dev` | **DEV**: Runs Server + Client in parallel with env defaults. |
+| `npm run dev:server` | **DEV**: Runs Server only (with env defaults). |
+| `npm run build:client` | **BUILD**: Compiles Vite app to `client/dist`. |
+| `npm run kill:3000` | **UTIL**: Force kills port 3000 (backend). |
+| `npm run kill:5173` | **UTIL**: Force kills port 5173 (frontend). |
+
+### 3. Usage Guide
+
+**To Start Dev (Recommended):**
+```bash
+npm run dev
+```
+
+**To Start Prod (Local):**
+```bash
+npm run build:client
+npm start
+```
+
+**If Port 3000 is stuck:**
+```bash
+npm run kill:3000
+```

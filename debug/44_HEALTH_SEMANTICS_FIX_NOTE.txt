@@ -1,0 +1,24 @@
+# Health Semantics Fix - Delivery Note
+
+Corrected the System Health module logic in `DashboardNew.jsx`.
+
+## Logic Change
+- **Previous**: `closed: true` was interpreted as "Closed/Error" (Red).
+- **New**: `closed: true` is interpreted as "Stable/Closed for Modification" (Green).
+- **New**: `closed: false` is interpreted as "Open/Dev Mode" (Amber).
+
+## UX Improvements
+- **Overall Status**: "OPERATIONAL" (Green) if API responds with `ok: true`. "DEGRADED" (Red) otherwise.
+- **Fail State**: If the API call fails, a "Connection Failed" message is shown with a **Retry Connection** button.
+- **Strict Routing**: Now shown as a neutral/informative badge (e.g., "STRICT MODE" in small text), not as an error.
+
+## Verification
+- **Visual**:
+  - Stable modules (e.g. Auth, Core) -> Green Dot.
+  - Open modules (if any) -> Amber Dot.
+- **Automated**:
+  - `npm run build:client`: PASS
+  - `npm run smoke:ui`: PASS
+
+## Files Changed
+- `client/src/tabs/DashboardNew.jsx` (Frontend only)

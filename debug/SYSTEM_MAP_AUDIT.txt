@@ -1,0 +1,225 @@
+===== SYSTEM MAP AUDIT (MISSION 1) =====
+DATE: 2025-12-15
+STATUS: Audit Complete / No Refactor Applied
+
+===== SECTION A: INVENTORY TREE =====
+
+server/src/
+  ├── config/             # constants.js (paths, defaults)
+  ├── controllers/        # Legacy & Hybrid Controllers (auth, doc, project, etc.)
+  │   └── v2/             # Newer V2 Controllers (core, transaction)
+  ├── db/                 # Knex makeup, migrations, seeds
+  ├── entitlements/       # Entitlements Logic (Service)
+  ├── middlewares/        # auth.js, entitlements.js, attachEntitlements.js
+  ├── modules/            # MODERN MODULES (Domain Driven)
+  │   └── reportsV2/      # Example of target architecture (routes/controller/service/dto)
+  ├── routes/             # Express Routes (mixed legacy/v2)
+  ├── services/           # Business Logic (User, Project, Doc, Transaction)
+  ├── app.js              # Main Express App (Route Mounting)
+  └── index.js            # Entry Point
+
+client/src/
+  ├── api/                # apiClient.js (Axios wrapper + interceptors)
+  ├── tabs/               # Main UI Views (Legacy & Modern mixed)
+  │   ├── TransactionsTab.jsx
+  │   ├── ReportsTab.jsx
+  │   ├── CoreV2Tab.jsx
+  │   └── ... (Audit, Config, Process, etc.)
+  ├── modules/            # MODERN MODULES (Frontend)
+  │   └── reportsV2/      # ReportsV2Tab.jsx, api.js
+  ├── shared/             # Shared UI components (ui.jsx)
+  └── App.jsx             # Main Layout & Routing
+
+scripts/                  # Ops & Maintenance scripts (DB health, dumps)
+migrations/               # (Legacy/Misplaced?) See server/src/db/migrations
+
+Modules Logic:
+- reportsV2: Isolated (Server & Client)
+- coreV2: Partially isolated (Controllers/Routes split)
+- others: Shared/Entangled in root controllers/services
+
+===== SECTION B: ROUTES MAP (BACKEND) =====
+
+/api/auth
+  POST /login          -> authController.login           (Public)
+  POST /refresh        -> authController.refresh         (Public/Token)
+  POST /logout         -> authController.logout          (Public)
+  GET  /me             -> authController.me              (Auth Required)
+
+/api (Legacy & Shared)
+  GET  /projects       -> projectController.listProjects (Public/Implicit Auth)
+  POST /projects       -> projectController.createProject
+  GET  /dirs           -> projectController.listDirs     (Project Context)
+  POST /mkdir          -> projectController.mkdir        (Project Context)
+  GET  /doc/view       -> docController.viewDoc          (Stream PDF)
+  
+/api/v2 (Core V2)
+  POST /upload         -> coreController.upload          (Multipart)
+  POST /extract        -> coreController.extract         (AI)
+  GET  /docs           -> coreController.listDocs
+  POST /transactions   -> transactionController.create
+  GET  /transactions   -> transactionController.list     (Entitlement: 'transactions')
+  
+/api/v2/reports (Module: reportsV2)
+  [Middleware]: requireEntitlement('reports_v2')
+  GET  /summary        -> reportsV2.controller.getSummary
+  GET  /top-suppliers  -> reportsV2.controller.getTopSuppliers
+  POST /pdf            -> reportsV2.controller.generatePdfBasic (Entitlement: 'reports_pdf_basic')
+  GET  /export         -> reportsV2.controller.exportData       (Entitlement: 'reports_export')
+
+/api/config (Admin)
+  GET  /              -> configController.get           (Admin Only?)
+  POST /              -> configController.update        (Admin Only?)
+
+===== SECTION C: CLIENT CALL MAP =====
+
+App.jsx
+  - /api/auth/me (Init)
+  - /api/projects (Init)
+  - /api/export.xlsx (Download Global)
+
+TransactionsTab.jsx
+  - GET  /api/transactions
+  - GET  /api/transactions/:id
+  - POST /api/transactions
+  - POST /api/transactions/:id/apply-suggestions
+  - GET  /api/transactions/:id/download.zip (Blob)
+
+ReportsV2Tab.jsx (via modules/reportsV2/api.js)
+  - GET  /api/v2/reports/summary
+  - GET  /api/v2/reports/top-suppliers
+  - POST /api/v2/reports/pdf  (Download / Blob)
+  - GET  /api/v2/reports/export (Download / Blob)
+
+CoreV2Tab.jsx
+  - POST /api/v2/upload
+  - GET  /api/v2/docs
+  - PATCH /api/v2/docs/:id
+
+ConfigTab.jsx
+  - /api/config (+ Admin checks)
+
+Calls use `apiClient` (axios) almost exclusively.
+Global Interceptors handle 401 -> Refresh -> Logout.
+
+===== SECTION D: CONTEXT VARIABLES =====
+
+1. PROJECT (Pivot: Data Isolation)
+   - Origin: Client sends `?project=Name`. Defaults to 'default' if missing.
+   - Propagation: `req.query.project` -> Controllers -> Services (params).
+   - Consumption: DB Queries (`where project = ?`), File Paths (`projects/Name/...`).
+   - Risk: Fallback to 'default' is hardcoded in multiple controllers.
+
+2. ORG (Pivot: Tenant)
+   - Origin: `req.ctx.org.id` (middleware/auth.js).
+   - Propagation: `req.orgId` (middleware/entitlements.js) -> Services.
+   - Consumption: `transactions` table (`org_id`).
+   - Note: Legacy tables (docs) might not strictly enforce org_id yet (Phase 1 legacy).
+
+3. USER / AUTH (Pivot: Identity)
+   - Origin: JWT Token -> `req.ctx.user`.
+   - Propagation: `req.ctx` available in all Auth routes.
+   - Consumption: Audit logs, Permission checks.
+
+4. MODE (Pivot: Feature Flag)
+   - Var: `AUTH_MODE` ('optional' | 'required').
+   - Effect: Determines if `req.ctx` is mocked (Admin) or real.
+   - Risk: Production running in 'optional' mode skips all security.
+
+===== SECTION E: COUPLINGS & RISKS =====
+
+1. Duplicate "Project" Logic: 
+   - `transactionRoutes` has custom `getContext` middleware.
+   - `projectController` checks `req.query.project` manually.
+   - `docController` checks `req.query.project` manually.
+   - RISK: If we change how project is passed (header vs query), we verify 10+ files.
+
+2. Entitlements Scatter:
+   - Middleware `requireEntitlement` is good, but Plan definitions are buried in `UserService` or mocked in `auth.js`.
+   - Hard to see "What does Plan X get?" without digging.
+
+3. Legacy/V2 Mix:
+   - `app.js` mounts some routes to `/api` and others to `/api/v2`.
+   - Client has "V1" tabs (Process, Explore) enabled via `VITE_ENABLE_LEGACY`.
+   - RISK: Dead code in V1 tabs calling deprecated endpoints.
+
+===== SECTION F: PROPOSTA DE MODULARIZAÇÃO =====
+
+GOAL: Move to Domain-Driven Modules (server/src/modules/...).
+Each module acts as a mini-app.
+
+PROPOSED MODULES:
+
+1. [Auth] (Core)
+   - Resp: Login, Refresh, Context Injection, RBAC.
+   - Deps: None (Foundational).
+
+2. [Space] (projects/orgs)
+   - Resp: Managing Projects, Directories, Configs.
+   - Deps: Auth.
+
+3. [Storage] (files)
+   - Resp: Physical File IO, S3 abstract, Multer management.
+   - Deps: Space (needs to know where to save).
+
+4. [Documents] (Core Domain)
+   - Resp: Doc CRUD, Metadata, DocTypes.
+   - Deps: Storage, Space.
+
+5. [Extraction] (AI)
+   - Resp: OCR, AI Parsing, Normalization.
+   - Deps: Documents (to update status), Storage (to read file).
+
+6. [Transactions] (Finances)
+   - Resp: Transaction CRUD, Linking, Zips.
+   - Deps: Documents (linking), Space.
+
+7. [Reports] (Analytics)
+   - Resp: Aggregations, Exports (PDF/XLSX).
+   - Deps: Transactions, Documents.
+
+BOUNDARY RULES:
+- Routes defined INSIDE module (`modules/auth/routes.js`).
+- `app.js` only aggregates: `app.use('/api/auth', modules.auth.routes)`.
+- No cross-importing `internals`. Use `Service` public API only.
+
+===== SECTION G: PLANO EM FASES (HIGH-LEVEL) =====
+
+Phase 1: Foundation Clean-up
+- Gate: `AUTH_MODE=required` passed in CI.
+- Action: Unify `project` resolution into global middleware (`req.project`).
+- Action: Move `auth` and `config` to modules.
+
+Phase 2: Storage & Docs Extraction
+- Gate: Smoke Tests (Upload -> View).
+- Action: Create `Storage` module (decapsulate `fs` calls).
+- Action: Move `docController` -> `modules/documents`.
+
+Phase 3: Transactions & AI Isolation
+- Gate: Regression Test (Transactions Linkage).
+- Action: Move `transactionController` -> `modules/transactions`.
+- Action: Decouple AI (create `modules/extraction` event-based if possible).
+
+Phase 4: Reporting & Final Polish
+- Gate: Verify PDF Generation.
+- Action: Complete `reportsV2` (already modular, just polish).
+- Action: Kill Legacy V1 routes/tabs.
+
+===== BÓNUS: ASCII FLOW =====
+
+[ Client ] 
+    |  (1. Upload)
+    v
+[ API Gateway (app.js) ] --> [ Auth Module (Ctx) ]
+    |
+    +--(2. Stream)--> [ Storage Module ] --(Save)--> [ Disk/S3 ]
+    |
+    +--(3. Event)--> [ Extraction Module ] --(AI)--> [ LLM Service ]
+    |                                                 |
+    +--(4. Update)------------------------------------+
+    |
+    v
+[ Database (Metadata) ]
+
+
+===== END OF AUDIT =====

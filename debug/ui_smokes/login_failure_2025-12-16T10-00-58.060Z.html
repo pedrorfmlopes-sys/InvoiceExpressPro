@@ -1,0 +1,825 @@
+<!DOCTYPE html><html lang="pt-PT" data-theme="dark" data-accent="teal"><head>
+    <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+    <script type="module" src="/@vite/client"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Studio</title>
+  <style type="text/css" data-vite-dev-id="C:/Users/pedro/OneDrive/APPS/GitHub/InvoiceStudioGRVTY-main/client/src/styles.css">/* client/src/styles.css */
+/* Temas, layout, DnD, viewer, ícones com cor, tabelas alinhadas, ações alinhadas */
+
+:root[data-theme="dark"] {
+  --bg: #0b1220;
+  --card: #121a2b;
+  --muted: #9fb0c0;
+  --text: #e7eff7;
+  --accent: #0ea5e9;
+  --accent2: #38bdf8;
+  --border: #1f2a44;
+  --ok: #22c55e;
+  --err: #ef4444;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --muted: #4a5a6a;
+  --text: #0f172a;
+  --accent: #0ea5e9;
+  --accent2: #38bdf8;
+  --border: #dbe3ee;
+  --ok: #16a34a;
+  --err: #dc2626;
+}
+
+:root[data-theme="ocean"] {
+  --bg: #031d28;
+  --card: #062634;
+  --muted: #90c2d8;
+  --text: #e2f7ff;
+  --accent: #2dd4bf;
+  --accent2: #22d3ee;
+  --border: #0b3a4b;
+  --ok: #34d399;
+  --err: #fb7185;
+}
+
+:root[data-theme="solarized"] {
+  --bg: #002b36;
+  --card: #073642;
+  --muted: #93a1a1;
+  --text: #eee8d5;
+  --accent: #b58900;
+  --accent2: #268bd2;
+  --border: #0a3b46;
+  --ok: #859900;
+  --err: #dc322f;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box
+}
+
+html,
+body,
+#root {
+  height: 100%
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 22px
+}
+
+.header__right {
+  display: flex;
+  gap: 8px
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px
+}
+
+.tab {
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--card) 80%, black 20%);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer
+}
+
+.tab.active {
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  border: none;
+  color: #05131d
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .15)
+}
+
+.card__title {
+  font-weight: 600;
+  margin-bottom: 10px
+}
+
+.card__footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  justify-content: flex-end
+}
+
+.badge {
+  background: color-mix(in oklab, var(--card) 70%, black 30%);
+  color: color-mix(in oklab, var(--text) 75%, white 25%);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 6px
+}
+
+.badge--warn {
+  background: #3d2a00;
+  border-color: #6f4f00;
+  color: #ffdca8
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px
+}
+
+@media (max-width: 960px) {
+
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr
+  }
+
+  .row {
+    grid-template-columns: 1fr
+  }
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--card) 75%, black 25%);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  outline: none
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent)
+}
+
+.input--tight {
+  padding: 6px 8px
+}
+
+.input--warn {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, .15);
+}
+
+.btn {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--card) 80%, black 20%);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer
+}
+
+.btn:hover {
+  border-color: color-mix(in oklab, var(--border) 50%, var(--accent) 50%)
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  border: none;
+  color: #05131d
+}
+
+.btn:disabled {
+  opacity: .6;
+  cursor: not-allowed
+}
+
+.btn.btn--tiny {
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 6px;
+  height: 22px;
+}
+
+.btn.btn--icon {
+  padding: 6px 8px;
+}
+
+/* dropzone + DnD */
+.dropzone {
+  border: 2px dashed color-mix(in oklab, var(--accent) 40%, var(--border) 60%);
+  background: color-mix(in oklab, var(--card) 85%, black 15%);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: .2s
+}
+
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--card) 70%, var(--accent) 10%)
+}
+
+.dropzone__title {
+  font-weight: 600
+}
+
+.muted {
+  color: var(--muted)
+}
+
+.mt-8 {
+  margin-top: 8px
+}
+
+.mt-12 {
+  margin-top: 12px
+}
+
+.mt-16 {
+  margin-top: 16px
+}
+
+.overflow {
+  overflow: auto
+}
+
+/* tabela */
+.table {
+  width: 100%;
+  border-collapse: collapse
+}
+
+.table th,
+.table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle
+}
+
+.table thead th {
+  background: color-mix(in oklab, var(--card) 75%, black 25%);
+  color: var(--text);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1
+}
+
+.table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ações alinhadas */
+.row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center
+}
+
+.row-actions .btn {
+  height: 26px;
+  padding: 4px 6px
+}
+
+/* ícones coloridos */
+.icon--excel {
+  color: #217346;
+}
+
+/* verde Excel */
+.icon--pdf {
+  color: #E53935;
+}
+
+/* vermelho PDF */
+
+/* viewer */
+.viewer__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50
+}
+
+.viewer__card {
+  width: 80vw;
+  height: 80vh;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column
+}
+
+.viewer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-bottom: 1px solid var(--border)
+}
+
+.viewer__body {
+  flex: 1;
+  overflow: auto;
+  background: #fff;
+  display: flex;
+  justify-content: center
+}
+
+.viewer__frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff
+}
+
+.viewer__scaler {
+  width: 100%;
+  height: 100%;
+  transform-origin: top center;
+  display: flex;
+  justify-content: center
+}
+
+.viewer__center {
+  display: flex;
+  align-items: center;
+  gap: 8px
+}
+
+.viewer__zoom {
+  font-variant-numeric: tabular-nums;
+  width: 3rem;
+  text-align: center
+}
+
+/* progress */
+.progress {
+  margin: 8px 0
+}
+
+.progress__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px
+}
+
+.progress__label {
+  font-size: 12px;
+  color: var(--muted)
+}
+
+.progress__val {
+  font-size: 12px
+}
+
+.progress__bar {
+  height: 8px;
+  background: color-mix(in oklab, var(--card) 70%, black 30%);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden
+}
+
+.progress__bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width .2s
+}
+
+/* Spinner */
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: text-bottom;
+  display: inline-block
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg)
+  }
+
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 100;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1
+  }
+}
+
+/* ================== CHART STYLES (NEW) ================== */
+
+/* Horizontal Chart (Rankings) */
+.chart--h {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 100px;
+  /* Label | Bar | Value */
+  gap: 16px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.bar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.bar-track {
+  width: 100%;
+  height: 8px;
+  background: color-mix(in oklab, var(--card) 40%, black 10%);
+  border-radius: 99px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 99px;
+  min-width: 6px;
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.bar-value {
+  text-align: right;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Responsividade para gráfico horizontal */
+@media (max-width: 600px) {
+  .bar-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .bar-label {
+    text-align: left
+  }
+
+  .bar-value {
+    text-align: right
+  }
+}
+
+
+/* Vertical Chart (Monthly) */
+.chart--v {
+  height: 250px;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 24px 12px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.bar-col {
+  flex: 1;
+  min-width: 32px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+  cursor: default;
+}
+
+.bar-fill-v {
+  width: 24px;
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  border-radius: 6px 6px 0 0;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  opacity: 0.85;
+}
+
+.bar-col:hover .bar-fill-v {
+  opacity: 1;
+  transform: scale(1.05);
+  width: 28px;
+  z-index: 2;
+  box-shadow: 0 0 15px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+/* Tooltips e Label no Eixo X */
+.bar-col::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) rotate(-45deg);
+  transform-origin: top left;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.bar-col:hover::before {
+  content: attr(data-label) " : " attr(data-value);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: color-mix(in oklab, var(--card) 90%, white 10%);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 10;
+  font-weight: 600;
+  pointer-events: none;
+  animation: slideUp 0.15s ease-out;
+}</style><style type="text/css" data-vite-dev-id="C:/Users/pedro/OneDrive/APPS/GitHub/InvoiceStudioGRVTY-main/client/src/theme.css">/* client/src/theme.css */
+
+/* --- CORE TOKENS --- */
+:root {
+  --sidebar-w: 260px;
+  --topbar-h: 64px;
+  
+  /* Defaults */
+  --ring: 0 0 0 2px rgba(var(--accent-rgb), 0.3);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  
+  /* Transitions */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* --- THEME MODES (Backgrounds & Bases) --- */
+
+/* DARK MODE */
+:root[data-theme="dark"] {
+  --bg-base: #0B1221;
+  --bg-gradient: radial-gradient(circle at 15% 50%, #111a2f 0%, #070b10 100%);
+  
+  --glass-bg: rgba(18, 26, 43, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  
+  --surface: #131c2e;
+  --text-main: #FFFFFF;
+  --text-muted: #94A3B8;
+  
+  --sidebar-bg: rgba(11, 18, 33, 0.95);
+  --sidebar-border: rgba(255,255,255, 0.05);
+}
+
+/* LIGHT MODE */
+:root[data-theme="light"] {
+  --bg-base: #F6F8FC;
+  --bg-gradient: linear-gradient(135deg, #F6F8FC 0%, #EBF1F9 100%);
+  
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  
+  --surface: #FFFFFF;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  
+  --sidebar-bg: #FFFFFF;
+  --sidebar-border: #E2E8F0;
+}
+
+/* --- ACCENT PALETTES --- */
+
+/* 1. TEAL PREMIUM (Default) */
+[data-accent="teal"] {
+  --accent-primary: #20D3C2;
+  --accent-secondary: #2AA8FF;
+  --accent-glow: rgba(32, 211, 194, 0.4);
+  
+  --grad-stat1: linear-gradient(135deg, #20D3C2 0%, #2AA8FF 100%);
+  --grad-stat2: linear-gradient(135deg, #818CF8 0%, #6366F1 100%); /* Indigo */
+  --grad-stat3: linear-gradient(135deg, #F472B6 0%, #DB2777 100%); /* Pink */
+  --grad-stat4: linear-gradient(135deg, #FB923C 0%, #EA580C 100%); /* Orange */
+}
+
+/* 2. BLUE CORPORATE */
+[data-accent="blue"] {
+  --accent-primary: #3B82F6;
+  --accent-secondary: #06B6D4;
+  --accent-glow: rgba(59, 130, 246, 0.4);
+  
+  --grad-stat1: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); /* Blue */
+  --grad-stat2: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%); /* Cyan */
+  --grad-stat3: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); /* Indigo */
+  --grad-stat4: linear-gradient(135deg, #64748B 0%, #475569 100%); /* Slate */
+}
+
+/* 3. MONOCHROME PREMIUM */
+[data-accent="mono"] {
+  --accent-primary: #737373;
+  --accent-secondary: #404040;
+  --accent-glow: rgba(115, 115, 115, 0.3);
+  
+  /* Subtle variations of gray/zinc */
+  --grad-stat1: linear-gradient(135deg, #525252 0%, #262626 100%); /* Charcoal */
+  --grad-stat2: linear-gradient(135deg, #71717a 0%, #52525b 100%); /* Zinc */
+  --grad-stat3: linear-gradient(135deg, #a1a1aa 0%, #71717a 100%); /* Light Gray */
+  --grad-stat4: linear-gradient(135deg, #171717 0%, #000000 100%); /* Black */
+}
+
+/* Light Mode Overrides for Mono to be readable */
+:root[data-theme="light"][data-accent="mono"] {
+  --accent-primary: #171717;
+  --accent-secondary: #525252;
+  --grad-stat1: linear-gradient(135deg, #e5e5e5 0%, #d4d4d4 100%); /* Light Gray card for stat 1? No, stats usually white text. Keep dark stats for contrast or invert text. */
+  /* For mono light mode, let's keep stats dark for contrast or use specific colors */
+  --grad-stat1: linear-gradient(135deg, #404040 0%, #171717 100%);
+  --grad-stat2: linear-gradient(135deg, #737373 0%, #525252 100%);
+  --grad-stat3: linear-gradient(135deg, #a3a3a3 0%, #737373 100%);
+  --grad-stat4: linear-gradient(135deg, #262626 0%, #000000 100%);
+}
+
+
+/* --- UTILS & CLASSES --- */
+
+body {
+  background: var(--bg-base);
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text-main);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Glass Effect */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Layout Grid */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.shell-sidebar {
+  grid-row: 1 / -1;
+  grid-column: 1 / 2;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+}
+
+.shell-topbar {
+  grid-row: 1 / 2;
+  grid-column: 2 / -1;
+  /* Glass Topbar */
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 10;
+}
+
+.shell-content {
+  grid-row: 2 / -1;
+  grid-column: 2 / -1;
+  overflow-y: auto;
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style></head>
+  <body>
+    <div id="root"><div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 1rem;"><h2>Invoice Studio Login</h2><form style="display: flex; flex-direction: column; gap: 1rem; width: 300px; padding: 2rem; border: 1px solid rgb(204, 204, 204); border-radius: 8px; background: rgb(255, 255, 255);"><div style="display: flex; flex-direction: column;"><label>Email</label><input type="email" class="input" required="" value="admin@smoke.test" style=""></div><div style="display: flex; flex-direction: column;"><label>Password</label><input type="password" class="input" required="" value="password123" style=""></div><div style="color: red;">Login failed. Check credentials.</div><button type="submit" class="btn primary">Login</button></form></div></div>
+    <script type="module" src="/src/main.jsx"></script>
+  
+
+</body></html>

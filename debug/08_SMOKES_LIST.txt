@@ -1,0 +1,40 @@
+Dedicated Module Smoke Tests
+============================
+
+1. scripts/smoke_m1_docs.js (Docs Module)
+   - Endpoint: GET /api/excel.json
+   - Checks: 200 OK + `rows` or `items` array
+
+2. scripts/smoke_m2_processing.js (Processing Module)
+   - Endpoint: GET /api/progress/smoke-test-batch-id
+   - Checks: 404 (Expected for non-existent batch, confirms routing)
+
+3. scripts/smoke_m3_exports.js (Exports Module)
+   - Endpoint: POST /api/export.xlsx
+   - Checks: 200 OK + Binary content
+
+4. scripts/smoke_m4_normalize.js (Normalize Module)
+   - Endpoint: GET /api/normalize
+   - Checks: 200 OK + `count`/`message` keys (Safe array handling)
+
+5. scripts/smoke_m5_audit.js (Audit Module)
+   - Endpoint: GET /api/audit
+   - Checks: 200 OK + Array
+
+6. scripts/smoke_m6_transactions.js (Transactions Module)
+   - Endpoint: GET /api/transactions
+   - Checks: 200 OK
+
+7. scripts/smoke_m7_coreV2.js (CoreV2 Module)
+   - Endpoint: GET /api/v2/doctypes
+   - Checks: 200 OK (Admin route or public, depending on setup - passed)
+
+8. scripts/smoke_m8_reports_legacy.js (Reports Legacy)
+   - Endpoint: GET /api/reports/suppliers
+   - Checks: 200 OK
+
+9. scripts/smoke_m9_reports_v2.js (Reports V2)
+   - Endpoint: GET /api/v2/reports/summary
+   - Checks: 200 OK
+
+Verification Status: ALL PASS (Verified against Zombie-free server)

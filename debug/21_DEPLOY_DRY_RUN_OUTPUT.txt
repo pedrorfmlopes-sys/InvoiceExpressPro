@@ -1,0 +1,55 @@
+
+> invoice-studio@1.0.0 deploy:dry
+> node scripts/deploy_runner.js --dry
+
+[36m[INFO] DEPLOY RUNNER (Dry: true)[0m
+[36m[INFO] ---------------------------------------------------[0m
+[33m[WARN] WARNING: OneDrive detected![0m
+[32m[OK] SAFE MODE: Switching deployment to C:\Dev\InvoiceStudioDeployWorkdir[0m
+[36m[INFO] RUN_DIR:         C:\Dev\InvoiceStudioDeployWorkdir[0m
+[36m[INFO] DB_CLIENT:       sqlite[0m
+[36m[INFO] SQLITE_FILENAME: C:\Dev\InvoiceStudioDeployWorkdir\db\database.sqlite (Not Found)[0m
+[36m[INFO] PM2_APP_NAME:    (Not Set)[0m
+[36m[INFO] ---------------------------------------------------[0m
+[36m[INFO] --- 0. Preparing Workdir: C:\Dev\InvoiceStudioDeployWorkdir ---[0m
+[33m[WARN] (DRY) Would create dir C:\Dev\InvoiceStudioDeployWorkdir and copy files via Robocopy[0m
+[36m[INFO] --- 0. Preparing Workdir: C:\Dev\InvoiceStudioDeployWorkdir ---[0m
+[33m[WARN] (DRY) Would create dir C:\Dev\InvoiceStudioDeployWorkdir and copy files via Robocopy[0m
+[36m[INFO] --- 3. Dependencies (Hardened) ---[0m
+[33m[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm ci --omit=dev[0m
+[33m[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm ci --omit=dev --prefix client[0m
+[36m[INFO] --- 1. Verification Gate ---[0m
+[33m[WARN] NOTE: In OneDrive Dry Run, skipping full server smoke tests to avoid file locking instability.[0m
+[36m[INFO] Action: Verifying Client Build only...[0m
+[36m[INFO] Executing [C:\Users\pedro\OneDrive\APPS\GitHub\InvoiceStudioGRVTY-main]: npm run build:client[0m
+
+> invoice-studio@1.0.0 build:client
+> cd client && npm run build
+
+
+> build
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 131 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+[2mdist/[22m[35massets/index-C4Sm1vd8.css  [39m[1m[2m  8.18 kB[22m[1m[22m[2m │ gzip:   2.45 kB[22m
+[2mdist/[22m[36massets/index-DkdMU1nS.js   [39m[1m[33m739.07 kB[39m[22m[2m │ gzip: 230.81 kB[22m[2m │ map: 2,824.08 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 1.99s[39m
+[36m[INFO] --- 2. Database Backup ---[0m
+[33m[WARN] SQLite file not found at C:\Dev\InvoiceStudioDeployWorkdir\db\database.sqlite (RUN_DIR), skipping backup.[0m
+[36m[INFO] --- 4. Migrations ---[0m
+[33m[WARN] (DRY) [C:\Dev\InvoiceStudioDeployWorkdir] Would execute: npm run db:migrate[0m
+[36m[INFO] --- 5. Restart ---[0m
+[33m[WARN] PM2_APP_NAME not set. Manual restart required.[0m
+[36m[INFO] Hint: cd "C:\Dev\InvoiceStudioDeployWorkdir" && npm start[0m
+[32m[OK] 
+✅ DEPLOY SEQUENCE COMPLETE[0m
