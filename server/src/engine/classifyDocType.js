@@ -13,6 +13,11 @@ function classifyDocType(text) {
     if (!text || text.length < 10) return null;
     const normalized = normalizeStr(text);
 
+    // BUTO Priority
+    if (normalized.includes('buto design') || normalized.includes('butobath.com') || normalized.includes('b02883957')) {
+        return 'invoice';
+    }
+
     // Specific overrides first (Proforma often contains "Fatura", so check Proforma first or check specific combinations)
     if (normalized.includes('proforma') || normalized.includes('pro-forma') || normalized.includes('pró-forma')) {
         return 'proforma';

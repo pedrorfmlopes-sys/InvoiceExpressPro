@@ -24,18 +24,11 @@ function extractButo(text) {
     };
 
     // --- A) Doc Number ---
-    // Match INT/25-000293
-    // Use regex with 'g' to find all, first is docNumber, others are invalid or refs?
-    // User req: First /^INT\/\d{2}-\d{6}$/m is docNumber. Others are otherRef.
     const refRegex = /INT\/\d{2}-\d{6}/g;
     const allRefs = text.match(refRegex) || [];
 
     if (allRefs.length > 0) {
         extracted.docNumber = allRefs[0];
-        // Store others? "otherRef". Where? canonical doesn't have it standard. 
-        // Maybe in "v2_metadata" or debug? User asked to capture them.
-        // We'll attach to extracted object, Engine will likely filter it out of canonical unless we add it.
-        // Let's add 'references' array to extracted.
         extracted.references = allRefs.slice(1);
     }
 
@@ -47,63 +40,44 @@ function extractButo(text) {
     }
 
     // --- B) Dates ---
-    // Issued: first dd/mm/yyyy appearing after FACTURA
-    // Regex that looks for FACTURA followed eventually by date?
-    // User spec: /FACTURA\s*\n(\d{2}\/\d{2}\/\d{4})/
-    // Text might contain multiple FACTURA. 
     const issuedMatch = text.match(/FACTURA\s*\n\s*(\d{2}\/\d{2}\/\d{4})/i);
     if (issuedMatch) {
         extracted.dates.issued = normalizeDate(issuedMatch[1]);
     }
 
-    // Check "Pagado"
     if (/Pagado/i.test(text.substring(0, 1000))) {
         extracted.paymentStatus = 'paid';
     }
 
     // --- C) Entities ---
-    // Supplier: BUTO DESIGN S.L. -> ESB02883957
-    // Address: Alicante
     if (/BUTO\s+DESIGN\s+S\.L\./i.test(text)) {
         extracted.entities.supplier.name = "BUTO DESIGN S.L.";
-        // Find VAT matching (ES)?B\d{8}
         const supVat = text.match(/(?:ES)?B02883957/);
         if (supVat) extracted.entities.supplier.vat = supVat[0];
-        extracted.entities.supplier.address = "Alicante, Spain"; // Hardcoded heuristic or find in text
+        extracted.entities.supplier.address = "Alicante, Spain";
     }
 
-    // Customer: Line after "CLIENTE"
-    // Find "CLIENTE" in text
     const clienteMatch = text.match(/CLIENTE\s*\n(.+)/);
     if (clienteMatch) {
         extracted.entities.customer.name = clienteMatch[1].trim();
     }
-    // Find PT VAT
     const ptVat = text.match(/\bPT(\d{9})\b/);
     if (ptVat) {
         extracted.entities.customer.vat = 'PT' + ptVat[1];
     }
 
     // --- D) Totals ---
-    // "Total Bruto" => goods
     const getVal = (re) => {
         const m = text.match(re);
         return m ? normalizeAmount(m[1]) : null;
     }
 
+    // "Total Bruto" => goods
     extracted.totals.goods = getVal(/Total Bruto\s+([\d\.]+,\d{2})/);
 
-    // Discounts
-    // "Total Descuento" (negative)
     let discMain = getVal(/Total Descuento\s+(-?[\d\.]+,\d{2})/);
-    // "Dto. Adicional(X %)"
     let discExtra = getVal(/Dto\. Adicional[^\n]*\s+(-?[\d\.]+,\d{2})/);
 
-    // Ensure absolute values for calc, user said input is negative
-    // Logic: User said "Total Descuento" => discountMain (float, negative). 
-    // And finally compute unified totals.discount = abs + abs.
-
-    // Let's store raw checks needed for validation
     extracted.totals.discountMain = discMain;
     extracted.totals.discountExtra = discExtra;
 
@@ -113,170 +87,220 @@ function extractButo(text) {
         extracted.totals.discount = absDiscMain + absDiscExtra;
     }
 
-    // "Base imponible" OR "Total (€)" => subtotal & total
-    // User says "Base imponible" OR "Total (€)" => subtotal AND total? 
-    // "Base imponible" usually is subtotal (Taxable Base). "Total (€)" is Grand Total.
-    // User said: "Base imponible" OR "Total (€)" => totals.subtotal and totals.total (same here).
-    // Ah, likely because VAT is exempt (0), so Base = Total.
-
-    // Let's try to capture Base first.
     let base = getVal(/Base imponible\s+([\d\.]+,\d{2})/);
     let grand = getVal(/Total \(€\)\s+([\d\.]+,\d{2})/);
 
     if (base) extracted.totals.subtotal = base;
     if (grand) extracted.totals.total = grand;
 
-    // If exempt
     if (!extracted.totals.tax) {
         if (!grand && base) extracted.totals.total = base;
         if (!base && grand) extracted.totals.subtotal = grand;
-        extracted.totals.tax = 0;
+        if (text.includes('exempt from VAT') || extracted.totals.subtotal === extracted.totals.total) {
+            extracted.totals.tax = 0;
+        }
     }
 
     // --- E) Lines (Table) ---
-    // Start at header "DESCRIPCIÓN" ... "PRECIO" ... "TOTAL"
+    // Extract only between Header and "Resumen"
+    // Header pattern: DESCRIPCIÓN ... TOTAL (fuzzy match not robust, check substrings)
+    // Find Header Index
     const lines = text.split('\n');
-    let insideTable = false;
+    let startIdx = -1;
+    let endIdx = lines.length;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('DESCRIPCIÓN') && lines[i].includes('TOTAL') && lines[i].includes('DTO.%')) {
+            startIdx = i + 1;
+            break;
+        }
+    }
+
+    // Find Resumen
+    for (let i = startIdx; i < lines.length; i++) {
+        if (lines[i].includes('Resumen')) {
+            endIdx = i;
+            break;
+        }
+    }
+
+    if (startIdx === -1) startIdx = 0; // Fallback
+
     let currentLine = null;
 
-    lines.forEach(line => {
-        line = line.trim();
-        if (!insideTable) {
-            if (line.includes('DESCRIPCIÓN') && line.includes('TOTAL')) {
-                insideTable = true;
-            }
-            return;
-        }
+    for (let i = startIdx; i < endIdx; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
 
-        if (line.startsWith('Resumen') || line.includes('Total Bruto') || line === '') return; // End of table logic handled implicitly? User said "Until Resumen"
+        // Pattern Check: CODE ... VALUES
+        // Values: [INC] [PVP] [DTO%] [TOTAL]
+        // Example: "GA053 ... 30 2.236,00 40% 1.341,60"
 
-        if (line.includes('Resumen')) {
-            insideTable = false;
-            return;
-        }
-
-        // Row Parsing
-        // Identify EU money numbers: [\d\.]+,\d{2}
-        // Regex for money at end of string or isolated
+        // Strategy: Match all EU money values (XXX,XX or X.XXX,XX)
         const moneys = [...line.matchAll(/([\d\.]+,\d{2})/g)];
 
-        // If >= 2 money values -> New Line
         if (moneys.length >= 2) {
-            // Flush valid previous
-            if (currentLine) extracted.lines.push(currentLine);
+            // New Line detected
+            if (currentLine) validateAndPush(extracted.lines, currentLine);
 
-            const unitPrice = normalizeAmount(moneys[0][0]);
-            const lineTotal = normalizeAmount(moneys[moneys.length - 1][0]); // Last match is total
+            // LAST money is Total
+            const totalStr = moneys[moneys.length - 1][0];
+            const lineTotal = normalizeAmount(totalStr);
 
-            // Code at start: 2-6 chars upper/digit
-            let code = null;
-            let finishCode = null;
-            let description = line;
-            let quantity = 1;
+            // FIRST money is UnitPrice (PVP)
+            // But wait, DTO and INC are integers, not money usually (no comma decimals unless percent?)
+            // "30" for INC, "40%" for DTO. 
+            // PVP is "2.236,00".
+            // So UnitPrice is the FIRST money match.
+            const pvpStr = moneys[0][0];
+            const unitPrice = normalizeAmount(pvpStr);
 
+            // Find Code: First token
             const codeMatch = line.match(/^([A-Z0-9]{2,6})\s+/);
-            if (codeMatch) {
-                code = codeMatch[1];
-                // Try extract finishCode after code (e.g. "OLDG-F3...")
-                // Pattern: Code <space> FinishCode? <space>
-                // User: "Extract finishCode right after code"
-                // Let's look at remainder
-                const remainder = line.substring(codeMatch[0].length);
-                const firstToken = remainder.split(' ')[0];
-                if (firstToken && firstToken.length > 3 && /\d/.test(firstToken)) {
-                    finishCode = firstToken;
+            const code = codeMatch ? codeMatch[1] : null;
+
+            // Finish Code: Token after code
+            let finishCode = null;
+            if (code) {
+                const remainder = line.substring(code.length).trim();
+                // Heuristic: finish code often has chars/digits/dashes
+                const token = remainder.split(' ')[0];
+                if (token && token.length > 3 && /\d/.test(token)) {
+                    finishCode = token;
                 }
             }
 
-            // Quantity: integer between finish/code and unitPrice?
-            // Search for single or double digit integer followed by % or unitPrice
-            // Discount %: /(\d{1,2})\s*%/
-            let discountPercent = null;
-            const discMatch = line.match(/(\d{1,2})\s*%/);
-            if (discMatch) discountPercent = parseFloat(discMatch[1]);
+            // Extract numeric fields (UD, INC, DTO)
+            // They appear between code/finish and PVP, or between PVP and Total.
+            // Layout: [UD?] [INC?] PVP [DTO%] TOTAL
+            // UD defaults to 1. INC defaults to 0. DTO defaults to 0.
 
-            // Qty usually before Price. Price is first money.
-            // Search for integer before first money match index.
-            const prePrice = line.substring(0, line.indexOf(moneys[0][0]));
-            // Look for isolated number at end of prePrice
-            const qtyMatch = prePrice.match(/\s(\d+)\s*$/);
-            if (qtyMatch) {
-                quantity = parseInt(qtyMatch[1], 10);
+            // DTO%: often has %, check regex
+            let discountPercent = 0;
+            const dtoMatch = line.match(/(\d{1,2})\s*%/);
+            if (dtoMatch) discountPercent = parseFloat(dtoMatch[1]);
+
+            // Qty (UD) and INC (Integer)
+            // Look at text segment BEFORE PVP match index
+            const pvpIdx = line.indexOf(pvpStr);
+            const prePvp = line.substring(0, pvpIdx); // Contains Code, Finish, UD, INC
+
+            // Remove code/finish from prePvp
+            let cleanPre = prePvp;
+            if (code) cleanPre = cleanPre.replace(code, '');
+            if (finishCode) cleanPre = cleanPre.replace(finishCode, '');
+
+            // Find integers in remainder
+            const intMatches = [...cleanPre.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1], 10));
+            // Should filter out likely FinishCode parts if they leaked (e.g. S1M111)
+            // Regex \b\d+\b should avoid "S1M111".
+
+            let quantity = 1;
+            let incrementPercent = 0;
+
+            // Logic: 
+            // If 2 integers detected: First is UD, Second is INC?
+            // Or only INC present? (User said: "UD é a quantidade (por omissão 1 se ausente)")
+            // "parser atual está a meter o '30' como quantity" -> so 30 is INC.
+            // If only 1 int found: Is it UD or INC?
+            // BUTO header says: "UD. | PRECIO | TOTAL | DTO.% | INC." or similar order?
+            // User: "UD pode aparecer antes do INC ... [INC] [PVP]"
+            // "GA053 ... 30 2.236,00" -> 30 is INC (Increment 30%).
+            // Usually Quantity 1 is omitted.
+            // HEURISTIC: If value > 10, assume INC? (Risky if Qty=20).
+            // Better: Look for header alignment? No positional data in text mode.
+            // User says "parser atual está a meter o '30' como quantity".
+            // Let's assume: If 1 integer => INC if > 5? Or check header columns?
+            // Header: DESCRIPCIÓN | DETALLE | ACABADO | UD. | COD. | PRECIO | TOTAL | DTO.% | INC. | SUBTOTAL
+            // Wait, "INC." column exists.
+
+            // If we have "30" before PVP.
+            // If we have "2   30" before PVP -> UD=2, INC=30.
+            // Let's take last integer before PVP as INC? 
+            // If there's another before that, it's Qty.
+
+            if (intMatches.length >= 2) {
+                incrementPercent = intMatches[intMatches.length - 1]; // Closest to Price
+                quantity = intMatches[intMatches.length - 2];
+            } else if (intMatches.length === 1) {
+                // Ambiguous. 30 is likely INC. 2 is likely Qty.  
+                // BUTO increments are often 20, 30, 40 %.
+                // Quantities are usually 1, 2, 3.
+                const val = intMatches[0];
+                if (val >= 10) {
+                    incrementPercent = val;
+                } else {
+                    quantity = val;
+                }
             }
 
-            // Description: Trailing text after lineTotal? No, Description is usually in the middle.
-            // User: "Description is the trailing text after lineTotal" -> Wait, usually Description is first col.
-            // Review Request: "Description is the trailing text after lineTotal (trim)"??? 
-            // BUTO PDF usually has Code | Desc | Qty | Price | Disc | Total.
-            // Verify User Request text "Description is the trailing text after lineTotal (trim)"
-            // This sounds weird for standard invoices where Total is last. Maybe Description wraps?
-            // "If next line ... append it to previous line.description"
-            // Let's assume description is actually in the middle (between code and numbers).
-            // But if User says "trailing", maybe the PDF parse order is weird (Total first? No, money matches order).
-            // Let's look at logic: "Identify EU money... If >=2 ... unitPrice = first... lineTotal = last".
-            // If format is like: CODE DESC QTY PRICE TOTAL
-            // Then text is scattered.
-            // I will default to: Description = text between FinishCode and Qty.
-            // user: "Description is the trailing text after lineTotal" -> This implies text comes AFTER total.
-            // This happens in right-to-left or weird PDFs. Let's strictly follow User instruction.
+            // Description extraction
+            // User says: "Description is the trailing text after lineTotal (trim)"
+            // Let's verify this again.
+            // "GA053 OLDG-F3... 30 2.236 ... 1.341,60 Mueble ..."
+            // Yes, "Mueble ..." appears AFTER "1.341,60" (Total).
+            // So everything AFTER total is Description.
+            const totalIdx = line.indexOf(totalStr);
+            const postTotal = line.substring(totalIdx + totalStr.length).trim();
 
-            // actually re-reading: "Description is the trailing text after lineTotal (trim)"
-            // If `line` contains `... 120,00 ... 120,00 Some Desc ...`?
-            // Or maybe user meant "Description is everything NOT matched as code/qty/money"?
-            // Let's use logic: If line ends with Total, description is before.
-            // I will assume description is what remains.
-
-            // Correction based on typical BUTO: Code Desc Qty Price Total.
-            // User instruction G-2 "Description is the trailing text after lineTotal" might be a mistake OR specific to this layout.
-            // I'll assume they meant "The main text block".
-            // Let's capture text between FinishCode and Qty.
-
-            // Actually, let's implement the specific logic:
-            // "Extract code... finishCode... Discount... Quantity... UnitPrice... LineTotal"
-            // If parsed line is "CODE FINISH DESC QTY PRICE TOTAL",
-            // Description = line.substring(finishEnd, qtyStart).
-
-            // BUT, if user EXPLICITLY said "Description is the trailing text after lineTotal", I should follow or question.
-            // Given "Continuation lines... append to description", likely description is the main text block.
-            // I will set description as the segment in the middle.
-
-            // Fallback: Remove known tokens from line string.
-            let cleanLine = line;
-            if (code) cleanLine = cleanLine.replace(code, '');
-            if (finishCode) cleanLine = cleanLine.replace(finishCode, '');
-            for (const m of moneys) cleanLine = cleanLine.replace(m[0], '');
-            if (discMatch) cleanLine = cleanLine.replace(discMatch[0], '');
-            if (qtyMatch) cleanLine = cleanLine.replace(qtyMatch[0], ''); // risky regex replacement
-
-            description = cleanLine.trim().replace(/\s{2,}/g, ' ');
+            let description = postTotal;
+            if (!description && finishCode) {
+                // Maybe description is between Code and Numbers?
+                // Fallback
+                description = cleanPre.trim();
+            }
 
             currentLine = {
                 code,
-                finishCode, // Custom field
-                description, // partial
+                finishCode,
+                description,
                 quantity,
                 unitPrice,
+                incrementPercent,
+                discountPercent,
                 total: lineTotal,
-                discountPercent
+                finishText: null
             };
 
         } else if (currentLine) {
-            // Continuation line
-            // "If next line does NOT match line start code+money but is not empty and not Resumen"
-            // Append to previous description
-            // OR store as finishText if starts with "Madera"
-            if (line.startsWith('Madera') || line.startsWith('Acabado')) {
+            // Continuation line (finishText or desc)
+            // "Madera ..."
+            if (line.startsWith('Madera') || line.startsWith('Acabado') || line.startsWith('Material')) {
                 currentLine.finishText = (currentLine.finishText ? currentLine.finishText + ' ' : '') + line;
             } else {
-                currentLine.description += ' / ' + line;
+                // If text is legal text? Check against "Resumen" (already stopped loop).
+                // "Inscrita en el Registro..."
+                if (line.includes('Inscrita') || line.includes('Registro Merkantil')) {
+                    // Ignore legal footers
+                } else {
+                    currentLine.description += ' ' + line;
+                }
             }
         }
-    });
+    }
 
-    // flush last
-    if (currentLine) extracted.lines.push(currentLine);
+    if (currentLine) validateAndPush(extracted.lines, currentLine);
 
     return extracted;
+}
+
+function validateAndPush(linesArr, line) {
+    // 4) Validation per line
+    // expectedTotal = UD * PVP * (1 + INC/100) * (1 - DTO/100)
+    const { quantity, unitPrice, incrementPercent, discountPercent, total } = line;
+    const incMult = 1 + (incrementPercent || 0) / 100;
+    const dtoMult = 1 - (discountPercent || 0) / 100;
+
+    const expected = quantity * unitPrice * incMult * dtoMult;
+
+    const diff = Math.abs(expected - total);
+
+    if (diff > 0.1) { // 0.05 tolerance looser due to rounding steps
+        line.needsReview = true;
+        line.validationIssue = `lineTotalMismatch (Exp: ${expected.toFixed(2)}, Found: ${total})`;
+    }
+
+    linesArr.push(line);
 }
 
 module.exports = extractButo;
