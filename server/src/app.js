@@ -63,7 +63,7 @@ app.use('/api/v2/reports', reports.routerV2);
 app.use('/api/reports', reports.routerLegacy);
 
 // Core V2
-app.use('/api/v2', coreV2.router);
+app.use('/api/corev2', coreV2.router);
 app.use('/api/settings', require('./modules/settings').router);
 app.use('/api/explorer', require('./modules/explorer'));
 
