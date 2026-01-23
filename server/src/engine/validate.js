@@ -17,7 +17,7 @@ function validate(extracted, docType) {
         }
 
         if (docType === 'invoice' || docType === 'proforma') {
-            if (!extracted.totals.gross && !extracted.totals.net) {
+            if (!extracted.totals.total && !extracted.totals.subtotal) {
                 needsReview = true;
                 reviewReason = (reviewReason ? reviewReason + ", " : "") + "Missing Totals";
                 confidence -= 0.3;
@@ -27,22 +27,20 @@ function validate(extracted, docType) {
 
     // 2. Data Consistency (Totals)
     const t = extracted.totals;
-    if (t.net && t.tax && t.gross) {
-        const calcGross = t.net + t.tax;
-        if (Math.abs(calcGross - t.gross) > 0.05) {
+    if (t.subtotal && t.tax && t.total) { // Updated keys
+        const calcTotal = t.subtotal + t.tax;
+        if (Math.abs(calcTotal - t.total) > 0.05) {
             needsReview = true;
-            reviewReason = (reviewReason ? reviewReason + ", " : "") + "Totals Mismatch (Net+Tax!=Gross)";
+            reviewReason = (reviewReason ? reviewReason + ", " : "") + "Totals Mismatch (Subtotal+Tax!=Total)";
         }
     }
 
     // 3. Line Items vs Totals
-    if (extracted.lines.length > 0 && t.net) {
+    if (extracted.lines.length > 0 && t.subtotal) {
         const sumLines = extracted.lines.reduce((acc, l) => acc + (l.total || 0), 0);
         // Allows 10% tolerance or 1.0 diff (rounding)
-        if (Math.abs(sumLines - t.net) > 1.0) {
+        if (Math.abs(sumLines - t.subtotal) > 1.0) {
             // Maybe lines are including tax or not? Warn but don't fail hard.
-            // needsReview = true; // Strict?
-            // reviewReason = ...
         }
     } else if (extracted.lines.length === 0 && (docType === 'invoice')) {
         needsReview = true;

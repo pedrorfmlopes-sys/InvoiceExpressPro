@@ -22,14 +22,17 @@ function extractFromText(text) {
 
     if (!text) return extracted;
 
+    const headerText = text.substring(0, 2500); // Window for header (DocNum, Dates)
+
     // --- Doc Number ---
-    // Look for "Fatura Nº 123", "FT 123", etc.
-    const docNumMatch = text.match(/(?:Fatura|Recibo|FT|FR|NC|Doc)\s?(?:n\.?|nº|No)?\s?[:#.]?\s?([A-Za-z0-9\/ -]{3,20})/i);
+    // Look for "Fatura Nº 123", "FT 123", etc. in header only
+    // Enforce min 3 chars
+    const docNumMatch = headerText.match(/(?:Fatura|Recibo|FT|FR|NC|Doc)\s?(?:n\.?|nº|No)?\s?[:#.]?\s?([A-Za-z0-9\/ -]{3,20})/i);
     if (docNumMatch) extracted.docNumber = docNumMatch[1].trim();
 
     // --- Dates ---
     // Issued
-    const dateMatch = text.match(/(?:Data|Date|Emissao|Emitido)[:\s]+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
+    const dateMatch = headerText.match(/(?:Data|Date|Emissao|Emitido)[:\s]+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
     if (dateMatch) extracted.dates.issued = normalizeDate(dateMatch[1]);
 
     // Due (Vencimento)
@@ -43,12 +46,20 @@ function extractFromText(text) {
         return m ? normalizeAmount(m[1]) : null;
     }
 
-    extracted.totals.net = findMoney(/(?:Total Líquido|Net Total|Base Incidência|Subtotal)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i) || findMoney(/(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})\s?(?:Eur|€)\s*$/im);
+    // Mapping: net -> subtotal, gross -> total
+    // Also support 'goods' (merchandise) if distinct from subtotal
+    extracted.totals.subtotal = findMoney(/(?:Total Líquido|Net Total|Base Incidência|Subtotal)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i) || findMoney(/(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})\s?(?:Eur|€)\s*$/im);
     extracted.totals.tax = findMoney(/(?:Total IVA|Total VAT|Imposto)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
-    extracted.totals.gross = findMoney(/(?:Total a Pagar|Total Geral|Grand Total|Total Documento|Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
+    extracted.totals.total = findMoney(/(?:Total a Pagar|Total Geral|Grand Total|Total Documento|Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
+
     extracted.totals.transport = findMoney(/(?:Transporte|Portes|Shipping)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
     extracted.totals.packaging = findMoney(/(?:Embalagem|Packaging)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
     extracted.totals.discount = findMoney(/(?:Desconto|Discount)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
+    extracted.totals.goods = null;
+
+    // Attempt specific Goods extraction
+    const goodsMatch = findMoney(/(?:Total Mercadorias|Goods Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
+    if (goodsMatch) extracted.totals.goods = goodsMatch;
 
     // --- Entities (Customer) ---
     // Try to find NIF/VAT
