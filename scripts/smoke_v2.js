@@ -22,9 +22,10 @@ for (let i = 0; i < argv.length; i++) {
 
 const FILE_PATH = args.file;
 const HOST = args.host || 'http://localhost:3000';
+const TOKEN = args.token || process.env.AUTH_TOKEN;
 
 if (!FILE_PATH) {
-    console.error("Usage: node scripts/smoke_v2.js --file <path_to_pdf> [--host <url>]");
+    console.error("Usage: node scripts/smoke_v2.js --file <path_to_pdf> [--host <url>] [--token <jwt>]");
     process.exit(1);
 }
 
@@ -63,6 +64,10 @@ try {
             'x-project-id': 'default'
         }
     };
+
+    if (TOKEN) {
+        options.headers['Authorization'] = `Bearer ${TOKEN}`;
+    }
 
     const req = http.request(options, (res) => {
         let data = '';
