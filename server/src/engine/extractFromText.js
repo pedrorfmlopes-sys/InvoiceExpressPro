@@ -24,13 +24,11 @@ function extractFromText(text) {
 
     const headerText = text.substring(0, 2500); // Window for header
 
-    // --- Doc Number (Nicolazzi Specific + Generic Strict) ---
-    // Specific: 000049/B followed by Numero/Number on next line
+    // --- Doc Number ---
     let m = headerText.match(/\n\s*([0-9]{3,}[\/-][A-Z0-9]+)\s*\n\s*Numero\/\s*Number/i);
     if (m) {
         extracted.docNumber = m[1].trim();
     } else {
-        // Fallback Strict: Must contain digits. No "Banca di..."
         const docNumMatch = headerText.match(/(?:Fatura|Recibo|FT|FR|Fattura|Invoice)\s?(?:n\.?|nº|No)?\s?[:#.]?\s?([A-Z0-9\/ -]{3,20})/i);
         if (docNumMatch) {
             const candidate = docNumMatch[1].trim();
@@ -41,7 +39,6 @@ function extractFromText(text) {
     }
 
     // --- Dates ---
-    // Issued: Specific "Data/Date" below value
     let mIssued = headerText.match(/\n\s*(\d{2}\/\d{2}\/\d{4})\s*\n\s*Data\/\s*Date/i);
     if (mIssued) {
         extracted.dates.issued = normalizeDate(mIssued[1]);
@@ -50,14 +47,10 @@ function extractFromText(text) {
         if (dateMatch) extracted.dates.issued = normalizeDate(dateMatch[1]);
     }
 
-    // Due: Scadenza/Maturity (2-way match)
-    // A) Value \n Label
     let mDue = text.match(/(\d{2}\/\d{2}\/\d{4})\s*\n\s*Scadenza\s*\/\s*Maturity/i);
-    // B) Label \n Value (or Label: ... Value)
     if (!mDue) {
         mDue = text.match(/Scadenza\s*\/\s*Maturity(?:[:\s]+)?\s*\n\s*(\d{2}\/\d{2}\/\d{4})/i);
     }
-
     if (mDue) {
         extracted.dates.due = normalizeDate(mDue[1]);
     } else {
@@ -66,7 +59,6 @@ function extractFromText(text) {
     }
 
     // --- Entities ---
-    // Supplier VAT (IT)
     const itVat = text.match(/\bIT\s*([0-9]{11})\b/);
     if (itVat) {
         extracted.entities.supplier.vat = 'IT' + itVat[1];
@@ -86,26 +78,19 @@ function extractFromText(text) {
             }
         }
     }
-
-    // Customer VAT (PT)
     const ptVat = text.match(/\bPT\s*([0-9]{9})\b/);
     if (ptVat) extracted.entities.customer.vat = 'PT' + ptVat[1];
 
     // --- Totals ---
-    // Helper
     const findMoney = (regex) => {
         const m = text.match(regex);
         return m ? normalizeAmount(m[1]) : null;
     }
 
-    // Generic
     extracted.totals.total = findMoney(/(?:Total a Pagar|Total Geral|Grand Total|Total Documento|Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
-
-    // Nicolazzi Subtotal
     extracted.totals.subtotal = findMoney(/(?:Totale netto merce)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i)
         || findMoney(/(?:Total Líquido|Net Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
 
-    // Tax heuristic
     if ((text.includes('Non Imp.') || text.includes('ART.41')) && !extracted.totals.tax) {
         extracted.totals.tax = 0;
     } else {
@@ -113,9 +98,12 @@ function extractFromText(text) {
     }
 
     // --- Lines Extraction ---
-    // Nicolazzi Anchor Pattern for concatenated fields: ... NR ... EUR ...
     const linesArr = text.split('\n');
     const seen = new Set();
+
+    // Strict EU regex: 1.234,56 or 123,45
+    // Matches NR <int> EUR <eu_num> <eu_num> [opt NIxxxx]
+    const strictCoreRe = /NR\s*(\d+)\s*EUR\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})(?:\s*(NI\d+))?/i;
 
     linesArr.forEach(line => {
         line = line.trim();
@@ -123,38 +111,39 @@ function extractFromText(text) {
 
         let processed = false;
 
-        // 1. Nicolazzi Anchor Pattern
-        // Matches: NR <qty> EUR <price> <total>
+        // 1. Nicolazzi Anchor Pattern (Strict)
+        // Check contains NR and EUR first
         if (line.includes('NR') && line.includes('EUR')) {
-            const coreRe = /NR\s*(\d+)\s*EUR\s*([0-9\.\,]+)\s*([0-9\.\,]+)/i;
-            const mCore = line.match(coreRe);
+            const mCore = line.match(strictCoreRe);
 
             if (mCore) {
-                const q = parseFloat(mCore[1]);
+                const q = parseInt(mCore[1], 10);
                 const p = normalizeAmount(mCore[2]);
                 const t = normalizeAmount(mCore[3]);
+                const taxCode = mCore[4] || null;
 
-                // Text before the match contains SKU and Description
+                // Text before matching segment
                 const before = line.substring(0, mCore.index).trim();
                 let sku = null;
                 let desc = before;
 
-                // Heuristic: SKU is often first token (4+ uppercase/digits)
-                const skuMatch = before.match(/^([A-Z0-9\/]{4,})\s+(.*)$/);
-                if (skuMatch) {
-                    sku = skuMatch[1];
-                    desc = skuMatch[2].trim();
+                // SKU extraction: Start of line. Format: digits or capitals/digits. min 3-4 chars.
+                // Often 4335 for example. Or 3400/9611.
+                const codeMatch = before.match(/^([A-Z]?\d[0-9A-Z\/]{3,18})\b/i);
+                if (codeMatch) {
+                    sku = codeMatch[1];
+                    desc = before.substring(sku.length).trim();
                 }
 
-                // Fallback dedupe key
                 const key = `${sku || ''}|${q}|${p}|${t}`;
                 if (!seen.has(key)) {
                     extracted.lines.push({
                         code: sku,
-                        description: desc,
+                        description: desc || before, // fallback if empty
                         quantity: q,
                         unitPrice: p,
-                        total: t
+                        total: t,
+                        taxCode
                     });
                     seen.add(key);
                 }
