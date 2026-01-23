@@ -22,105 +22,162 @@ function extractFromText(text) {
 
     if (!text) return extracted;
 
-    const headerText = text.substring(0, 2500); // Window for header (DocNum, Dates)
+    const headerText = text.substring(0, 2500); // Window for header
 
-    // --- Doc Number ---
-    // Look for "Fatura Nº 123", "FT 123", etc. in header only
-    // Enforce min 3 chars
-    const docNumMatch = headerText.match(/(?:Fatura|Recibo|FT|FR|NC|Doc)\s?(?:n\.?|nº|No)?\s?[:#.]?\s?([A-Za-z0-9\/ -]{3,20})/i);
-    if (docNumMatch) extracted.docNumber = docNumMatch[1].trim();
+    // --- Doc Number (Nicolazzi Specific + Generic Strict) ---
+    // Specific: 000049/B followed by Numero/Number on next line (or previous, depending on pdf-parse flow, user said \n Number)
+    // User RegEx: header.match(/\n\s*([0-9]{3,}[\/-][A-Z0-9]+)\s*\n\s*Numero\/\s*Number/i)
+    let m = headerText.match(/\n\s*([0-9]{3,}[\/-][A-Z0-9]+)\s*\n\s*Numero\/\s*Number/i);
+    if (m) {
+        extracted.docNumber = m[1].trim();
+    } else {
+        // Fallback Strict: Must contain digits. No "Banca di..."
+        const docNumMatch = headerText.match(/(?:Fatura|Recibo|FT|FR|Fattura|Invoice)\s?(?:n\.?|nº|No)?\s?[:#.]?\s?([A-Z0-9\/ -]{3,20})/i);
+        if (docNumMatch) {
+            const candidate = docNumMatch[1].trim();
+            // Anti-garbage filter: must have at least 1 digit, no spaces inside if short?
+            if (/\d/.test(candidate) && !/appoggio/i.test(candidate)) {
+                extracted.docNumber = candidate;
+            }
+        }
+    }
 
     // --- Dates ---
-    // Issued
-    const dateMatch = headerText.match(/(?:Data|Date|Emissao|Emitido)[:\s]+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
-    if (dateMatch) extracted.dates.issued = normalizeDate(dateMatch[1]);
+    // Issued: Specific "Data/Date" below value
+    let mIssued = headerText.match(/\n\s*(\d{2}\/\d{2}\/\d{4})\s*\n\s*Data\/\s*Date/i);
+    if (mIssued) {
+        extracted.dates.issued = normalizeDate(mIssued[1]);
+    } else {
+        // Generic fallback
+        const dateMatch = headerText.match(/(?:Data|Date|Emissao|Emitido|Fattura)[:\s]+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
+        if (dateMatch) extracted.dates.issued = normalizeDate(dateMatch[1]);
+    }
 
-    // Due (Vencimento)
-    const dueMatch = text.match(/(?:Vencimento|Due Date|Venc)[:\s]+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
-    if (dueMatch) extracted.dates.due = normalizeDate(dueMatch[1]);
+    // Due: Scadenza/Maturity
+    let mDue = text.match(/Scadenza\s*\/\s*Maturity:\s*\n\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (mDue) {
+        extracted.dates.due = normalizeDate(mDue[1]);
+    } else {
+        const dueMatch = text.match(/(?:Vencimento|Due Date|Venc)[:\s]+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
+        if (dueMatch) extracted.dates.due = normalizeDate(dueMatch[1]);
+    }
+
+    // --- Entities ---
+    // Supplier VAT (IT)
+    const itVat = text.match(/\bIT\s*([0-9]{11})\b/);
+    if (itVat) {
+        extracted.entities.supplier.vat = 'IT' + itVat[1];
+        // Supplier Name: First non-empty line heuristic
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+        if (lines.length > 0) extracted.entities.supplier.name = lines[0];
+
+        // Customer: First ALLCAPS after Supplier VAT?
+        // Let's look for VAT index and search after
+        const vatIndex = text.indexOf(itVat[0]);
+        if (vatIndex > -1) {
+            const afterVat = text.substring(vatIndex + itVat[0].length);
+            const afterLines = afterVat.split('\n').map(l => l.trim()).filter(l => l.length > 3);
+            for (const l of afterLines) {
+                // Check if mostly uppercase (allow some spaces/numbers, but assume names are CAPS)
+                const upper = l.toUpperCase();
+                if (l === upper && !l.includes('VIA ') && !l.includes('CAP ')) {
+                    extracted.entities.customer.name = l;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Customer VAT (PT)
+    const ptVat = text.match(/\bPT\s*([0-9]{9})\b/);
+    if (ptVat) extracted.entities.customer.vat = 'PT' + ptVat[1];
 
     // --- Totals ---
-    // Helper to find value after key
+    // Helper
     const findMoney = (regex) => {
         const m = text.match(regex);
         return m ? normalizeAmount(m[1]) : null;
     }
 
-    // Mapping: net -> subtotal, gross -> total
-    // Also support 'goods' (merchandise) if distinct from subtotal
-    extracted.totals.subtotal = findMoney(/(?:Total Líquido|Net Total|Base Incidência|Subtotal)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i) || findMoney(/(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})\s?(?:Eur|€)\s*$/im);
-    extracted.totals.tax = findMoney(/(?:Total IVA|Total VAT|Imposto)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
+    // Generic
     extracted.totals.total = findMoney(/(?:Total a Pagar|Total Geral|Grand Total|Total Documento|Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
 
-    extracted.totals.transport = findMoney(/(?:Transporte|Portes|Shipping)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
-    extracted.totals.packaging = findMoney(/(?:Embalagem|Packaging)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
-    extracted.totals.discount = findMoney(/(?:Desconto|Discount)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
-    extracted.totals.goods = null;
+    // Nicolazzi Subtotal: "Totale netto merce"
+    extracted.totals.subtotal = findMoney(/(?:Totale netto merce)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i)
+        || findMoney(/(?:Total Líquido|Net Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
 
-    // Attempt specific Goods extraction
-    const goodsMatch = findMoney(/(?:Total Mercadorias|Goods Total)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
-    if (goodsMatch) extracted.totals.goods = goodsMatch;
+    // Tax heuristic for "Non Imp." / "ART.41" -> 0
+    if ((text.includes('Non Imp.') || text.includes('ART.41')) && !extracted.totals.tax) {
+        extracted.totals.tax = 0;
+    } else {
+        extracted.totals.tax = findMoney(/(?:Total IVA|Total VAT|Imposto|Totale imposta)[\s\S]{0,20}?(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/i);
+    }
 
-    // --- Entities (Customer) ---
-    // Try to find NIF/VAT
-    const nifMatch = text.match(/(?:NIF|VAT|Contrib):?\s?([A-Z]{0,2}\d{9})/i);
-    if (nifMatch) extracted.entities.customer.vat = nifMatch[1];
-
-    // --- Lines Extraction (Naive/Robust) ---
-    // Look for patterns like: REF123 Description Qty Price Total
-    // Strategy: Split by new lines, look for lines ending in currency format that have a number (qty) before.
+    // --- Lines Extraction ---
+    // Priority: Nicolazzi Regex
+    // /^(?<sku>\d{4,}[A-Z0-9\/]*)\s*(?<desc>.+?)NR\s*(?<qty>\d+)\s*EUR\s*(?<unit>[0-9\.,]+)\s*(?<total>[0-9\.,]+)\s*(?<taxcode>NI\d+)?$/i
     const linesArr = text.split('\n');
-    let lastLine = null;
+    const seen = new Set();
 
     linesArr.forEach(line => {
         line = line.trim();
         if (line.length < 5) return;
 
-        // Pattern: [Code?] [Description] [Qty] [Price] [Total]
-        // Heuristic: End of line should be a money amount. Preceded by another money (price) or number (qty).
+        let processed = false;
 
-        // Regex to capture last 2 or 3 numbers
-        // Example: "A001 Product   2   10.00   20.00"
+        // 1. Nicolazzi Pattern
+        if (line.includes('NR') && line.includes('EUR')) {
+            const regex = /^([0-9]{4,}[A-Z0-9\/]*)\s+(.+?)\s+NR\s+(\d+)\s+EUR\s+([0-9\.,]+)\s+([0-9\.,]+)/i;
+            const mLine = line.match(regex);
+            if (mLine) {
+                const q = parseFloat(mLine[3]);
+                const p = normalizeAmount(mLine[4]);
+                const t = normalizeAmount(mLine[5]);
+                const sku = mLine[1];
+                const desc = mLine[2].trim();
 
-        const moneyRegex = /(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})/;
-        // Very basic capturing of lines with at least 2 numbers at the end
-        const endingNumbers = line.match(/(\d+(?:[\.,]\d+)?)\s+(\d+(?:[\.,]\d+)?)\s+(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})$/);
-
-        if (endingNumbers) {
-            // Found Qty, Price, Total?
-            const q = normalizeAmount(endingNumbers[1]);
-            const p = normalizeAmount(endingNumbers[2]);
-            const t = normalizeAmount(endingNumbers[3]);
-
-            // Check coherence (Qty * Price ~= Total)
-            if (q && p && t && Math.abs((q * p) - t) < 0.05) {
-                // Valid line
-                const remainder = line.substring(0, line.length - endingNumbers[0].length).trim();
-                extracted.lines.push({
-                    description: remainder,
-                    quantity: q,
-                    unitPrice: p,
-                    total: t
-                });
-                return;
+                // Dedupe key
+                const key = `${sku}|${q}|${p}|${t}`;
+                if (!seen.has(key)) {
+                    extracted.lines.push({
+                        code: sku,
+                        description: desc,
+                        quantity: q,
+                        unitPrice: p,
+                        total: t
+                    });
+                    seen.add(key);
+                }
+                processed = true;
             }
         }
 
-        // Fallback: Just Total at end
-        // "A001 Product Name   20.00"
-        const justTotal = line.match(/(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})$/);
-        if (justTotal) {
-            // Could be a total or a line with implicit 1 qty
-            return; // Too risky, ignore single number lines for now to avoid false positives (headers, subtotals)
-        }
-    });
+        // 2. Generic Fallback (only if not processed and looks like a line)
+        if (!processed) {
+            // const moneyRegex ... (reuse previous existing logic if needed, but risky for Nicolazzi mixed content)
+            // Keeping it simple: if Nicolazzi matched lines, rely on that.
+            // If total extraction methods below generic lines might double count?
+            // Let's leave generic fallback active but strict
 
-    // Dedupe Lines (Consecutive Identical)
-    extracted.lines = extracted.lines.filter((line, index) => {
-        if (index === 0) return true;
-        const prev = extracted.lines[index - 1];
-        const isSame = line.description === prev.description && line.total === prev.total;
-        return !isSame;
+            const endingNumbers = line.match(/(\d+(?:[\.,]\d+)?)\s+(\d+(?:[\.,]\d+)?)\s+(\d{1,3}(?:[\.,]\d{3})*[\.,]\d{2})$/);
+            if (endingNumbers) {
+                // Check coherence to avoid false positives
+                const q = normalizeAmount(endingNumbers[1]);
+                const p = normalizeAmount(endingNumbers[2]);
+                const t = normalizeAmount(endingNumbers[3]);
+                if (q && p && t && Math.abs((q * p) - t) < 0.05) {
+                    const remainder = line.substring(0, line.length - endingNumbers[0].length).trim();
+                    const key = `GEN|${remainder}|${q}|${p}|${t}`;
+                    if (!seen.has(key)) {
+                        // Only add if we haven't seen meaningful lines from specific parsers, or if this is clearly distinct?
+                        // For now, allow it but it might cause dupes if patterns overlap. 
+                        // Nicolazzi pattern requires 'NR' so they shouldn't overlap with generic ending numbers unless line has NR.
+                        extracted.lines.push({ description: remainder, quantity: q, unitPrice: p, total: t });
+                        seen.add(key);
+                    }
+                }
+            }
+        }
     });
 
     return extracted;
