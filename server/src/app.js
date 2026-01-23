@@ -80,6 +80,7 @@ app.use('/api/extraction', require('./modules/extraction'));
 // Parity Routes
 // Parity Components (Modularized)
 app.use('/api', require('./modules/processing').router); // /extract, /progress, /batch
+app.use('/api/v2', require('./modules/extraction_v2').router); // [NEW] V2 Extraction
 app.use('/api', require('./modules/exports').router);    // /export.xlsx
 app.use('/api/normalize', require('./modules/normalize').router);
 app.use('/api/audit', require('./modules/audit').router);
