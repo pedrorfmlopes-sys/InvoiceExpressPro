@@ -5,12 +5,13 @@ function extractFromText(text) {
         docNumber: null,
         dates: { issued: null, due: null },
         totals: {
-            net: null,
-            tax: null,
-            gross: null,
-            discount: null,
+            goods: null,
             transport: null,
-            packaging: null
+            packaging: null,
+            discount: null,
+            subtotal: null,
+            tax: null,
+            total: null
         },
         lines: [],
         entities: {

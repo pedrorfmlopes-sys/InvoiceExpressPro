@@ -107,31 +107,7 @@
         "totals": {
             "type": "object",
             "properties": {
-                "net": {
-                    "type": [
-                        "number",
-                        "null"
-                    ]
-                },
-                "tax": {
-                    "type": [
-                        "number",
-                        "null"
-                    ]
-                },
-                "gross": {
-                    "type": [
-                        "number",
-                        "null"
-                    ]
-                },
-                "subtotal": {
-                    "type": [
-                        "number",
-                        "null"
-                    ]
-                },
-                "discount": {
+                "goods": {
                     "type": [
                         "number",
                         "null"
@@ -144,6 +120,30 @@
                     ]
                 },
                 "packaging": {
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "discount": {
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "subtotal": {
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "tax": {
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "total": {
                     "type": [
                         "number",
                         "null"

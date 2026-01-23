@@ -41,7 +41,12 @@ async function process(text) {
 
         confidence: validation.confidence,
         needsReview: validation.needsReview,
-        reviewReason: validation.reviewReason
+        reviewReason: validation.reviewReason,
+
+        debug: {
+            textLength: text.length,
+            textSample: text.substring(0, 500)
+        }
     };
 
     return normalized;
