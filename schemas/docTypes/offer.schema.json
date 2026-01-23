@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Offer Schema",
+    "allOf": [
+        {
+            "$ref": "../canonical.schema.json"
+        },
+        {
+            "properties": {
+                "docType": {
+                    "const": "offer"
+                }
+            }
+        }
+    ]
+}
