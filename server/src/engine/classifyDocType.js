@@ -1,6 +1,7 @@
 const normalizeStr = (str) => (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 const CLASSIFICATION_RULES = [
+    { type: 'invoice', keywords: ['buto design', 'butobath.com'] }, // Specific Priority
     { type: 'invoice', keywords: ['fatura', 'invoice', 'fattura', 'rechnung', 'recibo'] },
     { type: 'proforma', keywords: ['proforma', 'pro-forma', 'pro forma', 'pró-forma'] }, // Higher priority usually
     { type: 'credit_note', keywords: ['nota de credito', 'credit note', 'crédito', 'nc ', 'devolucao'] },

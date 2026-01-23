@@ -1,6 +1,13 @@
 const { normalizeAmount, normalizeDate } = require('./normalize');
+const extractButo = require('./butoExtraction');
 
 function extractFromText(text) {
+    // --- Router: Check for BUTO profile ---
+    if (/BUTO\s+DESIGN/i.test(text) || /butobath\.com/i.test(text)) {
+        return extractButo(text);
+    }
+
+    // --- Standard V2 Extraction (Nicolazzi / Generic) ---
     const extracted = {
         docNumber: null,
         dates: { issued: null, due: null },
@@ -109,7 +116,7 @@ function extractFromText(text) {
 
         let processed = false;
 
-        // 1. Nicolazzi Anchor Pattern
+        // 1. Nicolazzi Anchor Pattern (Strict)
         if (line.includes('NR') && line.includes('EUR')) {
             const mCore = line.match(strictCoreRe);
 
@@ -125,8 +132,8 @@ function extractFromText(text) {
                 let customerRef = null;
 
                 // SKU Extraction
-                const codeMatch = before.match(/^([A-Z]?\d[0-9A-Z\/]{3,18})[\s\b](.*)$/i) // Try space separation
-                    || before.match(/^([A-Z]?\d[0-9A-Z\/]{3,30})/i); // Fallback: greedy
+                const codeMatch = before.match(/^([A-Z]?\d[0-9A-Z\/]{3,18})[\s\b](.*)$/i)
+                    || before.match(/^([A-Z]?\d[0-9A-Z\/]{3,30})/i);
 
                 if (codeMatch) {
                     let candidateSku = codeMatch[1];
@@ -158,7 +165,6 @@ function extractFromText(text) {
                     desc = candidateDesc;
                 }
 
-                // NEW: Extract & Remove Customer Reference (e.g. ARQ.JOANA POSAS)
                 const refMatch = desc.match(/\bARQ\.?\s*[A-ZÀ-Ü0-9\.]+\s+[A-ZÀ-Ü0-9\.]+\b/i);
                 if (refMatch) {
                     customerRef = refMatch[0].trim();
@@ -174,7 +180,7 @@ function extractFromText(text) {
                         unitPrice: p,
                         total: t,
                         taxCode,
-                        customerRef // Optional extra field
+                        customerRef
                     });
                     seen.add(key);
                 }
