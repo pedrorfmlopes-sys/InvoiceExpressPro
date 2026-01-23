@@ -26,7 +26,7 @@ node scripts/smoke_v2.js --file path/to/doc.pdf --host http://localhost:3000
 ```bash
 curl -X POST http://localhost:3000/api/v2/extract \
   -H "x-user-id: 123" \
-  -F "files=@./samples/proforma_example.pdf"
+  -F "file=@./samples/proforma_example.pdf"
 ```
 
 **Expected JSON Response**:

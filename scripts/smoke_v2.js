@@ -43,7 +43,7 @@ console.log(`Target: ${API_URL}`);
 const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
 
 const postDataHead = `--${boundary}\r\n` +
-    `Content-Disposition: form-data; name="files"; filename="${path.basename(FILE_PATH)}"\r\n` +
+    `Content-Disposition: form-data; name="file"; filename="${path.basename(FILE_PATH)}"\r\n` +
     `Content-Type: application/pdf\r\n\r\n`;
 
 const postDataTail = `\r\n--${boundary}--\r\n`;
