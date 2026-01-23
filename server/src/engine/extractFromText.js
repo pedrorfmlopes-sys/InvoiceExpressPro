@@ -101,9 +101,11 @@ function extractFromText(text) {
     const linesArr = text.split('\n');
     const seen = new Set();
 
-    // Strict EU regex: 1.234,56 or 123,45
-    // Matches NR <int> EUR <eu_num> <eu_num> [opt NIxxxx]
+    // Strict EU regex
     const strictCoreRe = /NR\s*(\d+)\s*EUR\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})(?:\s*(NI\d+))?/i;
+
+    // Suffixes that often get concatenated with SKU
+    const SUFFIXES = ['EXTERNAL', 'SINGLE', 'BUILT', 'SHOWER', 'COUPLE', 'COLUMN', 'TRIM', 'BASIN', 'LEVER', 'HOOK', 'WASTE', 'SIPHON'];
 
     linesArr.forEach(line => {
         line = line.trim();
@@ -112,7 +114,6 @@ function extractFromText(text) {
         let processed = false;
 
         // 1. Nicolazzi Anchor Pattern (Strict)
-        // Check contains NR and EUR first
         if (line.includes('NR') && line.includes('EUR')) {
             const mCore = line.match(strictCoreRe);
 
@@ -122,24 +123,60 @@ function extractFromText(text) {
                 const t = normalizeAmount(mCore[3]);
                 const taxCode = mCore[4] || null;
 
-                // Text before matching segment
                 const before = line.substring(0, mCore.index).trim();
                 let sku = null;
                 let desc = before;
 
-                // SKU extraction: Start of line. Format: digits or capitals/digits. min 3-4 chars.
-                // Often 4335 for example. Or 3400/9611.
-                const codeMatch = before.match(/^([A-Z]?\d[0-9A-Z\/]{3,18})\b/i);
+                // SKU Extraction
+                const codeMatch = before.match(/^([A-Z]?\d[0-9A-Z\/]{3,18})[\s\b](.*)$/i) // Try space separation first
+                    || before.match(/^([A-Z]?\d[0-9A-Z\/]{3,30})/i); // Fallback: Take greedy chunk
+
                 if (codeMatch) {
-                    sku = codeMatch[1];
-                    desc = before.substring(sku.length).trim();
+                    let candidateSku = codeMatch[1];
+                    let candidateDesc = (codeMatch[2] || before.substring(candidateSku.length)).trim();
+
+                    // Post-processing Splitting Logic
+
+                    // A) Check known suffixes (e.g. 5107EXTGFB2EXTERNAL)
+                    let suffixFound = false;
+                    for (const s of SUFFIXES) {
+                        // Case insensitive check at end of SKU
+                        const ucSku = candidateSku.toUpperCase();
+                        if (ucSku.endsWith(s) && ucSku.length > s.length) {
+                            // Only split if length meaningful.
+                            // Cut it off
+                            candidateSku = candidateSku.substring(0, candidateSku.length - s.length);
+                            candidateDesc = s + (candidateDesc ? ' ' + candidateDesc : ''); // Prepend to desc
+                            suffixFound = true;
+                            break;
+                        }
+                    }
+
+                    // B) Check mixed case boundary (e.g. 1483SE27Towel)
+                    if (!suffixFound) {
+                        // Looks for transition from UPPER to Upper (e.g. T in Towel)
+                        // Regex: Match until we hit [A-Z][a-z]
+                        // But we want to keep the previous char if it was part of code? 
+                        // No, usually code is CAPS/Digits. Desc starts with Capital then lowercase.
+                        // So we look for the START of the description.
+                        const mixedCase = candidateSku.match(/^(.+?)(?=[A-Z][a-z])/);
+                        if (mixedCase && mixedCase[1].length > 3) {
+                            const realSku = mixedCase[1];
+                            const remainder = candidateSku.substring(realSku.length);
+                            candidateSku = realSku;
+                            candidateDesc = remainder + (candidateDesc ? ' ' + candidateDesc : '');
+                        }
+                    }
+
+                    sku = candidateSku;
+                    desc = candidateDesc;
                 }
 
                 const key = `${sku || ''}|${q}|${p}|${t}`;
                 if (!seen.has(key)) {
                     extracted.lines.push({
                         code: sku,
-                        description: desc || before, // fallback if empty
+                        description: desc || before,
                         quantity: q,
                         unitPrice: p,
                         total: t,
