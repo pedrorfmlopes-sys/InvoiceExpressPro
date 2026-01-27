@@ -1,10 +1,51 @@
 const { normalizeAmount, normalizeDate } = require('./normalize');
 const extractButo = require('./butoExtraction');
+const extractButoPresupuesto = require('./butoPresupuestoExtraction');
+const extractNicolazziTable = require('./nicolazziProformaTableExtraction');
+const extractNicolazziInvoice = require('./nicolazziInvoiceExtraction');
 
 function extractFromText(text) {
-    // --- Router: Check for BUTO profile ---
+    // --- Router: BUTO Presupuesto (Ultra-Restrictive) ---
+    // Header in Text Dump: "DESCRIPCIÓNDETALLEACABADOUD.COD.PRECIOTOTALDTO.%INC.SUBTOTAL" (Squeezed)
+    // User Layout description was "UD. COD. ..." but text extraction flipped/squeezed it.
+    if (/PRESUPUESTO/i.test(text) &&
+        /DESCRIPCI.*DETALLE.*ACABADO.*UD\./i.test(text) &&
+        (/BUTO\s*DESIGN/i.test(text) || /butobath\.com/i.test(text))) {
+        return extractButoPresupuesto(text);
+    }
+
+    // --- Router: Check for BUTO profile (Invoice) ---
     if (/BUTO\s+DESIGN/i.test(text) || /butobath\.com/i.test(text)) {
         return extractButo(text);
+    }
+
+    // --- Router: Check for Nicolazzi Proforma Table ---
+    // ULTRA-RESTRICTIVE: Must have Title AND Table Headers
+    // Header line in 212: "PosArticleColDescriptionQuantityUnit ValueDiscountAmount"
+    // We check for key components "Pos", "Article", "Unit Value", "Amount" in close proximity or page
+    if (/PROFORMA\s+INVOICE/i.test(text) &&
+        /Pos\s*Article/i.test(text) &&
+        /Unit\s*Value/i.test(text) &&
+        /Amount/i.test(text)) {
+        return extractNicolazziTable(text);
+    }
+
+    // --- Router: Nicolazzi Invoice (Dedicated for 049B layout) ---
+    // Gating: Must be Nicolazzi, Must be Invoice/Fattura, Must NOT be Proforma.
+    // Plus: Headers and Layout Anchors to ensure it's the Table layout we expect.
+    const hasNicolazzi = /NICOLAZZI/i.test(text);
+    const isInvoice = /\b(FATTURA|INVOICE)\b/i.test(text);
+    const isProforma = /\bPROFORMA\b/i.test(text);
+
+    const hasHeaders =
+        /(Articolo|Article)/i.test(text) &&
+        /(Descrizione|Description)/i.test(text);
+
+    const hasLayoutAnchor =
+        /NR/i.test(text) && /EUR/i.test(text);
+
+    if (hasNicolazzi && isInvoice && !isProforma && hasHeaders && hasLayoutAnchor) {
+        return extractNicolazziInvoice(text);
     }
 
     // --- Standard V2 Extraction (Nicolazzi / Generic) ---
@@ -24,6 +65,9 @@ function extractFromText(text) {
         entities: {
             customer: { name: null, vat: null },
             supplier: { name: null, vat: null }
+        },
+        debug: {
+            extractor: (process.env.NODE_ENV === 'development' ? 'extractFromText_GenericInline' : undefined)
         }
     };
 

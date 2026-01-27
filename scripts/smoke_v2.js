@@ -21,7 +21,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 
 const FILE_PATH = args.file;
-const HOST = args.host || 'http://localhost:3000';
+const HOST = args.host || 'http://localhost:3000'; // Default host
 const TOKEN = args.token || process.env.AUTH_TOKEN;
 
 if (!FILE_PATH) {

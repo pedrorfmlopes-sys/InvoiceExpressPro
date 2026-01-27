@@ -20,14 +20,41 @@ export default function DashboardNew({ project }) {
     const [healthLoading, setHealthLoading] = useState(true);
     const [healthError, setHealthError] = useState(null);
 
+    // Dashboard Stats State
+    const [stats, setStats] = useState({
+        monthRevenue: 0,
+        pendingCount: 0,
+        accuracy: 0,
+        connections: 0
+    });
+    const [statsLoading, setStatsLoading] = useState(true);
+
     // Load Data
     useEffect(() => {
-        // 1. Load Recent
-        api.get(`/api/v2/docs?project=${project}&limit=5`)
+        // 1. Load Recent Docs (Using CoreV2 Endpoint)
+        api.get(`/api/corev2/docs?project=${project}&limit=5`)
             .then(res => setRecentDocs(res.data.rows || []))
             .catch(err => console.error("Recent docs failed", err));
 
-        // 2. Load Health
+        // 2. Load Dashboard Stats
+        setStatsLoading(true);
+        api.get(`/api/v2/reports/summary?project=${project}`)
+            .then(res => {
+                const globalData = (res.data.rows || [])[0] || {};
+                setStats({
+                    monthRevenue: globalData.monthRevenue || 0,
+                    pendingCount: globalData.pendingCount || 0,
+                    accuracy: globalData.accuracy || 0,
+                    connections: globalData.connections || 0
+                });
+                setStatsLoading(false);
+            })
+            .catch(err => {
+                console.error("Stats fetch failed", err);
+                setStatsLoading(false);
+            });
+
+        // 3. Load Health
         setHealthLoading(true);
         api.get('/api/health/modules')
             .then(res => {
@@ -77,31 +104,35 @@ export default function DashboardNew({ project }) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
                 <StatCard
                     label="Receita do Mês"
-                    value="€ 12.450"
-                    subtext="+15% vs mês anterior"
+                    value={fmtEUR(stats.monthRevenue)}
+                    subtext="Valores extraídos"
                     gradientVar="var(--grad-stat1)"
                     icon={<span>💰</span>}
+                    loading={statsLoading}
                 />
                 <StatCard
                     label="Docs Pendentes"
-                    value="3"
+                    value={stats.pendingCount}
                     subtext="A aguardar revisão"
                     gradientVar="var(--grad-stat2)"
                     icon={<span>⏳</span>}
+                    loading={statsLoading}
                 />
                 <StatCard
                     label="Precisão AI"
-                    value="98.5%"
-                    subtext="Últimos 100 documentos"
+                    value={`${stats.accuracy}%`}
+                    subtext="Média global"
                     gradientVar="var(--grad-stat1)"
                     icon={<span>🤖</span>}
+                    loading={statsLoading}
                 />
                 <StatCard
                     label="Ligações Ativas"
-                    value="4"
-                    subtext="Sistemas conectados"
+                    value={stats.connections}
+                    subtext="Entidades detectadas"
                     gradientVar="var(--grad-stat2)"
                     icon={<span>🔗</span>}
+                    loading={statsLoading}
                 />
             </div>
 

@@ -16,7 +16,7 @@ async function processFile(project, filePath, originalName, batchId, ctx) {
         const text = (parsed.text || '').trim();
 
         // 2. Run Engine V2
-        const normalized = await Engine.process(text);
+        const normalized = await Engine.process(text, buf);
 
         // 3. Prepare Persistence (Staging)
         const stagingName = Date.now() + '_' + path.basename(originalName);

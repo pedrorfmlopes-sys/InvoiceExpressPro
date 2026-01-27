@@ -152,6 +152,32 @@ export default function ProcessV2Tab({ project }) {
         }
     }
 
+    async function loadPendingDocs() {
+        setBusy(true);
+        try {
+            const res = await api.get(`/api/corev2/docs?project=${project}&status=staging&limit=200`);
+            const extRes = await api.get(`/api/corev2/docs?project=${project}&status=extracted&limit=200`);
+
+            const allPending = [...(res.data.rows || []), ...(extRes.data.rows || [])];
+
+            if (allPending.length === 0) {
+                alert("Não foram encontrados documentos pendentes para este projeto.");
+                return;
+            }
+
+            const fmtRows = allPending.map(r => ({
+                ...r,
+                total: r.total ? parseFloat(String(r.total).replace(',', '.')).toFixed(2) : r.total
+            }));
+            setRows(fmtRows);
+            setBatchId('recovered-' + Date.now()); // Fake batchId to bypass the empty state
+        } catch (e) {
+            alert('Erro ao carregar pendentes: ' + e.message);
+        } finally {
+            setBusy(false);
+        }
+    }
+
     // -- Polling --
     useEffect(() => {
         if (!batchId) return;
@@ -429,12 +455,15 @@ export default function ProcessV2Tab({ project }) {
                     <div className="text-4xl mb-4">📄</div>
                     <div className="text-lg font-medium mb-2">{t('process.dropzone')}</div>
                     <div className="text-sm opacity-50">.PDF (Multiple)</div>
-                    {files.length > 0 && (
-                        <div className="mt-6 flex flex-col gap-2 w-full max-w-md">
-                            <div className="text-xs font-bold uppercase tracking-widest opacity-50">Selected: {files.length}</div>
-                            <button onClick={(e) => { e.stopPropagation(); startProcessing(); }} className="btn primary w-full">{t('process.btn_process')}</button>
-                        </div>
-                    )}
+
+                    <div className="mt-6 flex flex-col gap-3 w-full max-w-md">
+                        {files.length > 0 && (
+                            <button onClick={(e) => { e.stopPropagation(); startProcessing(); }} className="btn primary w-full">{t('process.btn_process')} ({files.length})</button>
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); loadPendingDocs(); }} className="btn w-full bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20">
+                            🔁 Recuperar Documentos Pendentes
+                        </button>
+                    </div>
                 </div>
             )}
 

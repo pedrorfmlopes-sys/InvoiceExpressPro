@@ -1,59 +1,81 @@
 function validate(extracted, docType) {
     const minConfidence = 0.5;
-    let confidence = 0.8;
+    let confidence = 0.7; // Lower baseline, earned through completeness
     let needsReview = false;
-    let reviewReason = null;
+    let reviewReason = [];
 
-    // 1. Mandatory Fields based on DocType
+    // 1. Completeness Checks
     if (!docType) {
         needsReview = true;
-        reviewReason = "Unknown Document Type";
+        reviewReason.push("Unknown Document Type");
         confidence = 0.2;
     } else {
-        if (!extracted.docNumber) {
-            needsReview = true;
-            reviewReason = "Missing Document Number";
-            confidence -= 0.3;
-        }
+        if (extracted.docNumber) confidence += 0.1;
+        else { needsReview = true; reviewReason.push("Missing Document Number"); }
 
-        if (docType === 'invoice' || docType === 'proforma') {
-            if (!extracted.totals.total && !extracted.totals.subtotal) {
-                needsReview = true;
-                reviewReason = (reviewReason ? reviewReason + ", " : "") + "Missing Totals";
-                confidence -= 0.3;
-            }
-        }
+        if (extracted.entities.customer.vat) confidence += 0.05;
+        if (extracted.entities.supplier.vat) confidence += 0.02;
     }
 
-    // 2. Data Consistency (Totals)
+    // 2. Mathematical Consistency (Lines vs Subtotal)
     const t = extracted.totals;
-    if (t.subtotal && t.tax && t.total) { // Updated keys
-        const calcTotal = t.subtotal + t.tax;
-        if (Math.abs(calcTotal - t.total) > 0.05) {
-            needsReview = true;
-            reviewReason = (reviewReason ? reviewReason + ", " : "") + "Totals Mismatch (Subtotal+Tax!=Total)";
-        }
-    }
+    let mathOk = true;
 
-    // 3. Line Items vs Totals
-    if (extracted.lines.length > 0 && t.subtotal) {
+    if (extracted.lines.length > 0) {
+        confidence += 0.05;
         const sumLines = extracted.lines.reduce((acc, l) => acc + (l.total || 0), 0);
-        // Allows 10% tolerance or 1.0 diff (rounding)
-        if (Math.abs(sumLines - t.subtotal) > 1.0) {
-            // Maybe lines are including tax or not? Warn but don't fail hard.
+        if (t.subtotal && Math.abs(sumLines - t.subtotal) < 0.1) {
+            confidence += 0.05;
+            debugLog("Line sum matches subtotal");
+        } else if (t.subtotal) {
+            mathOk = false;
+            debugLog(`Line sum (${sumLines}) != Subtotal (${t.subtotal})`);
         }
-    } else if (extracted.lines.length === 0 && (docType === 'invoice')) {
+    } else if (docType === 'invoice') {
         needsReview = true;
-        reviewReason = (reviewReason ? reviewReason + ", " : "") + "No Lines Extracted";
+        reviewReason.push("No Lines Extracted");
     }
 
-    // 4. Anti-Invention: If confidence is too low, mark review
+    // 3. Mathematical Consistency (Subtotal + Tax vs Total)
+    if (t.total && t.subtotal) {
+        const discountVal = (t.discount || 0);
+        const transportVal = (t.transport || 0);
+        const taxVal = (t.tax || 0);
+
+        // Sum check: Subtotal + Transport - Discount + Tax = Total
+        const calcTotal = (t.subtotal + transportVal - discountVal + taxVal);
+        if (Math.abs(calcTotal - t.total) < 0.1) {
+            confidence += 0.05;
+            debugLog("Totals are mathematically consistent");
+        } else {
+            mathOk = false;
+            reviewReason.push("Totals Mismatch (Subtotal + Transport - Disc + Tax != Total)");
+        }
+    } else {
+        mathOk = false;
+        reviewReason.push("Missing Totals");
+    }
+
+    // 4. Reference completeness
+    if (extracted.docRefs && (extracted.docRefs.deliveryNote || extracted.docRefs.orderConfirmation)) {
+        confidence += 0.02;
+    }
+
+    // High Quality Bonus: If math is perfect and we have lines
+    if (mathOk && extracted.lines.length > 0 && !needsReview) {
+        confidence += 0.1;
+    }
+
+    function debugLog(msg) { /* console.log('[Validator]', msg); */ }
+
+    // Final Review Gate
     if (confidence < minConfidence) needsReview = true;
+    if (mathOk === false) needsReview = true;
 
     return {
-        confidence: Math.max(0, Math.min(1, confidence)),
+        confidence: parseFloat(Math.min(0.99, confidence).toFixed(2)),
         needsReview,
-        reviewReason
+        reviewReason: reviewReason.join(', ') || null
     };
 }
 
