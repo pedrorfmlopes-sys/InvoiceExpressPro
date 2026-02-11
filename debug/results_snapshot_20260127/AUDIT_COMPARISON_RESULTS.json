@@ -1,0 +1,725 @@
+[
+  {
+    "testName": "Nicolazzi_038B",
+    "fileName": "038B.pdf",
+    "result": {
+      "docType": "invoice",
+      "docNumber": "000038/B",
+      "currency": "EUR",
+      "dates": {
+        "issued": "2026-01-20",
+        "due": null
+      },
+      "entities": {
+        "supplier": {
+          "name": "NICOLAZZI s.p.a.",
+          "vat": "IT00115930034",
+          "address": "28010 ALZO (NO) - Via P. Durio, 119"
+        },
+        "customer": {
+          "name": "WATERWORKS BY SANIBANHO LDA",
+          "vat": "PT503031542",
+          "address": "AV. DR. FRANCISCO SA' CARNEIRO 83, SASSOEIROS CARCAVELOS"
+        }
+      },
+      "totals": {
+        "total": 86.5,
+        "subtotal": 86.5,
+        "tax": 0,
+        "goods": null,
+        "transport": null,
+        "packaging": null,
+        "discount": null,
+        "discountMain": null,
+        "discountExtra": null
+      },
+      "lines": [
+        {
+          "code": "R2438TCOS_2208/312",
+          "description": "BOCCA LAVABO PER 2438 CON AERATORE KC2208/312 - GIREVOLE",
+          "quantity": 1,
+          "unitPrice": 86.5,
+          "total": 86.5,
+          "orderRef": "25/02326",
+          "taxCode": "NI41",
+          "uom": "NR"
+        }
+      ],
+      "docRefs": {
+        "deliveryNote": {
+          "number": "000067",
+          "date": "2026-01-20",
+          "rawLine": "DDT Nr. 000067 del 20/01/2026"
+        }
+      },
+      "confidence": 0.99,
+      "needsReview": false,
+      "reviewReason": null,
+      "debug": {
+        "extractor": "nicolazziInvoiceCoordsExtraction",
+        "textLength": 4756,
+        "textSample": "                                                           NICOLAZZI s.p.a.\r\n                                                           28010 ALZO (NO) - Via P. Durio, 119\r\n                                                           tel. (0322) 969.672 r.a.\r\n                                                           Telefax (0322) 969.532                                                       WATERWORKS BY SANIBANHO LDA\r\n                                                           C.C.I.A.A. n. 84286-M. NO 001005\r\n                                                           Part. IVA e Cod. Fiscale: IT 00115930034                                     AV. DR. FRANCISCO SA' CARNEIRO 83\r\n                                                           Isc. Trib. Verbania Reg. Soc. n: 3398\r\n                                                                                                                                        2775-770     SASSOEIROS CARCAVELOS\r\n                                           "
+      }
+    }
+  },
+  {
+    "testName": "Nicolazzi_049B",
+    "fileName": "049B.pdf",
+    "result": {
+      "docType": "invoice",
+      "docNumber": "000049/B",
+      "currency": "EUR",
+      "dates": {
+        "issued": "2025-01-15",
+        "due": null
+      },
+      "entities": {
+        "supplier": {
+          "name": "NICOLAZZI s.p.a.",
+          "vat": "IT00115930034",
+          "address": "28010 ALZO (NO) - Via P. Durio, 119"
+        },
+        "customer": {
+          "name": "SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA",
+          "vat": "PT502952113",
+          "address": "RUA DA INDUSTRIA 2891, TROFA"
+        }
+      },
+      "totals": {
+        "total": 10278.25,
+        "subtotal": 10278.25,
+        "tax": 0,
+        "goods": null,
+        "transport": null,
+        "packaging": null,
+        "discount": null,
+        "discountMain": null,
+        "discountExtra": null
+      },
+      "lines": [
+        {
+          "code": "5107EXTGFB2",
+          "description": "EXTERNAL PART WASH BASIN WALL MOUNTED",
+          "quantity": 1,
+          "unitPrice": 390,
+          "total": 390,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2407EXTOS21",
+          "description": "EXTERNAL PARTS WALL MOUNTED BASIN MIXER KHADY",
+          "quantity": 2,
+          "unitPrice": 139.5,
+          "total": 279,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2437TCOS21",
+          "description": "SINGLE HOLE BIDET MIXER KHADY WITHOUT WASTE",
+          "quantity": 1,
+          "unitPrice": 205.5,
+          "total": 205.5,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2403EXTOS21",
+          "description": "BUILT IN BATH MIXER",
+          "quantity": 1,
+          "unitPrice": 269.5,
+          "total": 269.5,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2207EXTOS27",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER M.CROCE",
+          "quantity": 2,
+          "unitPrice": 103.5,
+          "total": 207,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2237OS27",
+          "description": "SINGLE HOLE BIDET MIXER M.CROCE",
+          "quantity": 2,
+          "unitPrice": 188.5,
+          "total": 377,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2203EXTOS27",
+          "description": "EXTERNAL PARTS FOR BUILT IN BATH MIXER M.CROCE",
+          "quantity": 1,
+          "unitPrice": 197,
+          "total": 197,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2207EXTOS29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05",
+          "quantity": 1,
+          "unitPrice": 103.5,
+          "total": 103.5,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "3336TCNEM44",
+          "description": "SINGLE HOLE BASIN MIXER *ARENA* WITHOUT WASTE",
+          "quantity": 1,
+          "unitPrice": 337,
+          "total": 337,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "3706EXTNEM56M",
+          "description": "SINGLE LEVER BUILT IN SHOWER MIXER ARENA EXTERNAL PARTS",
+          "quantity": 1,
+          "unitPrice": 105.5,
+          "total": 105.5,
+          "orderRef": "ARQ.JOANA POSAS",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2233EXTOG29",
+          "description": "SHOWER SET WITH DIVERTER, HEAD SHOWER D.200 AND DUPLEX",
+          "quantity": 1,
+          "unitPrice": 424.05,
+          "total": 424.05,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2207EXTOG29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER",
+          "quantity": 1,
+          "unitPrice": 113.85,
+          "total": 113.85,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2233EXTOG29",
+          "description": "SHOWER SET WITH DIVERTER, HEAD SHOWER D.200 AND DUPLEX",
+          "quantity": 1,
+          "unitPrice": 424.05,
+          "total": 424.05,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2207EXTOG29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER",
+          "quantity": 1,
+          "unitPrice": 113.85,
+          "total": 113.85,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2225OG29",
+          "description": "EXTERNAL SHOWER MIXER MC. KINLEY 05",
+          "quantity": 1,
+          "unitPrice": 122.65,
+          "total": 122.65,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "5712WSOGSPEC",
+          "description": "COLUMN SHOWER 1200x320 W/HEAD D.200 W/DIVERTER & SHOWER OG",
+          "quantity": 1,
+          "unitPrice": 333.3,
+          "total": 333.3,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "4804/1OG",
+          "description": "SOFFIONE DOCCIA CONICO D.200",
+          "quantity": 1,
+          "unitPrice": 275,
+          "total": 275,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "3450WSOG75C",
+          "description": "SINGLE LEVER SINK MIXER W/SIDE SPRAY EL CAPITAN",
+          "quantity": 1,
+          "unitPrice": 294.8,
+          "total": 294.8,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "5574OG",
+          "description": "COUPLE OF FIXED VERTICAL CONNECTIONS h.820 mm",
+          "quantity": 1,
+          "unitPrice": 255.75,
+          "total": 255.75,
+          "orderRef": "4200",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2207EXTSE29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05",
+          "quantity": 1,
+          "unitPrice": 262.9,
+          "total": 262.9,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "5559SE",
+          "description": "MINIMAL SIPHON 1\"1/4 W/OUT PILLAR",
+          "quantity": 1,
+          "unitPrice": 150.15,
+          "total": 150.15,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "5558SE",
+          "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\"",
+          "quantity": 2,
+          "unitPrice": 53.35,
+          "total": 106.7,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2208TCSE29",
+          "description": "BASIN MIXER WITHOUT POP UP WASTE MAC KINLEY 05",
+          "quantity": 2,
+          "unitPrice": 304.7,
+          "total": 609.4,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "4909SE29",
+          "description": "TRIM SET THERMOSTATIC MIXER 3/4\" MC KINLEY 05",
+          "quantity": 1,
+          "unitPrice": 403.7,
+          "total": 403.7,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "7124MSE",
+          "description": "HOOK FOR DUPLEX, BUILT IN TYPE, AG",
+          "quantity": 1,
+          "unitPrice": 119.35,
+          "total": 119.35,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "R7097SE",
+          "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+          "quantity": 1,
+          "unitPrice": 83.6,
+          "total": 83.6,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "7135SE",
+          "description": "PUMORI HAND SHOWER",
+          "quantity": 1,
+          "unitPrice": 55,
+          "total": 55,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "5734SE30",
+          "description": "OVERSIZE SHOWER HEAD W/5605 CELING CONNECTION",
+          "quantity": 1,
+          "unitPrice": 641.3,
+          "total": 641.3,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "1483SE27",
+          "description": "Towel holder cm. 30 *M. CROCE*",
+          "quantity": 2,
+          "unitPrice": 142.45,
+          "total": 284.9,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "5558SE",
+          "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\"",
+          "quantity": 2,
+          "unitPrice": 55.55,
+          "total": 111.1,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "2208TCSE29",
+          "description": "BASIN MIXER WITHOUT POP UP WASTE MAC KINLEY 05",
+          "quantity": 2,
+          "unitPrice": 304.7,
+          "total": 609.4,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "4909SE29",
+          "description": "TRIM SET THERMOSTATIC MIXER 3/4\" MC KINLEY 05",
+          "quantity": 1,
+          "unitPrice": 403.7,
+          "total": 403.7,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "7124MSE",
+          "description": "HOOK FOR DUPLEX, BUILT IN TYPE, AG",
+          "quantity": 1,
+          "unitPrice": 119.35,
+          "total": 119.35,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "R7097SE",
+          "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+          "quantity": 1,
+          "unitPrice": 83.6,
+          "total": 83.6,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "7135SE",
+          "description": "PUMORI HAND SHOWER",
+          "quantity": 1,
+          "unitPrice": 55,
+          "total": 55,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "5734SE30",
+          "description": "OVERSIZE SHOWER HEAD W/5605 CELING CONNECTION",
+          "quantity": 1,
+          "unitPrice": 641.3,
+          "total": 641.3,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "1483SE27",
+          "description": "Towel holder cm. 30 *M. CROCE*",
+          "quantity": 2,
+          "unitPrice": 142.45,
+          "total": 284.9,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        },
+        {
+          "code": "3430SE",
+          "description": "SINGLE LEVER MIXER WITH EXTRACTABLE SHOWER",
+          "quantity": 1,
+          "unitPrice": 424.6,
+          "total": 424.6,
+          "orderRef": "4335",
+          "taxCode": "NI41",
+          "uom": "NR"
+        }
+      ],
+      "docRefs": {
+        "deliveryNote": {
+          "number": "000085",
+          "date": "2025-01-15",
+          "rawLine": "DDT Nr. 000085 del 15/01/2025"
+        }
+      },
+      "confidence": 0.99,
+      "needsReview": false,
+      "reviewReason": null,
+      "debug": {
+        "extractor": "nicolazziInvoiceCoordsExtraction",
+        "textLength": 20068,
+        "textSample": "                                                         NICOLAZZI s.p.a.\r\n                                                         28010 ALZO (NO) - Via P. Durio, 119\r\n                                                         tel. (0322) 969.672 r.a.\r\n                                                         Telefax (0322) 969.532                                                 SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA\r\n                                                         C.C.I.A.A. n. 84286-M. NO 001005\r\n                                                         Part. IVA e Cod. Fiscale: IT 00115930034                               RUA DA INDUSTRIA 2891\r\n                                                         Isc. Trib. Verbania Reg. Soc. n: 3398\r\n                                                                                                                                4785-627     TROFA\r\n                                                         Capitale Sociale € 1.800.000,00 i.v.\r\n   "
+      }
+    }
+  },
+  {
+    "testName": "Nicolazzi_212_Proforma",
+    "fileName": "212.pdf",
+    "result": {
+      "docType": "proforma",
+      "docNumber": null,
+      "currency": "EUR",
+      "dates": {
+        "issued": null,
+        "due": null
+      },
+      "entities": {
+        "customer": {
+          "name": "LISBOA                                 1750-167       MONTIJO                                            2870-231",
+          "vat": null,
+          "address": null
+        },
+        "supplier": {
+          "name": "NICOLAZZI s.p.a.",
+          "vat": "IT00115930034",
+          "address": "28010 ALZO (NO) - Via P. Durio, 119"
+        },
+        "shipTo": null
+      },
+      "totals": {
+        "goods": 487.35,
+        "transport": null,
+        "packaging": null,
+        "discount": null,
+        "subtotal": 487.35,
+        "tax": null,
+        "total": null
+      },
+      "lines": [],
+      "confidence": 0.72,
+      "needsReview": true,
+      "reviewReason": "Missing Document Number, Missing Totals",
+      "debug": {
+        "textLength": 5391,
+        "textSample": "                         NICOLAZZI s.p.a.\r\n                                                                                                                                                                                   030DI113\r\n                         Via Pietro Durio 119                           Delivery Address                                      Spett.le\r\n                         28010 ALZO DI PELLA (NO)\r\n                         tel. (0322) 969.672 r.a.\r\n                         Telefax (0322) 969.532                          DIVITEK ESPAZO - ALTA DE LISBOA BOX 2                  DVTKB, LDA\r\n                         C.C.I.A.A. n. 84286-M. NO 001005\r\n                         Part. IVA e Cod. Fiscale: 00115930034\r\n                         Isc. Trib. Verbania Reg. Soc. n: 3398            ESTRADA SAO BARTOLOMEU N.169                          RUA DA BAIXA 326-3D-DRT\r\n                         Capitale Sociale € 1.800.000,00 i.v.\r\n                                                   "
+      }
+    }
+  },
+  {
+    "testName": "Buto_Invoice_0095",
+    "fileName": "Factura_INT-0095_BUTO.pdf",
+    "result": {
+      "docType": "invoice",
+      "docNumber": "INT/26-000095",
+      "currency": "EUR",
+      "dates": {
+        "issued": null,
+        "due": null
+      },
+      "entities": {
+        "customer": {
+          "name": null,
+          "vat": "PT503031542",
+          "address": null
+        },
+        "supplier": {
+          "name": "BUTO DESIGN S.L.",
+          "vat": "B02883957",
+          "address": "Alicante, Spain"
+        }
+      },
+      "totals": {
+        "goods": 3262,
+        "transport": null,
+        "packaging": null,
+        "discount": 1312.66,
+        "subtotal": 1859.34,
+        "tax": 0,
+        "total": 1859.34,
+        "discountMain": -1304.8,
+        "discountExtra": 7.86
+      },
+      "lines": [
+        {
+          "code": "GA053 OLD",
+          "detailCode": null,
+          "description": "GALIANO // Módulo Suspendido 130x50x50 cm. 1 cajón G-F3/S1 M1",
+          "quantity": 1,
+          "unitPrice": 1720,
+          "incrementPercent": 30,
+          "discountPercent": 40,
+          "total": 1341.6,
+          "needsReview": false,
+          "finishText": "Madera M1 - 312 Desert Oak (Ranurado)"
+        },
+        {
+          "code": "GAE050 OLD",
+          "detailCode": null,
+          "description": "Lateral Extraible H50 cm M1 350",
+          "quantity": 2,
+          "unitPrice": 700,
+          "incrementPercent": 0,
+          "discountPercent": 40,
+          "total": 420,
+          "needsReview": true,
+          "validationIssue": "NetMismatch(Exp:840.00 vs Found:420) GrossMismatch(Exp:1400.00 vs Found:700)",
+          "finishText": "Madera M1 - 312 Desert Oak (Ranurado)"
+        },
+        {
+          "code": "CN206 OLD",
+          "detailCode": null,
+          "description": "Cajón interior 100x35x10 cm M1 289",
+          "quantity": 1,
+          "unitPrice": 289,
+          "incrementPercent": 0,
+          "discountPercent": 40,
+          "total": 173.4,
+          "needsReview": false,
+          "finishText": "Madera M1 - 312 Desert Oak"
+        },
+        {
+          "code": "S370 OLD",
+          "detailCode": null,
+          "description": "Sifón Ahorro Blanco UNICO 37",
+          "quantity": 1,
+          "unitPrice": 37,
+          "incrementPercent": 0,
+          "discountPercent": 40,
+          "total": 22.2,
+          "needsReview": false
+        }
+      ],
+      "confidence": 0.92,
+      "needsReview": true,
+      "reviewReason": "Totals Mismatch (Subtotal + Transport - Disc + Tax != Total)",
+      "debug": {
+        "butoProfileVersion": "BUTO_PROFILE__TOTALS_OLD_FIX__2026-01-23",
+        "textLength": 6221,
+        "textSample": "                                                                                                                                                                         BUTO DESIGN S.L.\r\n\r\n                                                                                                                                  C/ Sociedad Cultural Deportiva Betis Florida, 3 Local 1\r\n                                                                                                                                                                          03007 Alicante\r\n                                                                                                                                                                        Alicante/Alacant\r\n                                                                                                                                                                                  España\r\n                                                                  "
+      }
+    }
+  },
+  {
+    "testName": "Buto_Budget_0444",
+    "fileName": "Pre_INT.0444_Waterworks.pdf",
+    "result": {
+      "docType": "invoice",
+      "docNumber": "INT/26-000444",
+      "currency": "EUR",
+      "dates": {
+        "issued": null,
+        "due": null
+      },
+      "entities": {
+        "customer": {
+          "name": null,
+          "vat": "PT503031542",
+          "address": null
+        },
+        "supplier": {
+          "name": "BUTO DESIGN S.L.",
+          "vat": "B02883957",
+          "address": "Alicante, Spain"
+        }
+      },
+      "totals": {
+        "goods": 3174,
+        "transport": null,
+        "packaging": null,
+        "discount": 1206.42,
+        "subtotal": 1877.58,
+        "tax": 0,
+        "total": 1877.58,
+        "discountMain": -1197.6,
+        "discountExtra": 8.82
+      },
+      "lines": [
+        {
+          "code": "HQ414",
+          "detailCode": null,
+          "description": "PROHQ // Módulo Suspendido 80x50x40 cm. 1 cajón F1-V1/S1 LM 722 01M - Lacado Blanco Mate",
+          "quantity": 1,
+          "unitPrice": 722,
+          "incrementPercent": 0,
+          "discountPercent": 40,
+          "total": 433.2,
+          "needsReview": false
+        },
+        {
+          "code": "TML138",
+          "detailCode": null,
+          "description": "Tapa con 1 lavabo integrado 80x50x1,2 cm. MA1 MY - Ivory Cream ML1- Lavabo (50x30x10 cm) Mármol",
+          "quantity": 1,
+          "unitPrice": 2227,
+          "incrementPercent": 0,
+          "discountPercent": 40,
+          "total": 1336.2,
+          "needsReview": false
+        },
+        {
+          "code": "S370",
+          "detailCode": null,
+          "description": "Sifón ahorro en PVC blanco. UNICO 45",
+          "quantity": 1,
+          "unitPrice": 45,
+          "incrementPercent": 0,
+          "discountPercent": 40,
+          "total": 27,
+          "needsReview": false
+        },
+        {
+          "code": "EB001",
+          "detailCode": null,
+          "description": "Transporte Especial a pie de calle UNICO 180",
+          "quantity": 1,
+          "unitPrice": 180,
+          "incrementPercent": 0,
+          "discountPercent": 0,
+          "total": 180,
+          "needsReview": false
+        }
+      ],
+      "confidence": 0.92,
+      "needsReview": true,
+      "reviewReason": "Totals Mismatch (Subtotal + Transport - Disc + Tax != Total)",
+      "debug": {
+        "butoProfileVersion": "BUTO_PROFILE__TOTALS_OLD_FIX__2026-01-23",
+        "textLength": 5959,
+        "textSample": "                                                                                                                                                                     BUTO DESIGN S.L.\r\n\r\n                                                                                                                                 C/ Sociedad Cultural Deportiva Betis Florida, 3 Local 1\r\n                                                                                                                                                                         03007 Alicante\r\n                                                                                                                                                                       Alicante/Alacant\r\n                                                                                                                                                                                 España\r\n                                                                          "
+      }
+    }
+  }
+]

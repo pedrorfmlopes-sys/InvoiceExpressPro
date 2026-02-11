@@ -1,0 +1,436 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: IS
+      - generic [ref=e8]:
+        - generic [ref=e9]: Invoice Studio
+        - generic [ref=e10]: Workspace
+    - navigation [ref=e11]:
+      - generic [ref=e12]:
+        - button "Workspace ▼" [ref=e13] [cursor=pointer]:
+          - generic [ref=e14]: Workspace
+          - generic [ref=e15]: ▼
+        - generic [ref=e16]:
+          - button "Dashboard" [ref=e17] [cursor=pointer]:
+            - generic [ref=e18]: Dashboard
+          - button "Projetos" [ref=e19] [cursor=pointer]:
+            - generic [ref=e20]: Projetos
+          - button "Process (V2)" [ref=e21] [cursor=pointer]:
+            - generic [ref=e23]: Process (V2)
+          - button "Reports V2" [ref=e25] [cursor=pointer]:
+            - generic [ref=e26]: Reports V2
+          - button "Core V2" [ref=e27] [cursor=pointer]:
+            - generic [ref=e28]: Core V2
+          - button "Transactions" [ref=e29] [cursor=pointer]:
+            - generic [ref=e30]: Transactions
+      - generic [ref=e32]:
+        - button "System ▼" [ref=e33] [cursor=pointer]:
+          - generic [ref=e34]: System
+          - generic [ref=e35]: ▼
+        - generic [ref=e36]:
+          - button "Settings" [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]: Settings
+          - button "Gestão de Etiquetas" [ref=e39] [cursor=pointer]:
+            - generic [ref=e40]: Gestão de Etiquetas
+          - button "Perfis de Leitura" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: Perfis de Leitura
+          - button "Imagens & Ícones" [ref=e43] [cursor=pointer]:
+            - generic [ref=e44]: Imagens & Ícones
+          - button "System Health" [ref=e45] [cursor=pointer]:
+            - generic [ref=e46]: System Health
+    - generic [ref=e48] [cursor=pointer]:
+      - generic [ref=e49]: AD
+      - generic [ref=e50]:
+        - generic [ref=e51]: Admin User
+        - generic [ref=e52]: admin@invoice.studio
+  - banner [ref=e53]:
+    - generic [ref=e55]:
+      - img [ref=e56]
+      - textbox "Search documents, batches..." [ref=e58]
+    - generic [ref=e59]:
+      - generic [ref=e60]:
+        - generic [ref=e61]: Prj
+        - combobox [ref=e62] [cursor=pointer]:
+          - option "Proj_2026" [selected]
+          - option "+ Criar Novo"
+      - combobox [ref=e63] [cursor=pointer]:
+        - option "Teal" [selected]
+        - option "Blue"
+        - option "Mono"
+      - button "Switch to light mode" [ref=e64] [cursor=pointer]:
+        - img [ref=e65]
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - generic [ref=e69]: Local Admin
+          - generic [ref=e70]: admin
+        - button [ref=e71] [cursor=pointer]:
+          - img [ref=e72]
+  - main [ref=e74]:
+    - generic [ref=e76]:
+      - generic: PROCESSAR_V2_MARKER
+      - generic [ref=e78]:
+        - heading "Process Documents" [level=1] [ref=e79]
+        - generic [ref=e80]: "Workspace: Proj_2026"
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: Review Batch (7)
+          - generic [ref=e84]:
+            - button "Delete (1)" [ref=e85] [cursor=pointer]:
+              - img [ref=e86]
+              - text: Delete (1)
+            - button "Show Extra" [ref=e89] [cursor=pointer]
+            - button "Finalize & Save (1)" [ref=e90] [cursor=pointer]
+        - table [ref=e92]:
+          - rowgroup [ref=e93]:
+            - 'row "# Type Doc # Date Customer Total Supplier Actions" [ref=e94]':
+              - columnheader [ref=e95]:
+                - checkbox [ref=e96] [cursor=pointer]
+              - columnheader "#" [ref=e97]
+              - columnheader "Type" [ref=e98]
+              - 'columnheader "Doc #" [ref=e99]'
+              - columnheader "Date" [ref=e100]
+              - columnheader "Customer" [ref=e101]
+              - columnheader "Total" [ref=e102]
+              - columnheader "Supplier" [ref=e103]
+              - columnheader "Actions" [ref=e104]
+          - rowgroup [ref=e105]:
+            - row "1 Fatura DOC-TEST-9209 2026-02-10 Test Customer € 200.00 Test Supplier" [ref=e106]:
+              - cell [ref=e107]:
+                - checkbox [checked] [active] [ref=e108] [cursor=pointer]
+              - cell "1" [ref=e109]
+              - cell "Fatura" [ref=e110]:
+                - combobox [ref=e111] [cursor=pointer]:
+                  - option "Fatura" [selected]
+                  - option "Recibo"
+                  - option "Fatura-Recibo"
+                  - option "Nota de Crédito"
+                  - option "Guia de Remessa"
+                  - option "Outro"
+                  - option "──────────" [disabled]
+                  - option "+ Criar Novo..."
+              - cell "DOC-TEST-9209" [ref=e112]:
+                - generic [ref=e113]:
+                  - generic "Drag" [ref=e114]:
+                    - img [ref=e115]
+                  - textbox "Missing!" [ref=e118]: DOC-TEST-9209
+              - cell "2026-02-10" [ref=e119]:
+                - generic [ref=e120]:
+                  - generic "Drag" [ref=e121]:
+                    - img [ref=e122]
+                  - textbox [ref=e125]: 2026-02-10
+              - cell "Test Customer" [ref=e126]:
+                - generic [ref=e127]:
+                  - generic "Drag" [ref=e128]:
+                    - img [ref=e129]
+                  - textbox [ref=e132]: Test Customer
+              - cell "€ 200.00" [ref=e133]:
+                - generic [ref=e134]:
+                  - generic "Drag" [ref=e135]:
+                    - img [ref=e136]
+                  - generic [ref=e138]:
+                    - generic [ref=e139]: €
+                    - textbox [ref=e140]: "200.00"
+              - cell "Test Supplier" [ref=e141]:
+                - generic [ref=e142]:
+                  - generic "Drag" [ref=e143]:
+                    - img [ref=e144]
+                  - textbox [ref=e147]: Test Supplier
+              - cell [ref=e148]:
+                - button "Ensinar (Criar Regra)" [ref=e149] [cursor=pointer]:
+                  - img [ref=e150]
+                - button "View PDF" [ref=e152] [cursor=pointer]:
+                  - img [ref=e153]
+                - button "Delete" [ref=e156] [cursor=pointer]:
+                  - img [ref=e157]
+            - row "2 Fatura STRESS-1770728144833 € 200.00 STRESS_SUPPLIER_1770728144833" [ref=e160]:
+              - cell [ref=e161]:
+                - checkbox [ref=e162] [cursor=pointer]
+              - cell "2" [ref=e163]
+              - cell "Fatura" [ref=e164]:
+                - combobox [ref=e165] [cursor=pointer]:
+                  - option "Fatura" [selected]
+                  - option "Recibo"
+                  - option "Fatura-Recibo"
+                  - option "Nota de Crédito"
+                  - option "Guia de Remessa"
+                  - option "Outro"
+                  - option "──────────" [disabled]
+                  - option "+ Criar Novo..."
+              - cell "STRESS-1770728144833" [ref=e166]:
+                - generic [ref=e167]:
+                  - generic "Drag" [ref=e168]:
+                    - img [ref=e169]
+                  - textbox "Missing!" [ref=e172]: STRESS-1770728144833
+              - cell [ref=e173]:
+                - generic [ref=e174]:
+                  - generic "Drag" [ref=e175]:
+                    - img [ref=e176]
+                  - textbox [ref=e179]
+              - cell [ref=e180]:
+                - generic [ref=e181]:
+                  - generic "Drag" [ref=e182]:
+                    - img [ref=e183]
+                  - textbox [ref=e186]
+              - cell "€ 200.00" [ref=e187]:
+                - generic [ref=e188]:
+                  - generic "Drag" [ref=e189]:
+                    - img [ref=e190]
+                  - generic [ref=e192]:
+                    - generic [ref=e193]: €
+                    - textbox [ref=e194]: "200.00"
+              - cell "STRESS_SUPPLIER_1770728144833" [ref=e195]:
+                - generic [ref=e196]:
+                  - generic "Drag" [ref=e197]:
+                    - img [ref=e198]
+                  - textbox [ref=e201]: STRESS_SUPPLIER_1770728144833
+              - cell [ref=e202]:
+                - button "Ensinar (Criar Regra)" [ref=e203] [cursor=pointer]:
+                  - img [ref=e204]
+                - button "View PDF" [ref=e206] [cursor=pointer]:
+                  - img [ref=e207]
+                - button "Delete" [ref=e210] [cursor=pointer]:
+                  - img [ref=e211]
+            - row "3 Fatura STRESS-1770728144833 € 200.00 STRESS_SUPPLIER_1770728144833" [ref=e214]:
+              - cell [ref=e215]:
+                - checkbox [ref=e216] [cursor=pointer]
+              - cell "3" [ref=e217]
+              - cell "Fatura" [ref=e218]:
+                - combobox [ref=e219] [cursor=pointer]:
+                  - option "Fatura" [selected]
+                  - option "Recibo"
+                  - option "Fatura-Recibo"
+                  - option "Nota de Crédito"
+                  - option "Guia de Remessa"
+                  - option "Outro"
+                  - option "──────────" [disabled]
+                  - option "+ Criar Novo..."
+              - cell "STRESS-1770728144833" [ref=e220]:
+                - generic [ref=e221]:
+                  - generic "Drag" [ref=e222]:
+                    - img [ref=e223]
+                  - textbox "Missing!" [ref=e226]: STRESS-1770728144833
+              - cell [ref=e227]:
+                - generic [ref=e228]:
+                  - generic "Drag" [ref=e229]:
+                    - img [ref=e230]
+                  - textbox [ref=e233]
+              - cell [ref=e234]:
+                - generic [ref=e235]:
+                  - generic "Drag" [ref=e236]:
+                    - img [ref=e237]
+                  - textbox [ref=e240]
+              - cell "€ 200.00" [ref=e241]:
+                - generic [ref=e242]:
+                  - generic "Drag" [ref=e243]:
+                    - img [ref=e244]
+                  - generic [ref=e246]:
+                    - generic [ref=e247]: €
+                    - textbox [ref=e248]: "200.00"
+              - cell "STRESS_SUPPLIER_1770728144833" [ref=e249]:
+                - generic [ref=e250]:
+                  - generic "Drag" [ref=e251]:
+                    - img [ref=e252]
+                  - textbox [ref=e255]: STRESS_SUPPLIER_1770728144833
+              - cell [ref=e256]:
+                - button "Ensinar (Criar Regra)" [ref=e257] [cursor=pointer]:
+                  - img [ref=e258]
+                - button "View PDF" [ref=e260] [cursor=pointer]:
+                  - img [ref=e261]
+                - button "Delete" [ref=e264] [cursor=pointer]:
+                  - img [ref=e265]
+            - row "4 Fatura STRESS-1770728144833 € 200.00 STRESS_SUPPLIER_1770728144833" [ref=e268]:
+              - cell [ref=e269]:
+                - checkbox [ref=e270] [cursor=pointer]
+              - cell "4" [ref=e271]
+              - cell "Fatura" [ref=e272]:
+                - combobox [ref=e273] [cursor=pointer]:
+                  - option "Fatura" [selected]
+                  - option "Recibo"
+                  - option "Fatura-Recibo"
+                  - option "Nota de Crédito"
+                  - option "Guia de Remessa"
+                  - option "Outro"
+                  - option "──────────" [disabled]
+                  - option "+ Criar Novo..."
+              - cell "STRESS-1770728144833" [ref=e274]:
+                - generic [ref=e275]:
+                  - generic "Drag" [ref=e276]:
+                    - img [ref=e277]
+                  - textbox "Missing!" [ref=e280]: STRESS-1770728144833
+              - cell [ref=e281]:
+                - generic [ref=e282]:
+                  - generic "Drag" [ref=e283]:
+                    - img [ref=e284]
+                  - textbox [ref=e287]
+              - cell [ref=e288]:
+                - generic [ref=e289]:
+                  - generic "Drag" [ref=e290]:
+                    - img [ref=e291]
+                  - textbox [ref=e294]
+              - cell "€ 200.00" [ref=e295]:
+                - generic [ref=e296]:
+                  - generic "Drag" [ref=e297]:
+                    - img [ref=e298]
+                  - generic [ref=e300]:
+                    - generic [ref=e301]: €
+                    - textbox [ref=e302]: "200.00"
+              - cell "STRESS_SUPPLIER_1770728144833" [ref=e303]:
+                - generic [ref=e304]:
+                  - generic "Drag" [ref=e305]:
+                    - img [ref=e306]
+                  - textbox [ref=e309]: STRESS_SUPPLIER_1770728144833
+              - cell [ref=e310]:
+                - button "Ensinar (Criar Regra)" [ref=e311] [cursor=pointer]:
+                  - img [ref=e312]
+                - button "View PDF" [ref=e314] [cursor=pointer]:
+                  - img [ref=e315]
+                - button "Delete" [ref=e318] [cursor=pointer]:
+                  - img [ref=e319]
+            - row "5 Fatura STRESS-1770728033996 € 200.00 STRESS_SUPPLIER_1770728033996" [ref=e322]:
+              - cell [ref=e323]:
+                - checkbox [ref=e324] [cursor=pointer]
+              - cell "5" [ref=e325]
+              - cell "Fatura" [ref=e326]:
+                - combobox [ref=e327] [cursor=pointer]:
+                  - option "Fatura" [selected]
+                  - option "Recibo"
+                  - option "Fatura-Recibo"
+                  - option "Nota de Crédito"
+                  - option "Guia de Remessa"
+                  - option "Outro"
+                  - option "──────────" [disabled]
+                  - option "+ Criar Novo..."
+              - cell "STRESS-1770728033996" [ref=e328]:
+                - generic [ref=e329]:
+                  - generic "Drag" [ref=e330]:
+                    - img [ref=e331]
+                  - textbox "Missing!" [ref=e334]: STRESS-1770728033996
+              - cell [ref=e335]:
+                - generic [ref=e336]:
+                  - generic "Drag" [ref=e337]:
+                    - img [ref=e338]
+                  - textbox [ref=e341]
+              - cell [ref=e342]:
+                - generic [ref=e343]:
+                  - generic "Drag" [ref=e344]:
+                    - img [ref=e345]
+                  - textbox [ref=e348]
+              - cell "€ 200.00" [ref=e349]:
+                - generic [ref=e350]:
+                  - generic "Drag" [ref=e351]:
+                    - img [ref=e352]
+                  - generic [ref=e354]:
+                    - generic [ref=e355]: €
+                    - textbox [ref=e356]: "200.00"
+              - cell "STRESS_SUPPLIER_1770728033996" [ref=e357]:
+                - generic [ref=e358]:
+                  - generic "Drag" [ref=e359]:
+                    - img [ref=e360]
+                  - textbox [ref=e363]: STRESS_SUPPLIER_1770728033996
+              - cell [ref=e364]:
+                - button "Ensinar (Criar Regra)" [ref=e365] [cursor=pointer]:
+                  - img [ref=e366]
+                - button "View PDF" [ref=e368] [cursor=pointer]:
+                  - img [ref=e369]
+                - button "Delete" [ref=e372] [cursor=pointer]:
+                  - img [ref=e373]
+            - row "6 Fatura STRESS-1770728033996 € 200.00 STRESS_SUPPLIER_1770728033996" [ref=e376]:
+              - cell [ref=e377]:
+                - checkbox [ref=e378] [cursor=pointer]
+              - cell "6" [ref=e379]
+              - cell "Fatura" [ref=e380]:
+                - combobox [ref=e381] [cursor=pointer]:
+                  - option "Fatura" [selected]
+                  - option "Recibo"
+                  - option "Fatura-Recibo"
+                  - option "Nota de Crédito"
+                  - option "Guia de Remessa"
+                  - option "Outro"
+                  - option "──────────" [disabled]
+                  - option "+ Criar Novo..."
+              - cell "STRESS-1770728033996" [ref=e382]:
+                - generic [ref=e383]:
+                  - generic "Drag" [ref=e384]:
+                    - img [ref=e385]
+                  - textbox "Missing!" [ref=e388]: STRESS-1770728033996
+              - cell [ref=e389]:
+                - generic [ref=e390]:
+                  - generic "Drag" [ref=e391]:
+                    - img [ref=e392]
+                  - textbox [ref=e395]
+              - cell [ref=e396]:
+                - generic [ref=e397]:
+                  - generic "Drag" [ref=e398]:
+                    - img [ref=e399]
+                  - textbox [ref=e402]
+              - cell "€ 200.00" [ref=e403]:
+                - generic [ref=e404]:
+                  - generic "Drag" [ref=e405]:
+                    - img [ref=e406]
+                  - generic [ref=e408]:
+                    - generic [ref=e409]: €
+                    - textbox [ref=e410]: "200.00"
+              - cell "STRESS_SUPPLIER_1770728033996" [ref=e411]:
+                - generic [ref=e412]:
+                  - generic "Drag" [ref=e413]:
+                    - img [ref=e414]
+                  - textbox [ref=e417]: STRESS_SUPPLIER_1770728033996
+              - cell [ref=e418]:
+                - button "Ensinar (Criar Regra)" [ref=e419] [cursor=pointer]:
+                  - img [ref=e420]
+                - button "View PDF" [ref=e422] [cursor=pointer]:
+                  - img [ref=e423]
+                - button "Delete" [ref=e426] [cursor=pointer]:
+                  - img [ref=e427]
+            - row "7 Fatura STRESS-1770728033996 € 200.00 STRESS_SUPPLIER_1770728033996" [ref=e430]:
+              - cell [ref=e431]:
+                - checkbox [ref=e432] [cursor=pointer]
+              - cell "7" [ref=e433]
+              - cell "Fatura" [ref=e434]:
+                - combobox [ref=e435] [cursor=pointer]:
+                  - option "Fatura" [selected]
+                  - option "Recibo"
+                  - option "Fatura-Recibo"
+                  - option "Nota de Crédito"
+                  - option "Guia de Remessa"
+                  - option "Outro"
+                  - option "──────────" [disabled]
+                  - option "+ Criar Novo..."
+              - cell "STRESS-1770728033996" [ref=e436]:
+                - generic [ref=e437]:
+                  - generic "Drag" [ref=e438]:
+                    - img [ref=e439]
+                  - textbox "Missing!" [ref=e442]: STRESS-1770728033996
+              - cell [ref=e443]:
+                - generic [ref=e444]:
+                  - generic "Drag" [ref=e445]:
+                    - img [ref=e446]
+                  - textbox [ref=e449]
+              - cell [ref=e450]:
+                - generic [ref=e451]:
+                  - generic "Drag" [ref=e452]:
+                    - img [ref=e453]
+                  - textbox [ref=e456]
+              - cell "€ 200.00" [ref=e457]:
+                - generic [ref=e458]:
+                  - generic "Drag" [ref=e459]:
+                    - img [ref=e460]
+                  - generic [ref=e462]:
+                    - generic [ref=e463]: €
+                    - textbox [ref=e464]: "200.00"
+              - cell "STRESS_SUPPLIER_1770728033996" [ref=e465]:
+                - generic [ref=e466]:
+                  - generic "Drag" [ref=e467]:
+                    - img [ref=e468]
+                  - textbox [ref=e471]: STRESS_SUPPLIER_1770728033996
+              - cell [ref=e472]:
+                - button "Ensinar (Criar Regra)" [ref=e473] [cursor=pointer]:
+                  - img [ref=e474]
+                - button "View PDF" [ref=e476] [cursor=pointer]:
+                  - img [ref=e477]
+                - button "Delete" [ref=e480] [cursor=pointer]:
+                  - img [ref=e481]
+```

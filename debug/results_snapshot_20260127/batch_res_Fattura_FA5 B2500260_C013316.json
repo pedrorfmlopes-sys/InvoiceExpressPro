@@ -1,0 +1,58 @@
+{
+  "docType": "invoice",
+  "docNumber": "FA5/2500260",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-01-24",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT00200844310",
+      "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+    },
+    "customer": {
+      "name": "DVTKB, LDA. (DIEGO LARANJO)",
+      "vat": "PT515834807",
+      "address": "RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL) ATK ) Rua Manuel Viegas Gu 8135-016 Almancil",
+      "deliveryAddress": "ATK ) Rua Manuel Viegas Gu 8135-016 Almancil UNICREDIT Spa SWIFT UNCRITM1014 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+    }
+  },
+  "totals": {
+    "goods": 90,
+    "transport": 35,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 90,
+    "tax": 0,
+    "total": 125,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "7ANB101CRL",
+      "description": "PARTI ESTERNE MISCELATORE INCASSO PER NR DOCCETTA IGIENICA - FINITURA CROMO LUCIDO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO CON DUCHA DE MANO PARA WC CON FLEXIBLE DE 800MM, CROMO (CÓDIGO ADUANERO : 74182000)",
+      "quantity": 1,
+      "unitPrice": 225,
+      "total": 90,
+      "discountPercent": 60
+    }
+  ],
+  "docRefs": {
+    "deliveryNote": {
+      "number": "00000000208",
+      "date": "2025-01-24"
+    },
+    "orderConfirmation": null,
+    "customerOrder": null
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioInvoiceExtraction",
+    "textLength": 7176,
+    "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                      Cod.cliente/Cust.code           Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                             C 13316                         PT515834807\r\n   DVTKB, LDA. (DIEGO LARANJO)\r\n   DIVITEK ARCH & DESIGN BRANDS\r\n                                                                                                             Agente/Agent                                                                                       Pag.1/1\r\n   RUA DA "
+  }
+}

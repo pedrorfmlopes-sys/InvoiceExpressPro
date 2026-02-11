@@ -1,0 +1,59 @@
+{
+  "docType": "proforma",
+  "docNumber": "26/00085",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2026-01-16",
+    "due": null
+  },
+  "entities": {
+    "customer": {
+      "name": "SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA",
+      "vat": "502952113",
+      "address": "RUA DA INDUSTRIA 2891, TROFA"
+    },
+    "supplier": {
+      "name": "NICOLAZZI s.p.a.",
+      "vat": "IT00115930034",
+      "address": "28010 ALZO (NO) - Via P. Durio, 119"
+    },
+    "shipTo": null
+  },
+  "totals": {
+    "goods": 0,
+    "transport": 0,
+    "packaging": null,
+    "discount": null,
+    "subtotal": 0,
+    "tax": 0,
+    "total": 0
+  },
+  "lines": [
+    {
+      "code": "R7075",
+      "description": "CERAMIC DISC RIGHT HAND SCREW",
+      "quantity": 5,
+      "unitPrice": 0,
+      "total": 0,
+      "discountText": null
+    },
+    {
+      "code": "R7075SX",
+      "description": "CERAMIC DISC LEFT HAND SCREW",
+      "quantity": 1,
+      "unitPrice": 0,
+      "total": 0,
+      "discountText": null
+    }
+  ],
+  "docRefs": {
+    "customerRef": "621/B"
+  },
+  "confidence": 0.92,
+  "needsReview": true,
+  "reviewReason": "Missing Totals",
+  "debug": {
+    "textLength": 3536,
+    "textSample": "                         NICOLAZZI s.p.a.\r\n                                                                                                                                                                        030SA180\r\n                         Via Pietro Durio 119                           Delivery Address                           Spett.le\r\n                         28010 ALZO DI PELLA (NO)\r\n                         tel. (0322) 969.672 r.a.\r\n                         Telefax (0322) 969.532                                                                      SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA\r\n                         C.C.I.A.A. n. 84286-M. NO 001005\r\n                         Part. IVA e Cod. Fiscale: 00115930034\r\n                         Isc. Trib. Verbania Reg. Soc. n: 3398                                                       RUA DA INDUSTRIA 2891\r\n                         Capitale Sociale € 1.800.000,00 i.v.\r\n                                                                         "
+  }
+}

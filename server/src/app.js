@@ -40,21 +40,20 @@ app.use('/api/assets', require('./modules/assets'));
 const { requireAuth } = require('./middlewares/auth');
 const { attachProjectContext } = require('./middlewares/context');
 
-app.use('/api', requireAuth); // Blocks everything under /api not whitelist
-
-// Resolve Project Context (after Auth, before Routes)
+// --- Global API Context ---
+app.use('/api', requireAuth);
 app.use('/api', attachProjectContext);
 
-// Routes
+// --- Modular Routes ---
+const coreV2 = require('./modules/coreV2');
+app.use('/api/corev2', coreV2.router);
+
 app.use('/api/config', require('./modules/config').router);
-
-
 app.use('/api', require('./routes/projectRoutes'));
-app.use('/api', require('./modules/docs').router); // Mounts docs on /api to match legacy paths (/api/doc/...)
+app.use('/api', require('./modules/docs').router);
 // app.use('/api', require('./routes/extractRoutes')); // Moved to modules/processing
 
 // Modular V2 Reports Strategy (Modules Directory)
-const coreV2 = require('./modules/coreV2');
 const reports = require('./modules/reports'); // Consolidated Reports Module
 const transactions = require('./modules/transactions');
 
@@ -62,8 +61,7 @@ const transactions = require('./modules/transactions');
 app.use('/api/v2/reports', reports.routerV2);
 app.use('/api/reports', reports.routerLegacy);
 
-// Core V2
-app.use('/api/corev2', coreV2.router);
+// Core V2 (Already mounted above)
 app.use('/api/settings', require('./modules/settings').router);
 app.use('/api/explorer', require('./modules/explorer'));
 
@@ -76,6 +74,8 @@ app.use('/api/node-labels', nodeLabelsRouter);
 // Dossiers Module
 app.use('/api/dossiers', require('./modules/dossiers'));
 app.use('/api/extraction', require('./modules/extraction'));
+app.use('/api/proposals', require('./modules/proposalStudio/router'));
+app.use('/api/crm', require('./modules/crm/router'));
 
 // Parity Routes
 // Parity Components (Modularized)

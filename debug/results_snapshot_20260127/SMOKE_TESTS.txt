@@ -1,0 +1,90 @@
+# Smoke Tests - Invoice Studio
+
+Estes testes cobrem o ciclo de vida básico e garantem que o sistema não crasha.
+Devem ser executados manualmente através do browser (http://localhost:5173).
+
+## 1. Healthcheck & Instalação
+- **Objetivo:** Verificar se frontend e backend comunicam.
+- **Pré-condições:** Servidor a correr (`npm run dev`).
+- **Passos:**
+  1. Abrir http://localhost:5173.
+  2. Verificar se o título "Invoice Studio" e os botões "Processar", "Explorar", etc. aparecem.
+  3. No DevTools (Network), verificar se o request `/api/health` retorna 200 OK.
+- **Resultado:** UI carregada sem erros de consola (vermelhos).
+
+## 2. Upload & Processamento Básico
+- **Objetivo:** Testar pipeline de upload e extração simples.
+- **Pré-condições:** Tab "Processar" selecionada. 1 ficheiro PDF de teste simples.
+- **Passos:**
+  1. Arrastar PDF para a zona "Carregar PDFs".
+  2. Clicar "Processar 1 PDFs".
+  3. Aguardar barra de progresso (Upload + Processamento) chegar a 100%.
+  4. Verificar se aparece a tabela "Revisão do lote atual" com 1 linha.
+- **Resultado:** Linha na tabela com data/status. Se falhar, ver logs do terminal do servidor.
+
+## 3. Upload Bulk (3 Ficheiros)
+- **Objetivo:** Garantir que o sistema aguenta múltiplos uploads.
+- **Passos:**
+  1. Arrastar 3 PDFs diferentes de uma vez.
+  2. Clicar "Processar 3 PDFs".
+  3. Verificar polling no Network (requests `/api/progress/...` repetidos).
+- **Resultado:** Tabela final mostra 3 linhas novas.
+
+## 4. Edição Inline (Staging)
+- **Objetivo:** Validar persistência antes de finalizar.
+- **Pré-condições:** Ter documentos na tabela de "Revisão do lote atual" (passo 2 ou 3).
+- **Passos:**
+  1. Na coluna "Total", alterar valor para "999.00".
+  2. Clicar no botão "Guardar" da linha (pequeno).
+  3. Fazer refresh à página (F5) e voltar a processar (ou ver se o lote persiste se o backend suportar recuperação de sessão - Nota: InvoiceStudio atual perde lote na RAM do frontend se der F5, teste a persistência visual apenas sem refresh ou verificando `docs.json`).
+  *Alternativa:* Editar, clicar noutra tab ("Explorar") e voltar.
+- **Resultado:** Valor mantém-se na UI (se o estado React estiver okay). O request PATCH deve dar 200.
+
+## 5. Finalize Single
+- **Objetivo:** Mover documento de Staging para Archive.
+- **Pré-condições:** Pelo menos 1 doc na tabela de revisão com Tipo e Nº preenchidos.
+- **Passos:**
+  1. Garantir que "Tipo" tem um valor (ex: "Fatura") e "Doc Number" tem algo (ex: "FT-001").
+  2. Clicar "Confirmar" na linha desse documento.
+- **Resultado:** A linha desaparece da tabela de revisão. O ficheiro PDF é movido internamente para a pasta `archive/ANO/MES`.
+
+## 6. Finalize Bulk
+- **Objetivo:** Testar confirmação em massa.
+- **Passos:**
+  1. Selecionar checkbox de topo (All) na tabela de revisão.
+  2. Clicar "Confirmar selecionados" (topo direito da tabela).
+  3. Verificar Toast "Confirmado".
+- **Resultado:** Todas as linhas desaparecem e `docs.json` (se verificado) tem status "processado".
+
+## 7. Navegação e Filtros (Explore)
+- **Objetivo:** Ver se os dados finalizados aparecem na listagem principal.
+- **Passos:**
+  1. Ir à tab "Explorar/Editar".
+  2. Verificar se os documentos confirmados no passo 5/6 aparecem na tabela.
+  3. Testar filtro "Fornecedor": escrever parte do nome.
+- **Resultado:** A lista filtra corretamente.
+
+## 8. Exportação Excel
+- **Objetivo:** Garantir que o output é gerado.
+- **Passos:**
+  1. Clicar no botão "Descarregar Excel" no cabeçalho (topo direito).
+  2. Verificar download do ficheiro `export.xlsx`.
+  3. Abrir ficheiro e ver se contém os dados da grelha.
+- **Resultado:** Download bem sucedido.
+
+## 9. Visualizar PDF (Viewer)
+- **Objetivo:** Testar rota de leitura de PDF (`/api/doc/view`).
+- **Passos:**
+  1. Na tab "Explorar", clicar no ícone "Olho" de uma linha.
+  2. Verificar se abre overlay/modal com o PDF.
+- **Resultado:** PDF visível dentro da aplicação.
+
+## 10. Normalização (Alias)
+- **Objetivo:** Testar regra de reescrita de entidade.
+- **Passos:**
+  1. Ir à tab "Normalizações".
+  2. Adicionar Alias: "Vodafone PT" -> Canónico "Vodafone".
+  3. Clicar "Adicionar/Gravar".
+  4. Ir à tab "Explorar", editar um fornecedor para "Vodafone PT" e guardar.
+  5. Verificar se ao recarregar/guardar ele assume "Vodafone" automaticamente (se a lógica for essa).
+- **Resultado:** Entidade unificada.

@@ -1,0 +1,58 @@
+{
+  "docType": "invoice",
+  "docNumber": "FA5/2501052",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-03-14",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT00200844310",
+      "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+    },
+    "customer": {
+      "name": "DVTKB, LDA. (DIEGO LARANJO)",
+      "vat": "PT515834807",
+      "address": "RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL) CARPINTARIA DA VILA Rua dos Tratores , 50 2870-631 Jardia - Alto do Est",
+      "deliveryAddress": "CARPINTARIA DA VILA Rua dos Tratores , 50 2870-631 Jardia - Alto do Est UNICREDIT Spa SWIFT UNCRITM1014 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+    }
+  },
+  "totals": {
+    "goods": 376.4,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 376.4,
+    "tax": 0,
+    "total": 376.4,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "78T002GOX",
+      "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, FINITURA ORO SPAZZOLATO 24KT - PLACA DE ACCIONAMIENTO PARA CISTERNAS DE DESCARGA INODORO EN ACERO INOXIDABLE , DOBLE DESCARGA, COMPATIBLE CON GEBERIT SIGMA 8, DORADO CEPILLADO (CÓDIGO ADUANERO: 73249000)",
+      "quantity": 1,
+      "unitPrice": 941,
+      "total": 376.4,
+      "discountPercent": 60
+    }
+  ],
+  "docRefs": {
+    "deliveryNote": {
+      "number": "00000000867",
+      "date": "2025-03-14"
+    },
+    "orderConfirmation": null,
+    "customerOrder": null
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioInvoiceExtraction",
+    "textLength": 7285,
+    "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                       Cod.cliente/Cust.code          Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                              C 13316                        PT515834807\r\n   DVTKB, LDA. (DIEGO LARANJO)\r\n   DIVITEK ARCH & DESIGN BRANDS                                                                               Agente/Agent\r\n                                                                                                                                        "
+  }
+}

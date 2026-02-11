@@ -1,0 +1,508 @@
+[
+  {
+    "docType": "invoice",
+    "docNumber": "FA5/2504904",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-12-11",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT00200844310",
+        "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+      },
+      "customer": {
+        "name": "WATERWORKS BY SANIBANHO, LDA",
+        "vat": "PT503031542",
+        "address": "AVENIDA DR. FRANCISCO SA CARNEIRO, 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL) (PT) , AVENIDA DR . FRANCISCO SA CARNEIRO , 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL )",
+        "deliveryAddress": ", AVENIDA DR . FRANCISCO SA CARNEIRO , 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL ) UNICREDIT Spa 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+      }
+    },
+    "totals": {
+      "goods": 3.47,
+      "transport": 35,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 3.47,
+      "tax": 0,
+      "total": 38.47,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "RCMB898",
+        "description": "CODOLO COMANDO PORTATA-DEVIATORE E",
+        "quantity": 1,
+        "unitPrice": 7,
+        "total": 3.47,
+        "discountPercent": 50.499999999999986
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": {
+        "number": "00000004167",
+        "date": "2025-12-11"
+      },
+      "orderConfirmation": {
+        "number": "CSO1212",
+        "date": "2025-12-09"
+      },
+      "customerOrder": null
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioInvoiceExtraction",
+      "textLength": 14843,
+      "textSample": "                                                                                                                                                       Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000 - Fax +39 0163 560100\r\n                                                                                                                                                       CAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\n                                                                                                                                                       P. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021\r\n\r\n                                                                                                                                                                                                                 "
+    }
+  },
+  {
+    "docType": "invoice",
+    "docNumber": "FA5/2401564",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2024-04-19",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT00200844310",
+        "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+      },
+      "customer": {
+        "name": "SUBLIME BANHO, UNIPESSOAL LDA",
+        "vat": "PT515386618",
+        "address": "IC2, KM 102, NO180-CASAL BOIEIRO, PEDREIRAS 2480-009 LEIRIA (PORTUGAL) IC2, KM 102, NO180- CASAL BOIEIRO , PEDREIRAS 2480-009 LEIRIA (PORTUGAL )",
+        "deliveryAddress": "IC2, KM 102, NO180- CASAL BOIEIRO , PEDREIRAS 2480-009 LEIRIA (PORTUGAL ) UNICREDIT Spa SWIFT 002008 44310 IT28L0200844310000005358331 UNCRITM1014 Resa/Delivery terms Vettore /Carrier name"
+      }
+    },
+    "totals": {
+      "goods": 1100.39,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 1100.39,
+      "tax": 0,
+      "total": 1100.39,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "PR28HE103BLX",
+        "description": "FEELGOOD - PARTI ESTERNE MIX TERM. DA",
+        "quantity": 3,
+        "unitPrice": 300,
+        "total": 445.5,
+        "discountPercent": 50.499999999999986
+      },
+      {
+        "code": "PM0030EBLX",
+        "description": "FEELGOOD - PARTI INTERNE TERMOSTATICO INC.",
+        "quantity": 3,
+        "unitPrice": 441,
+        "total": 654.89,
+        "discountPercent": 50.499999999999986
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": {
+        "number": "00000001334",
+        "date": "2024-04-19"
+      },
+      "orderConfirmation": {
+        "number": "240102",
+        "date": "2024-03-04"
+      },
+      "customerOrder": null
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioInvoiceExtraction",
+      "textLength": 8119,
+      "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                      Cod.cliente/Cust.code           Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                             C 13445                         PT515386618\r\n   SUBLIME BANHO, UNIPESSOAL LDA\r\n                                                                                                             Agente/Agent\r\n                                                                                                                                       "
+    }
+  },
+  {
+    "docType": "invoice",
+    "docNumber": "FA5/2500522",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-02-10",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT00200844310",
+        "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+      },
+      "customer": {
+        "name": "FRANCISCO CONTREIRAS LDA",
+        "vat": "PT502293667",
+        "address": "SITIO DA FRANQUEADA 8100-302 LOULÉ (PORTUGAL) SITIO DA FRANQUEADA 8100-302 LOULÉ ( PORTUGAL )",
+        "deliveryAddress": "SITIO DA FRANQUEADA 8100-302 LOULÉ ( PORTUGAL ) UNICREDIT Spa SWIFT UNCRITM1014 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+      }
+    },
+    "totals": {
+      "goods": 3739.2,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 3739.2,
+      "tax": 0,
+      "total": 3739.2,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "E0BA0104H3C04",
+        "description": "DIA.35 - BOCCA D 'EROGAZIONE DA TERRA ALTEZZA NR 1145 mm - FINITURA NERO - WASHBASIN STANDING FLOOR SPOUT , H= 1145 MM, BLACK ( CUSTOMS CODE : 74182000)",
+        "quantity": 1,
+        "unitPrice": 820,
+        "total": 393.6,
+        "discountPercent": 52
+      },
+      {
+        "code": "E0BA0144S/PC04",
+        "description": "DIA.35 - PARTI ESTERNE x MIX INCASSO AD UNA NR USCITA CON ATTACCHI DA 1/2 - FINITURA NERO - OUTER PARTS FOR BUILT -IN SINGLE LEVER MIXER, ONE WAY , INNER PARTS SEPARATELY SOLD [E0BA0143], BLACK ( CUSTOMS CODE : 74182000)",
+        "quantity": 1,
+        "unitPrice": 223,
+        "total": 107.04,
+        "discountPercent": 52
+      },
+      {
+        "code": "E0BA0117SPCCRL",
+        "description": "DIA.35 - PARTI ESTERNE PER LAVABO INCASSO NR SENZA PIASTRA - CANNA CURVA L 210, FINITURA CROMO LUCIDO - OUTER PARTS FOR BUILT -IN SINGLE LEVER MIXER, HANDLES Ø45MM, HANDLES Ø45MM, SPOUT SX LMAX=196MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], CHROME ( CUSTOMS CODE :",
+        "quantity": 2,
+        "unitPrice": 188,
+        "total": 180.48,
+        "discountPercent": 52
+      },
+      {
+        "code": "E0BA0450ECRL",
+        "description": "DIA.35 - PARTI ESTERNE PER MIX DOCCIA INCASSO NR CON DEVIATORE ROTATIVO - FINITURA CROMO LUCIDO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, TWO WAYS WITH ROTATIVE DIVERTER , INNER PARTS SEPARATELY SOLD [PM0020M], CHROME ( CUSTOMS CODE : 74182000)",
+        "quantity": 2,
+        "unitPrice": 200,
+        "total": 192,
+        "discountPercent": 52
+      },
+      {
+        "code": "72J021CRL",
+        "description": "DOCCETTA CON FLESSIBILE E PRESA ACQUA NR C/SUPPORTO - DOCCETTA OTTONE Ø 24, FLESSIBILE 1500MM, FINITURA CROMO LUCIDO - BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE AND WATER CONNECTION WITH HAND SHOWER SUPPORT , Ø24MM BRASS HAND SHOWER, THREE LAYERS FLEXIBLE , REINFORCED WITH METALIZED NYLON YARN , CHROME (CUSTOMS CODE : 74182000)",
+        "quantity": 2,
+        "unitPrice": 201,
+        "total": 192.96,
+        "discountPercent": 52
+      },
+      {
+        "code": "75A013CRL",
+        "description": "SOFFIONE DOCCIA Ø 300 OTTONE - GETTO FISSO , NR ANTICALCARE, FINITURA CROMO LUCIDO",
+        "quantity": 2,
+        "unitPrice": 621,
+        "total": 596.16,
+        "discountPercent": 52
+      },
+      {
+        "code": "E0BA0125H3BLX",
+        "description": "DIA.35 - MIX MONOCOMANDO SOPRAPIANO CON NR CANNA CURVA (400mm) - FINITURA BRUSHED BLACK CHROME - EXPOSED SINGLE LEVER BASIN MIXER, ROUND TURNING SPOUT 360°, BRUSHED BLACK CHROME (CUSTOMS CODE : 84818011 ) FINITURA BRUSHED BLACK CHROME - OUTER PARTS FOR STANDING FLOOR BATH GROUP, HOT/ COLD CONTROL HANDLES , TWO WAYS SINGLE LEVER WITH AUTOMATIC DIVERTER HAND SHOWER/SPOUT, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [RCMB201], BRUSHED BLACK CHROME ( CUSTOMS CODE : 84818019)",
+        "quantity": 1,
+        "unitPrice": 552,
+        "total": 264.96,
+        "discountPercent": 52
+      },
+      {
+        "code": "E0BA0450EBLX",
+        "description": "DIA.35 - PARTI ESTERNE PER MIX DOCCIA INCASSO NR CON DEVIATORE ROTATIVO - FINITURA BRUSHED BLACK CHROME - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, TWO WAYS WITH ROTATIVE DIVERTER , INNER PARTS SEPARATELY SOLD [PM0020M], BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+        "quantity": 1,
+        "unitPrice": 382,
+        "total": 183.36,
+        "discountPercent": 52
+      },
+      {
+        "code": "75T005IBX",
+        "description": "SOFFIONE DA SOFFITO - 360x360, LIMITATORE NR 15l/min, FISSAGGIO CON VITI, UGELLI TRASPARENTI , FINITURA BLACK STAINLESS STEEL - STAINLESS STEEL 360X360MM CEILING SHOWER, ANTILIMESTONE SYSTEM , FIXED JET, FIXING WITH SCREWS, BLACK STAINLES STEEL (CUSTOMS CODE: 73249000)",
+        "quantity": 1,
+        "unitPrice": 723,
+        "total": 347.04,
+        "discountPercent": 52
+      },
+      {
+        "code": "72J021BLX",
+        "description": "DOCCETTA CON FLESSIBILE E PRESA ACQUA NR C/SUPPORTO - DOCCETTA OTTONE Ø 24, FLESSIBILE 1500MM, FINITURA BRUSHED BLACK CHROME - BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE AND WATER CONNECTION WITH HAND SHOWER SUPPORT , Ø24MM BRASS HAND SHOWER, THREE LAYERS FLEXIBLE , REINFORCED WITH METALIZED NYLON YARN , BRUSHED BLACK",
+        "quantity": 1,
+        "unitPrice": 292,
+        "total": 140.16,
+        "discountPercent": 52
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": {
+        "number": "00000000443",
+        "date": "2025-02-10"
+      },
+      "orderConfirmation": {
+        "number": "75930",
+        "date": "2024-11-20"
+      },
+      "customerOrder": null
+    },
+    "confidence": 0.99,
+    "needsReview": true,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioInvoiceExtraction",
+      "textLength": 21572,
+      "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                      Cod.cliente/Cust.code       Partita IVA/VAT nr           Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                             C 12939                     PT502293667\r\n   FRANCISCO CONTREIRAS LDA\r\n   HOUSECONCEPTSTORE                                                                                         Agente/Agent\r\n                                                                                                                                                              "
+    }
+  },
+  {
+    "docType": "invoice",
+    "docNumber": "FA5/2500260",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-01-24",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT00200844310",
+        "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+      },
+      "customer": {
+        "name": "DVTKB, LDA. (DIEGO LARANJO)",
+        "vat": "PT515834807",
+        "address": "RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL) ATK ) Rua Manuel Viegas Gu 8135-016 Almancil",
+        "deliveryAddress": "ATK ) Rua Manuel Viegas Gu 8135-016 Almancil UNICREDIT Spa SWIFT UNCRITM1014 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+      }
+    },
+    "totals": {
+      "goods": 90,
+      "transport": 35,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 90,
+      "tax": 0,
+      "total": 125,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "7ANB101CRL",
+        "description": "PARTI ESTERNE MISCELATORE INCASSO PER NR DOCCETTA IGIENICA - FINITURA CROMO LUCIDO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO CON DUCHA DE MANO PARA WC CON FLEXIBLE DE 800MM, CROMO (CÓDIGO ADUANERO : 74182000)",
+        "quantity": 1,
+        "unitPrice": 225,
+        "total": 90,
+        "discountPercent": 60
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": {
+        "number": "00000000208",
+        "date": "2025-01-24"
+      },
+      "orderConfirmation": null,
+      "customerOrder": null
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioInvoiceExtraction",
+      "textLength": 7176,
+      "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                      Cod.cliente/Cust.code           Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                             C 13316                         PT515834807\r\n   DVTKB, LDA. (DIEGO LARANJO)\r\n   DIVITEK ARCH & DESIGN BRANDS\r\n                                                                                                             Agente/Agent                                                                                       Pag.1/1\r\n   RUA DA "
+    }
+  },
+  {
+    "docType": "invoice",
+    "docNumber": "FA5/2500592",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-02-14",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT00200844310",
+        "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+      },
+      "customer": {
+        "name": "DVTKB, LDA. (DIEGO LARANJO)",
+        "vat": "PT515834807",
+        "address": "RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL) ATK ) Rua Manuel Viegas Gu 8135-016 Almancil ( PORTUGAL )",
+        "deliveryAddress": "ATK ) Rua Manuel Viegas Gu 8135-016 Almancil ( PORTUGAL ) UNICREDIT Spa SWIFT UNCRITM1014 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+      }
+    },
+    "totals": {
+      "goods": 456.4,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 456.4,
+      "tax": 0,
+      "total": 456.4,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "PM0000H",
+        "description": "PARTI INTERNE GRUPPO LAVABO AD INCASSO 3 NR FORI CON BOCCA FISSA CENTRALE - COMANDI CALDA-FREDDA, SERIE PR51-PR52-PR53-PR54 - PARTES INTERNAS PARA GRUPO CON BIMANDO EMPOTRADO ( CÓDIGO ADUANERO : 84818019)",
+        "quantity": 1,
+        "unitPrice": 337,
+        "total": 134.8,
+        "discountPercent": 60
+      },
+      {
+        "code": "PM00707",
+        "description": "PARTI INCASSO PER DEVIATORE 3VIE - C/ SCATOLA , NR IN G1/2, OUT 3xG1/2 - PARTES INTERNAS PARA DESVIADOR EMPOTRADO ( CÓDIGO ADUANERO : 84818019)",
+        "quantity": 4,
+        "unitPrice": 201,
+        "total": 321.6,
+        "discountPercent": 60
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": {
+        "number": "00000000513",
+        "date": "2025-02-14"
+      },
+      "orderConfirmation": null,
+      "customerOrder": null
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioInvoiceExtraction",
+      "textLength": 7486,
+      "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                       Cod.cliente/Cust.code          Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                              C 13316                        PT515834807\r\n   DVTKB, LDA. (DIEGO LARANJO)\r\n   DIVITEK ARCH & DESIGN BRANDS\r\n                                                                                                              Agente/Agent                                                                                      Pag.1/1\r\n   RUA DA "
+    }
+  },
+  {
+    "docType": "invoice",
+    "docNumber": "FA5/2500721",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-02-21",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT00200844310",
+        "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+      },
+      "customer": {
+        "name": "DVTKB, LDA. (DIEGO LARANJO)",
+        "vat": "PT515834807",
+        "address": "RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL) Matej Ciran: 925 320 249 || Raphael Kfouri: 912 778 253 Rua Ricardo Espírito Santo Silva 52 2750-829 Cascais ( PORTUGAL )",
+        "deliveryAddress": "Matej Ciran: 925 320 249 || Raphael Kfouri: 912 778 253 Rua Ricardo Espírito Santo Silva 52 2750-829 Cascais ( PORTUGAL ) UNICREDIT Spa SWIFT UNCRITM1014 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+      }
+    },
+    "totals": {
+      "goods": 136,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 136,
+      "tax": 0,
+      "total": 136,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "RCMBA122",
+        "description": "CIUFFO PER PORTASCOPINO ELEMENTA - COLORE NR NERO, PER 7EW002-7ES003",
+        "quantity": 20,
+        "unitPrice": 17,
+        "total": 136,
+        "discountPercent": 60
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": {
+        "number": "00000000617",
+        "date": "2025-02-21"
+      },
+      "orderConfirmation": {
+        "number": "00000000540",
+        "date": "2025-02-17"
+      },
+      "customerOrder": null
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioInvoiceExtraction",
+      "textLength": 6814,
+      "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                       Cod.cliente/Cust.code          Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                              C 13316                        PT515834807\r\n   DVTKB, LDA. (DIEGO LARANJO)\r\n   DIVITEK ARCH & DESIGN BRANDS\r\n                                                                                                              Agente/Agent                                                                                      Pag.1/1\r\n   RUA DA "
+    }
+  },
+  {
+    "docType": "invoice",
+    "docNumber": "FA5/2501052",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-03-14",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT00200844310",
+        "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+      },
+      "customer": {
+        "name": "DVTKB, LDA. (DIEGO LARANJO)",
+        "vat": "PT515834807",
+        "address": "RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL) CARPINTARIA DA VILA Rua dos Tratores , 50 2870-631 Jardia - Alto do Est",
+        "deliveryAddress": "CARPINTARIA DA VILA Rua dos Tratores , 50 2870-631 Jardia - Alto do Est UNICREDIT Spa SWIFT UNCRITM1014 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+      }
+    },
+    "totals": {
+      "goods": 376.4,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 376.4,
+      "tax": 0,
+      "total": 376.4,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "78T002GOX",
+        "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, FINITURA ORO SPAZZOLATO 24KT - PLACA DE ACCIONAMIENTO PARA CISTERNAS DE DESCARGA INODORO EN ACERO INOXIDABLE , DOBLE DESCARGA, COMPATIBLE CON GEBERIT SIGMA 8, DORADO CEPILLADO (CÓDIGO ADUANERO: 73249000)",
+        "quantity": 1,
+        "unitPrice": 941,
+        "total": 376.4,
+        "discountPercent": 60
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": {
+        "number": "00000000867",
+        "date": "2025-03-14"
+      },
+      "orderConfirmation": null,
+      "customerOrder": null
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioInvoiceExtraction",
+      "textLength": 7285,
+      "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                       Cod.cliente/Cust.code          Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                              C 13316                        PT515834807\r\n   DVTKB, LDA. (DIEGO LARANJO)\r\n   DIVITEK ARCH & DESIGN BRANDS                                                                               Agente/Agent\r\n                                                                                                                                        "
+    }
+  }
+]

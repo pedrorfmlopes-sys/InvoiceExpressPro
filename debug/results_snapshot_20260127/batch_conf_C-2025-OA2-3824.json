@@ -1,0 +1,75 @@
+{
+  "docType": "order_confirmation",
+  "docNumber": "OA2/003824",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-12-16",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT01495130021",
+      "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+    },
+    "customer": {
+      "name": "WATERWORKS BY SANIBANHO, LDA",
+      "vat": "PT503031542",
+      "address": "BY ,  AVENIDA DR. FRANCISCO SA CARNEIRO, 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL)",
+      "deliveryAddress": ""
+    }
+  },
+  "totals": {
+    "goods": 619.25,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 619.25,
+    "tax": 0,
+    "total": 619.25,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "PM0020L",
+      "description": "PARTI INTERNE PER MONOCOMANDO NR VASCA /DOCCIA INCASSO C /DEVIATORE GHIERA NICHELATA - INNER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER ( CUSTOMS CODE: 84818011 )",
+      "quantity": 2,
+      "unitPrice": 456,
+      "total": 451.44,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2025-12-18"
+    },
+    {
+      "code": "E0BA0115SX",
+      "description": "PARTI INTERNE MIX LAVABO AD INCASSO NR CON BOCCA FISSA SINISTRA - GHIERA NICHELATA - INNER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER ( CUSTOMS CODE : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 129,
+      "total": 63.86,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2025-12-18"
+    },
+    {
+      "code": "E0BA0143",
+      "description": "PARTI INCASSO PER MIX AD INCASSO AD NR UNA USCITA - GHIERA NICHELATA - INNER PARTS FOR BUILT -IN SINGLE LEVER MIXER ( CUSTOMS CODE : 84818011 )",
+      "quantity": 2,
+      "unitPrice": 105,
+      "total": 103.95,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2025-12-18"
+    }
+  ],
+  "docRefs": {
+    "customerOrder": {
+      "number": "LX2 425",
+      "date": "2025-12-15"
+    }
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioConfirmationExtraction",
+    "textLength": 6646,
+    "textSample": "                                                                                              jr@sanibanho.pt;lmc@sanibanho.pt;compras@sanibanho.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                     Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                 Fiorenza Pozzolo\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   WATERWORKS BY SANIBANHO, LDA\r\n\r\n\r\n                    "
+  }
+}

@@ -10,6 +10,7 @@ const { requireEntitlement } = require('../../middlewares/entitlements');
 // So here we keep /doc/:id if mounted on /api
 
 router.patch('/doc/:id', docController.updateDoc);
+router.get('/doc/:id/json', docController.getDocJson); // New endpoint for Full Doc Metadata
 router.delete('/doc/:id', docController.deleteDoc);
 router.post('/doc/finalize', docController.finalizeDoc);
 router.post('/docs/finalize-bulk', docController.finalizeBulk);

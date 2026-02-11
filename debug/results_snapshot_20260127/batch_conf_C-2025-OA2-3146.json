@@ -1,0 +1,255 @@
+{
+  "docType": "order_confirmation",
+  "docNumber": "OA2/003146",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-10-15",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT01495130021",
+      "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+    },
+    "customer": {
+      "name": "DVTKB, LDA. (DIEGO LARANJO)",
+      "vat": "PT515834807",
+      "address": "( ) DIVITEK ARCH & DESIGN BRANDS RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL)",
+      "deliveryAddress": "Divitek(Adz) 963549543 João Paulo Rua da Boavista, 91 3800- 115 Taboeira (PORTUGAL)"
+    }
+  },
+  "totals": {
+    "goods": 7530,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 7530,
+    "tax": 0,
+    "total": 7530,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "78T002INOX",
+      "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, FINITURA ACCIAIO INOX SPAZZOLATO - PLACA DE ACCIONAMIENTO PARA CISTERNAS DE DESCARGA INODORO EN ACERO INOXIDABLE, DOBLE DESCARGA, COMPATIBLE CON GEBERIT SIGMA 8, ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+      "quantity": 6,
+      "unitPrice": 424,
+      "total": 1017.6,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "78Q007INOX",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 48,
+      "total": 19.2,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0123CSINOX",
+      "description": "Ø35INOX - LAVABO APPOGGIO NR S/SALTERELLO - MIX MONOCOMANDO CANNA CURVA L 126, LEVA L 50, ATTACCO 3/8\", SENZA PILETTA , ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO PARA LAVABO , MANDO CON PALANCA 50MM, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 371,
+      "total": 148.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "78Q007INOX",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 48,
+      "total": 19.2,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0107INOX",
+      "description": "Ø35INOX - CORPO MIX DA PIANO - NR COMPLETO DI CARTUCCIA E COMANDO , INGRESSI DA 3/8\", USCITA DA 1/2\", ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 338,
+      "total": 135.2,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0108QH1INOX",
+      "description": "Ø35INOX - BOCCA D 'EROGAZIONE DA NR PIANO - CANNA QUADRA Ø 22 GIREVOLE, H=220mm, ACCIAIO INOX SPAZZOLATO - CAÑO CUADRADO GIRATORIO 360° DE ENCIMERA PARA LAVABO , H=220MM, SOPORTE Y KIT DE FIJACIÓN , ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+      "quantity": 1,
+      "unitPrice": 361,
+      "total": 144.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "78Q007INOX",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 48,
+      "total": 19.2,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0117SPCINOX",
+      "description": "Ø35INOX - PARTI ESTERNE PER LAVABO NR INCASSO SENZA PIASTRA - CANNA CURVA L210, ACCIAIO INOX SPAZZOLATO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA LAVABO , CAÑO SX LMAX=196MM, PARTES INTERNAS VENDIDAS SEPARADAMENTE [E0BA 0115 SX], ACERO CEPILLADO (CÓDIGO ADUANERO : 73249000)",
+      "quantity": 3,
+      "unitPrice": 444,
+      "total": 532.8,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0115SX",
+      "description": "PARTI INTERNE MIX LAVABO AD INCASSO NR CON BOCCA FISSA SINISTRA - GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO (CÓDIGO ADUANERO: 84818011 )",
+      "quantity": 3,
+      "unitPrice": 129,
+      "total": 154.8,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-17"
+    },
+    {
+      "code": "78Q007INOX",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 3,
+      "unitPrice": 48,
+      "total": 57.6,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0129CSINOX",
+      "description": "Ø35INOX - LAVABO SOPRAPIANO NR S/SALTERELLO - MIX MONOCOMANDO CORPO H 311 , CANNA CURVA L 166, LEVA L50, ATTACCO 3/8\", SENZA PILETTA , ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO SOBRE ENCIMERA, MANDO CON PALANCA 50MM, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 2,
+      "unitPrice": 463,
+      "total": 370.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "78Q007INOX",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 2,
+      "unitPrice": 48,
+      "total": 38.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "78Q007INOX",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 48,
+      "total": 19.2,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0466ESPINOX",
+      "description": "Ø35INOX - PARTI ESTERNE DOCCIA NR INCASSO CON DEVIATORE 2-3 VIE E DOCCETTA SENZA PIASTRA - FINITURA ACCIAIO INOX SPAZZOLATO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO BAÑERA/DUCHA, DUCHA TELÉFONO Ø23 MM EN ACERO INOXIDABLE CON FLEXIBLE DE 1500MM, PARTES INTERNAS VENDIDAS SEPARADAMENTE [PM0020L], ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+      "quantity": 5,
+      "unitPrice": 662,
+      "total": 1324,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-11-10"
+    },
+    {
+      "code": "PM0020L",
+      "description": "PARTI INTERNE PER MONOCOMANDO NR VASCA /DOCCIA INCASSO C /DEVIATORE GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA BAÑERA/ DUCHA CON DESVIADOR ROTATIVO Y SALIDA DE TOMA DE AGUA (CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 5,
+      "unitPrice": 456,
+      "total": 912,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-17"
+    },
+    {
+      "code": "75S021INOX",
+      "description": "SOFFIONE DOCCIA Ø 250 ACCIAIO - GETTO NR FISSO, ANTICALCARE, FINITURA ACCIAIO INOX SPAZZOLATO - POMO DE DUCHA ARTICULADO Ø 250MM EN ACERO INOXIDABLE , DISPOSITIVO ANTICAL, CHORRO FIJO, ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+      "quantity": 5,
+      "unitPrice": 582,
+      "total": 1164,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "75B005INOX",
+      "description": "BRACCIO DOCCIA DA PARETE NR ORIZZONTALE CURVO Ø 22MM - L345MM, ATTACCHI RETE E SOFFIONE M G 1/2, ACCIAIO INOX SPAZZOLATO - BRAZO DE DUCHA HORIZONTAL REDONDO EN ACERO INOXIDABLE L=345MM, ACERO CEPILLADO (CÓDIGO ADUANERO: 73249000)",
+      "quantity": 5,
+      "unitPrice": 149,
+      "total": 298,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0468ESCINOX",
+      "description": "Ø35INOX - PARTI ESTERNE VASCA NR INCASSO CANNA CURVA CON DEVIATORE 2-3 VIE SENZA PIASTRA - FINITURA ACCIAIO INOX SPAZZOLATO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO BAÑERA, CAÑO L=200MM, DUCHA TELÉFONO Ø23 MM EN ACERO INOXIDABLE CON FLEXIBLE DE 1500MM, PARTES INTERNAS VENDIDAS SEPARADAMENTE [PM0020L], ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+      "quantity": 1,
+      "unitPrice": 1005,
+      "total": 402,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-11-10"
+    },
+    {
+      "code": "PM0020L",
+      "description": "PARTI INTERNE PER MONOCOMANDO NR VASCA /DOCCIA INCASSO C /DEVIATORE GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA BAÑERA/ DUCHA CON DESVIADOR ROTATIVO Y SALIDA DE TOMA DE AGUA (CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 456,
+      "total": 182.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-17"
+    },
+    {
+      "code": "E0CU230CRL",
+      "description": "MISCELATORE CUCINA - CANNA CIGNO NR TONDA GIREVOLE E DOCCETTA ESTRAIBILE, FINITURA CROMO LUCIDO - MEZCLADOR MONOMANDO PARA COCINA, CAÑO CISNE GIRATORIO 360°, DUCHITA EXTRAIBLE 2 FUNCIÓNES, CROMO ( CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 454,
+      "total": 181.6,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0CU270INOX",
+      "description": "DIA.35 CUCINA INOX - MISCELATORE NR CUCINA - CANNA TONDA \"L\" GIREVOLE, FINITURA ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO PARA COCINA, CAÑO REDONDO TUBO EN L GIRATORIO 360°, ACERO CEPILLADO (CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 521,
+      "total": 208.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "E0BA0122DSINOX",
+      "description": "Ø35INOX - BIDET APPOGGIO NR S/SALTERELLO - MISCELATORE MONOCOMANDO, LEVA L 50, ATTACCO 3/8\", SENZA PILETTA , ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO PARA BIDET , MANDO CON PALANCA 50MM, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 422,
+      "total": 168.8,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    },
+    {
+      "code": "RCMB823",
+      "description": "AERATORE 28x7 - PCA 1,5GPM CON NR CHIAVETTA - AIREADOR ( CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 31,
+      "total": 12.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2025-10-30"
+    }
+  ],
+  "docRefs": {
+    "customerOrder": {
+      "number": "OR M2025/104",
+      "date": "2025-10-15"
+    }
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioConfirmationExtraction",
+    "textLength": 59661,
+    "textSample": "                                                                                              geral@divitek.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                    Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                Carlotta Patriarca\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   DVTKB, LDA. (DIEGO LARANJO)\r\n      Divitek(Adz) 963549543 João Paulo\r\n                     "
+  }
+}

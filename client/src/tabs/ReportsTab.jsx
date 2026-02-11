@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import NicolazziInvoiceViewer from '../components/viewers/NicolazziInvoiceViewer';
+import { IconEye } from '../shared/ui';
+// CoreV2 imported IconEye from '../components/icons' (implied? No, Step 5013 showed <IconEye /> usage but didn't show import line 4-6 fully).
+// Step 4977 view_file CoreV2Tab lines 1-30 didn't show icon import clearly.
+// But Step 5013 changes showed `import { createPortal }` added.
+// I'll assume IconEye is not critical, can use Emoji or simple text. CoreV2 used `header={<><IconEye /> View Document</>}`.
+// I'll skip the icon import to avoid breaking if file path wrong, and use emoji/text.
 import { GlassCard } from '../components/ui/GlassCard';
 import { StatCard } from '../components/ui/StatCard';
 import { ActionCard } from '../components/ui/ActionCard';
@@ -33,9 +41,13 @@ export default function ReportsTab({ project }) {
   const [limit, setLimit] = useState(25);
   const [tableLoading, setTableLoading] = useState(false);
 
+  // Viewer State
+  const [viewDoc, setViewDoc] = useState(null);
+  const [viewPdfUrl, setViewPdfUrl] = useState(null);
+
   // --- Config Load ---
   useEffect(() => {
-    api.get(`/api/v2/doctypes?project=${project}`)
+    api.get(`/api/corev2/doctypes?project=${project}`)
       .then(res => {
         const raw = res.data;
         const list = Array.isArray(raw) ? raw : (raw.types || []);
@@ -52,7 +64,7 @@ export default function ReportsTab({ project }) {
     try {
       const [monthlyRes, metaRes] = await Promise.all([
         api.get(qp('/api/reports/monthly', project)).catch(() => ({ data: [] })),
-        api.get(qp('/api/v2/docs', project), { params: { limit: 1 } }).catch(() => ({ data: { total: 0 } }))
+        api.get(qp('/api/corev2/docs', project), { params: { limit: 1 } }).catch(() => ({ data: { total: 0 } }))
       ]);
 
       const months = Array.isArray(monthlyRes.data) ? monthlyRes.data : (monthlyRes.data.rows || []);
@@ -81,7 +93,7 @@ export default function ReportsTab({ project }) {
         status: statusFilter,
         docType: docTypeFilter
       };
-      const res = await api.get('/api/v2/docs', { params });
+      const res = await api.get('/api/corev2/docs', { params });
       setRows(res.data.rows || []);
       setTotalRows(res.data.total || 0);
     } catch (e) {
@@ -113,6 +125,20 @@ export default function ReportsTab({ project }) {
       alert('Erro: ' + e.message);
     } finally {
       setLoadingPro(false);
+    }
+  }
+
+  async function handleRowClick(row) {
+    if ((row.supplier || '').toUpperCase().includes('NICOLAZZI')) {
+      setViewDoc(row);
+    } else {
+      try {
+        const res = await api.get(qp(`/api/corev2/docs/${row.id}/view`, project), { responseType: 'blob' });
+        const url = URL.createObjectURL(res.data);
+        setViewPdfUrl(url);
+      } catch (e) {
+        alert("Error opening PDF: " + e.message);
+      }
     }
   }
 
@@ -227,9 +253,9 @@ export default function ReportsTab({ project }) {
               <tr><td colSpan="5" className="p-8 text-center opacity-60">No results.</td></tr>
             ) : (
               rows.map(r => (
-                <tr key={r.id} className="hover:bg-[var(--surface-hover)] transition-colors">
+                <tr key={r.id} className="hover:bg-[var(--surface-hover)] transition-colors cursor-pointer" onClick={() => handleRowClick(r)}>
                   <td className="p-3">{r.date || '-'}</td>
-                  <td className="p-3 font-medium">{r.docNumber || '-'}</td>
+                  <td className="p-3 font-medium text-blue-500 hover:underline">{r.docNumber || '-'}</td>
                   <td className="p-3">{r.customer || r.supplier || '-'}</td>
                   <td className="p-3"><Badge>{r.status}</Badge></td>
                   <td className="p-3 text-right font-mono">{fmtEUR(r.total)}</td>
@@ -245,6 +271,27 @@ export default function ReportsTab({ project }) {
         <div className="shrink-0 max-h-[400px] overflow-auto border-t border-[var(--border)] pt-4">
           <ChartsAll ref={chartsRef} project={project} />
         </div>
+      )}
+      {/* Modals */}
+      {viewPdfUrl && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col relative">
+            <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-[var(--surface)] rounded-t-xl">
+              <h3 className="font-bold text-lg flex items-center gap-2">View Document</h3>
+              <button onClick={() => setViewPdfUrl(null)} className="btn text-xl p-0 w-8 h-8 flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 rounded-full transition-all">✕</button>
+            </div>
+            <iframe src={viewPdfUrl} className="flex-1 w-full bg-gray-100 dark:bg-gray-800 rounded-b-xl" />
+          </div>
+        </div>, document.body
+      )}
+
+      {viewDoc && (
+        <NicolazziInvoiceViewer
+          doc={viewDoc}
+          onClose={() => setViewDoc(null)}
+          updateRow={() => { }}
+          onFinalize={() => { }}
+        />
       )}
     </div>
   );

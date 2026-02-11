@@ -16,10 +16,11 @@ export function AppShell({
     setAccent,
     project,
     projects,
-    setProject
+    setProject,
+    setEditingProposalId
 }) {
     return (
-        <div className="app-shell">
+        <div className={`app-shell ${setEditingProposalId && activeTab === 'proposals' ? 'is-editing' : ''}`}>
             <Sidebar
                 tabs={tabs}
                 activeTab={activeTab}

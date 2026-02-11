@@ -14,4 +14,23 @@ const HOST = process.env.HOST || DEFAULTS.HOST;
 
 app.listen(PORT, HOST, () => {
     console.log(`[Invoice Studio] Server running on http://${HOST}:${PORT} (Phase 1 Logic)`);
+
+    // --- Phase 8: Automated Backup Cleanup ---
+    const Adapter = require('./storage/getDocsAdapter');
+    const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 Hours
+
+    const runCleanup = async () => {
+        try {
+            console.log('[Cleanup] Running expired backups cleanup...');
+            const count = await Adapter.cleanupExpiredBackups();
+            console.log(`[Cleanup] Successfully removed ${count} expired backups.`);
+        } catch (e) {
+            console.error('[Cleanup] Failed to run backup cleanup:', e.message);
+        }
+    };
+
+    // Run on startup
+    runCleanup();
+    // Schedule
+    setInterval(runCleanup, CLEANUP_INTERVAL);
 });

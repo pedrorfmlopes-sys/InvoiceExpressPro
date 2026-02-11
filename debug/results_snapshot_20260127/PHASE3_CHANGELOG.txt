@@ -1,0 +1,32 @@
+PHASE 3 CHANGELOG
+=================
+
+Dependencies Added:
+- jsonwebtoken
+- bcryptjs
+
+Schema Changes (Migrations):
+- users (id, email, hash, ...)
+- orgs (id, name)
+- memberships (userId, orgId, role)
+- plans (normal, pro, premium)
+- subscriptions (active plan)
+- entitlements (features enabled/limit)
+- usage_events (tracking)
+
+New Middleware:
+- server/src/middlewares/auth.js: Handles JWT, Context Attachment (user/org/plan), and Auth Enforcement.
+- Replaced legacy `attachEntitlements` with `attachContext`.
+
+New Endpoints:
+- POST /api/auth/bootstrap: Initialize admin + default org.
+- POST /api/auth/login: Get JWT.
+- GET /api/auth/me: Get context (requires token).
+
+Modes (AUTH_MODE env var):
+- optional (default): Endpoints open, creates default "Local Admin" context.
+- required: Endpoints require Bearer token (except health/login/bootstrap).
+
+Validations:
+- Legacy endpoints (200 OK) in optional mode.
+- Bootstrap/Login flow working.

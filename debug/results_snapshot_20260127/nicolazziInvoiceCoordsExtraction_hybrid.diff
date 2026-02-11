@@ -1,0 +1,95 @@
+--- nicolazziInvoiceCoordsExtraction.js
++++ nicolazziInvoiceCoordsExtraction.js (hybrid)
+@@ -1,9 +1,58 @@
+ const { extractWithCoords } = require('../utils/pdfCoords');
++const extractNicolazziInvoice = require('./nicolazziInvoiceExtraction');
+ const { normalizeAmount, normalizeDate } = require('./normalize');
++
++function buildFullTextFromCoords(pages) {
++    // Build a stable, readable text stream from positioned tokens.
++    // This is used ONLY for header/footer extraction (legacy regex logic),
++    // not for line parsing.
++    const yTolerance = 3; // small bucket to merge tokens that are on the same visual line
++    const pageTexts = [];
++
++    for (const page of pages) {
++        if (!Array.isArray(page) || page.length === 0) {
++            pageTexts.push('');
++            continue;
++        }
++
++        // Sort top-to-bottom, then left-to-right
++        const items = page
++            .filter(it => it && typeof it.str === 'string' && it.str.trim() !== '')
++            .map(it => ({ str: it.str.trim(), x: it.x ?? 0, y: it.y ?? 0 }))
++            .sort((a, b) => (a.y - b.y) || (a.x - b.x));
++
++        // Bucket by Y to reconstruct visual lines
++        const lines = [];
++        for (const it of items) {
++            const last = lines[lines.length - 1];
++            if (!last || Math.abs(it.y - last.y) > yTolerance) {
++                lines.push({ y: it.y, parts: [it] });
++            } else {
++                last.parts.push(it);
++            }
++        }
++
++        const textLines = lines.map(l => l.parts.sort((a, b) => a.x - b.x).map(p => p.str).join(' '));
++        pageTexts.push(textLines.join('\n'));
++    }
++
++    return pageTexts.join('\n\n');
++}
+ 
+ async function nicolazziInvoiceCoordsExtraction(pdfBuffer) {
+     const pages = await extractWithCoords(pdfBuffer);
+     if (!pages || pages.length === 0) return null;
++
++    // --- Header/Footer (Legacy) ---
++    // Build full text from positioned tokens and reuse legacy extractor for:
++    // - docNumber / dates / customer / totals / delivery note (DDT)
++    const fullText = buildFullTextFromCoords(pages);
++    const legacy = extractNicolazziInvoice(fullText);
++
++    // If legacy rejects (e.g., PROFORMA), do not handle here.
++    if (!legacy) return null;
++
++
+ 
+     // 1. Init
+     const extracted = {
+@@ -23,7 +72,32 @@
+     };
+ 
+     // 2. Grid Detection (Page 1)
+-    const page1 = pages[0].items;
++    
++
++    // Merge legacy header/footer fields (keep supplier as defined here)
++    extracted.docNumber = legacy.docNumber || extracted.docNumber;
++    extracted.dates = legacy.dates || extracted.dates;
++    extracted.entities = extracted.entities || {};
++    extracted.entities.customer = (legacy.entities && legacy.entities.customer) ? legacy.entities.customer : extracted.entities.customer;
++
++    // Totals: keep legacy (more complete), but ensure at least total/subtotal/tax exist
++    if (legacy.totals) {
++        extracted.totals = legacy.totals;
++        if (!extracted.totals.total && legacy.totals.total != null) extracted.totals.total = legacy.totals.total;
++        if (!extracted.totals.subtotal && legacy.totals.subtotal != null) extracted.totals.subtotal = legacy.totals.subtotal;
++        if (!extracted.totals.tax && legacy.totals.tax != null) extracted.totals.tax = legacy.totals.tax;
++    }
++
++    // Delivery note (DDT): normalize raw -> rawLine
++    if (legacy.docRefs && legacy.docRefs.deliveryNote) {
++        const dn = legacy.docRefs.deliveryNote;
++        extracted.docRefs.deliveryNote = {
++            number: dn.number || null,
++            date: dn.date || null,
++            rawLine: dn.rawLine || dn.raw || null
++        };
++    }
++const page1 = pages[0].items;
+ 
+     // Y-sort descending (Top-Bottom)
+     page1.sort((a, b) => {

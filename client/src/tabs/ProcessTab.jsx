@@ -221,10 +221,10 @@ export default function ProcessTab({ project }) {
   }
 
   /* ---------- ações por linha ---------- */
-  function openViewer(id) { setViewer({ open: true, url: qp(`/api/doc/view?id=${encodeURIComponent(id)}`, project) }) }
+  function openViewer(id) { setViewer({ open: true, url: qp(`/api/corev2/docs/${encodeURIComponent(id)}/view`, project) }) }
   async function deleteOne(id) {
     if (!confirm('Apagar este registo? O PDF será removido.')) return
-    await api.delete(qp(`/api/doc/${encodeURIComponent(id)}`, project))
+    await api.delete(qp(`/api/corev2/docs/${encodeURIComponent(id)}`, project))
     if (batchId) {
       try {
         const b = await api.get(qp(`/api/batch/${encodeURIComponent(batchId)}`, project)).then(r => r.data)
@@ -435,7 +435,7 @@ export default function ProcessTab({ project }) {
                         if (String(e.customer || '') !== String(r.customer || '')) diff.customer = e.customer
                         if (Number(e.total || 0) !== Number(r.total || 0)) diff.total = Number(e.total || 0)
                         if (Object.keys(diff).length) {
-                          await api.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
+                          await api.patch(qp(`/api/corev2/docs/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
                           setToast({ open: true, text: 'Guardado ✓' })
                         }
                       }}>Guardar</button>
@@ -446,10 +446,10 @@ export default function ProcessTab({ project }) {
                         if (e.docType !== r.docType) diff.docType = e.docType
                         if (e.docNumber !== r.docNumber) diff.docNumber = e.docNumber
                         if (Object.keys(diff).length) {
-                          await api.patch(qp(`/api/doc/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
+                          await api.patch(qp(`/api/corev2/docs/${encodeURIComponent(r.id)}`, project), diff, { headers: { 'X-Actor': 'process-row' } })
                         }
                         try {
-                          await api.post(qp('/api/doc/finalize', project), { id: r.id, docType: e.docType, docNumber: e.docNumber })
+                          await api.post(qp('/api/corev2/docs/finalize', project), { id: r.id, docType: e.docType, docNumber: e.docNumber })
                           setSelected(prev => { const s = new Set(prev); s.delete(r.id); return s })
                           // refresh deste lote
                           if (batchId) {

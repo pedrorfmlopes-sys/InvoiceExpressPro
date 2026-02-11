@@ -5,6 +5,7 @@ const ProjectService = require('../../services/ProjectService');
 const SatelliteStorage = require('../../storage/SatelliteStorage');
 const knex = require('../../db/knex');
 const { sanitize, coercePartyToString } = require('../../utils/helpers');
+const CustomerService = require('../crm/CustomerService');
 
 /**
  * UniversalDocService
@@ -116,6 +117,13 @@ class UniversalDocService {
                 size: fs.statSync(destPath).size,
                 updatedAt: new Date()
             };
+
+            // Phase 36: Capture Customer Data (Non-destructive)
+            try {
+                await CustomerService.upsertFromExtraction(project, doc, false);
+            } catch (e) {
+                console.error('[CRM] Failed to capture customer during finalization:', e.message);
+            }
 
             const updated = await Adapter.updateDoc(project, id, updates, innerTrx);
             await Adapter.appendAudit(project, { action: 'finalize', id, docType: finalType, docNumber: finalNumber }, innerTrx);

@@ -1,0 +1,34 @@
+PHASE 2 CHANGELOG
+=================
+
+Dependencies Added (package.json):
+- knex
+- sqlite3
+- pg
+
+Files Created:
+- server/src/db/knex.js (DB Config)
+- server/src/db/migrate.js (Migration Runner)
+- server/src/db/migrations/20240101_initial.js (Schema)
+- server/src/db/migrateFromJson.js (JSON Import)
+- server/src/storage/DbDocsAdapter.js (DB Storage Logic)
+- server/src/storage/getDocsAdapter.js (Factory)
+
+Files Modified:
+- server/src/services/DocService.js (Use Adapter)
+- server/src/services/ConfigService.js (Use Adapter + Secrets Logic)
+- server/src/controllers/configController.js (Mask Secrets)
+
+Environment Variables:
+- DB_CLIENT (default: sqlite3)
+- DATABASE_URL (only for pg)
+
+Commands:
+- npm run db:migrate (aliases to node server/src/db/migrate.js)
+- npm run db:import (aliases to node server/src/db/migrateFromJson.js)
+- npm start (uses DB if configured)
+
+Validation:
+- Full endpoint compatibility maintained.
+- /api/config/secrets now returns masked key.
+- DB populated from existing JSON files.

@@ -51,6 +51,12 @@ class ConfigService {
         // 3. Defaults
         return [
             {
+                id: "proforma",
+                labelPt: "Proforma",
+                synonyms: ["Proforma", "Pro-forma", "Profom"],
+                keywords: ["proforma", "pro-forma"]
+            },
+            {
                 id: "fatura",
                 labelPt: "Fatura",
                 synonyms: ["Fattura", "Invoice", "Factura", "FT", "Fatura"],

@@ -1,0 +1,156 @@
+{
+  "docType": "order_confirmation",
+  "docNumber": "OA2/000025",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2026-01-07",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT01495130021",
+      "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+    },
+    "customer": {
+      "name": "SANIMAIA, MAT. CONSTR. DECOR,. UNIP. LDA",
+      "vat": "PT502952113",
+      "address": "RUA DA INDUSTRIA, 2891 4785-627 TROFA (PORTUGAL)",
+      "deliveryAddress": ""
+    }
+  },
+  "totals": {
+    "goods": 4140.19,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 4140.19,
+    "tax": 0,
+    "total": 4140.19,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "78T002BRX",
+      "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, OTTONE FINITURA BRONZO SPAZZOLATO - BRASS WC FLUSH PLATE , DOUBLE FLUSH, COMPATIBLE WITH GEBERIT SIGMA 8, BRUSHED BRONZE ( CUSTOMS CODE: 74182000)",
+      "quantity": 1,
+      "unitPrice": 700,
+      "total": 346.5,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "PR52AF201BRX",
+      "description": "DIAMETRO35 S - LAVABO SOPRAPIANO NR S/SALTERELLO - MIX MONOCOMANDO H290, CANNA L 167, SENZA PILETTA , FINITURA BRONZO SPAZZOLATO - EXPOSED SINGLE LEVER BASIN MIXER, BRUSHED BRONZE ( CUSTOMS CODE : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 438,
+      "total": 216.81,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "78T002BLX",
+      "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, ACCIAIO INOX FINITURA BRUSHED BLACK CHROME - STAINLESS STEEL WC FLUSH PLATE , DOUBLE FLUSH, COMPATIBLE WITH GEBERIT SIGMA 8, BRUSHED BLACK CHROME ( CUSTOMS CODE : 73249000)",
+      "quantity": 1,
+      "unitPrice": 700,
+      "total": 346.5,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "PR52AL202BLX",
+      "description": "DIAMETRO35 S - PARTI ESTERNE PER NR LAVABO INCASSO SENZA PIASTRA - CANNA LMAX 193, FINITURA BRUSHED BLACK CHROME - OUTER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER, SPOUT SX LMAX=193MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], BRUSHED BLACK CHROME ( CUSTOMS CODE : 74182000)",
+      "quantity": 1,
+      "unitPrice": 302,
+      "total": 149.49,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "78T002CHX",
+      "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, ACCIAIO INOX FINITURA CHAMPAGNE SPAZZOLATO - STAINLESS STEEL WC FLUSH PLATE , DOUBLE FLUSH, COMPATIBLE WITH GEBERIT SIGMA 8, BRUSHED CHAMPAGNE (CUSTOMS CODE : 73249000)",
+      "quantity": 1,
+      "unitPrice": 966,
+      "total": 478.17,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "PR52AL202CHX",
+      "description": "DIAMETRO35 S - PARTI ESTERNE PER NR LAVABO INCASSO SENZA PIASTRA - CANNA LMAX 193, FINITURA CHAMPAGNE SPAZZOLATO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER, SPOUT SX LMAX=193MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], BRUSHED CHAMPAGNE (CUSTOMS CODE : 74182000)",
+      "quantity": 2,
+      "unitPrice": 465,
+      "total": 460.35,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "PR52GG201CHX",
+      "description": "DIAMETRO35 S - PARTI ESTERNE PER MIX NR DOCCIA INCASSO CON DEV . E DOCC. 2-3 VIE SENZA PIASTRA - FINITURA CHAMPAGNE SPAZZOLATO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [PM0020L], BRUSHED CHAMPAGNE (CUSTOMS CODE : 74182000)",
+      "quantity": 1,
+      "unitPrice": 996,
+      "total": 493.02,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "PR52GG201C04",
+      "description": "DIAMETRO35 S - PARTI ESTERNE PER MIX NR DOCCIA INCASSO CON DEV . E DOCC. 2-3 VIE SENZA PIASTRA - FINITURA NERO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [PM0020L], BLACK (CUSTOMS CODE : 74182000)",
+      "quantity": 1,
+      "unitPrice": 597,
+      "total": 295.52,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "PR52AL202C03",
+      "description": "DIAMETRO35 S - PARTI ESTERNE PER NR LAVABO INCASSO SENZA PIASTRA - CANNA LMAX 193, FINITURA BIANCO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER, SPOUT SX LMAX=193MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], WHITE ( CUSTOMS CODE: 74182000)",
+      "quantity": 1,
+      "unitPrice": 302,
+      "total": 149.49,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "PR52GG201C03",
+      "description": "DIAMETRO35 S - PARTI ESTERNE PER MIX NR DOCCIA INCASSO CON DEV . E DOCC. 2-3 VIE SENZA PIASTRA - FINITURA BIANCO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [PM0020L], WHITE (CUSTOMS CODE : 74182000)",
+      "quantity": 1,
+      "unitPrice": 597,
+      "total": 295.52,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "75T001C03",
+      "description": "SOFFIONE DA SOFFITO - Ø340, NR LIMITATORE 15l/min, FISSAGGIO CON MOLLE, UGELLI TRASPARENTI , FINITURA BIANCO - STAINLESS STEEL Ø 340MM CEILING SHOWER, ANTILIMESTONE SYSTEM , FIXED JET, FIXING SYSTEM WITH SPRINGS, WHITE ( CUSTOMS CODE : 73249000)",
+      "quantity": 1,
+      "unitPrice": 918,
+      "total": 454.41,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "75T001C04",
+      "description": "SOFFIONE DA SOFFITO - Ø340, NR LIMITATORE 15l/min, FISSAGGIO CON MOLLE, UGELLI TRASPARENTI , FINITURA NERO - STAINLESS STEEL Ø 340MM CEILING SHOWER, ANTILIMESTONE SYSTEM , FIXED JET, FIXING SYSTEM WITH SPRINGS, BLACK ( CUSTOMS CODE : 73249000)",
+      "quantity": 1,
+      "unitPrice": 918,
+      "total": 454.41,
+      "discountPercent": 50.499999999999986,
+      "foreeseenShippingDate": "2026-03-12"
+    }
+  ],
+  "docRefs": {
+    "customerOrder": {
+      "number": "5048",
+      "date": "2026-01-04"
+    }
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioConfirmationExtraction",
+    "textLength": 31452,
+    "textSample": "                                                                                              encomendas@sanimaia.com\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                   Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                               Carlotta Patriarca\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   SANIMAIA, MAT. CONSTR. DECOR,. UNIP. LDA\r\n\r\n\r\n                                        "
+  }
+}

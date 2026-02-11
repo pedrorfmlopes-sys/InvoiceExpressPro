@@ -10,8 +10,9 @@ export default defineConfig({
     reporter: 'list',
     use: {
         baseURL: 'http://localhost:5173',
-        trace: 'on-first-retry',
-        screenshot: 'only-on-failure',
+        trace: 'on',
+        screenshot: 'on',
+        video: 'on',
     },
     webServer: {
         command: 'npm run dev', // Running inside client

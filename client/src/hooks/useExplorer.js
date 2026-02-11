@@ -1,17 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import api from '../api/apiClient';
 
-export function useExplorer(project) {
+export function useExplorer(project, initialFilters = {}) {
     const [docs, setDocs] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
     const [filters, setFilters] = useState({
         archived: 'false',
         q: '',
-        project: project || 'ALL', // Default to ALL if project not passed?? Or context?
+        project: project || 'ALL',
         scope: '',
         sub_project_id: '',
-        category_id: ''
+        category_id: '',
+        ...initialFilters
     });
 
     // Aux Data
@@ -36,6 +37,7 @@ export function useExplorer(project) {
             if (f.sub_project_id) params.append('sub_project_id', f.sub_project_id);
             if (f.category_id) params.append('category_id', f.category_id);
 
+            if (f.status) params.append('status', f.status);
             if (f.docType) params.append('docType', f.docType);
             if (f.hasLinks) params.append('hasLinks', f.hasLinks);
             if (f.supplier) params.append('supplier', f.supplier);

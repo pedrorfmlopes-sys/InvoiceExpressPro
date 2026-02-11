@@ -1,327 +1,243 @@
-const { normalizeDate } = require('./normalize');
+const parseMoneyEU = (str) => {
+    if (!str) return 0;
+    const clean = str.replace(/\.(?=\d{3},)/g, '').replace(',', '.').replace(/[^-0-9.]/g, '');
+    return parseFloat(clean) || 0;
+};
 
-// Helper: Parse EU Money (1.234,56 -> 1234.56)
-function parseMoneyEU(str) {
-    if (!str) return null;
-    // Strict check: must look like money? No, parse loose, validate later.
-    const clean = str.replace(/\./g, '').replace(',', '.');
-    const val = parseFloat(clean);
-    return isNaN(val) ? null : val;
-}
-
+/**
+ * Highly Robust Nicolazzi Proforma Extractor
+ * Optimized for 2025/2026 multi-page layouts from Poppler text.
+ */
 function extractNicolazziTable(text) {
     const extracted = {
         docType: 'proforma',
         docNumber: null,
-        dates: { issued: null, due: null },
-        totals: {
-            goods: null,
-            transport: null,
-            packaging: null,
-            discount: null,
-            subtotal: null,
-            tax: null,
-            total: null
+        dates: { issued: null },
+        entities: {
+            customer: { name: null, address: null },
+            supplier: { name: "NICOLAZZI s.p.a.", address: "Via Pietro Durio 119, 28010 ALZO DI PELLA (NO)" },
+            shipTo: { name: null, address: null }
         },
         lines: [],
-        entities: {
-            customer: { name: null, vat: null, address: null },
-            supplier: {
-                name: "NICOLAZZI s.p.a.",
-                vat: "IT00115930034",
-                address: "28010 ALZO (NO) - Via P. Durio, 119"
-            },
-            shipTo: null
-        },
-        confidence: 0,
+        totals: { subtotal: 0, transport: 0, tax: 0, total: 0 },
+        docRefs: { customerRef: null },
+        confidence: 0.95,
         needsReview: false,
         reviewReason: null
     };
 
+    if (!text) return extracted;
+
     const lines = text.split('\n');
-
-    // --- Header Parsing (Line-Based) ---
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (/Number.*Date/i.test(line)) {
-            const valLine = lines[i + 1];
-            if (valLine) {
-                const mNum = valLine.match(/(\d{2,}\/\d{2,})/);
-                if (mNum) extracted.docNumber = mNum[1].trim();
-
-                const mDate = valLine.match(/(\d{2}\/\d{2}\/\d{4})/);
-                if (mDate) extracted.dates.issued = normalizeDate(mDate[1]);
-            }
-        }
-    }
-
-    // --- Entities Parsing (Dynamic Columns) ---
-    let shipToLines = [];
+    let zone = 'header'; // 'header', 'items', 'footer'
+    let foundSpett = false;
+    let foundDelivery = false;
     let customerLines = [];
-    let inEntityBlock = false;
+    let shipToLines = [];
+    let nextLineIsRef = false;
+    let nextLineIsTotals = false;
 
-    let delIdx = -1;
-    let spetIdx = -1;
+    const keywords = ['Delivery Address', 'Spett.le', 'Portogallo', 'Vat Number', 'Phone', 'Fax', 'Number', 'Date', 'Pag.', 'PROFORMA', 'TOTAL AMOUNT'];
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.includes('Delivery Address')) delIdx = line.indexOf('Delivery Address');
-        if (line.includes('Spett.le')) spetIdx = line.indexOf('Spett.le');
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
 
-        if (delIdx > -1 || spetIdx > -1) {
-            inEntityBlock = true;
-            if (line.includes('Delivery Address') || line.includes('Spett.le')) continue;
+        // --- Header Columnar Parsing ---
+        if (trimmed.includes('Spett.le')) foundSpett = true;
+        if (trimmed.includes('Delivery Address')) foundDelivery = true;
+        if (trimmed.includes('PROFORMA INVOICE')) {
+            zone = 'items'; // Move out of header zone immediately
         }
 
-        if (line.includes('PROFORMA INVOICE')) {
-            inEntityBlock = false;
-            break;
-        }
+        if ((foundSpett || foundDelivery) && zone === 'header') {
+            // Nicolazzi Proforma Header Layout:
+            // [Supplier Info (0-60)] [Delivery Info (65-107)] [Customer Info (107+)]
+            const shipToPart = line.substring(62, 107).trim();
+            const customerPart = line.substring(107).trim();
 
-        if (inEntityBlock) {
-            // Supplier is usually < delIdx
-            // Delivery is usually >= delIdx and < spetIdx
-            // Customer is usually >= spetIdx
+            const keywords = ['Delivery Address', 'Spett.le', 'Portogallo', 'Vat Number', 'Phone', 'Fax', 'Number', 'Date', 'Pag.', 'PROFORMA', 'TOTAL AMOUNT'];
 
-            const deliveryPart = (delIdx > -1 && spetIdx > -1) ? line.substring(delIdx - 5, spetIdx).trim() : '';
-            const customerPart = (spetIdx > -1) ? line.substring(spetIdx - 5).trim() : '';
-
-            // Further split customer part if it contains the zip code on the same line but separated
-            if (deliveryPart && !/Via Pietro Durio/i.test(deliveryPart)) {
-                // Clean up side-pollution from Nicolazzi info
-                const cleanD = deliveryPart.split(/\s{3,}/)[0];
-                if (cleanD.length > 2) shipToLines.push(cleanD);
+            if (shipToPart && shipToPart.length > 3 && !keywords.some(k => shipToPart.includes(k))) {
+                const clean = shipToPart.replace(/\s{3,}/g, ' ').replace(/Delivery Address/gi, '').trim();
+                if (clean.length > 2 && !shipToLines.includes(clean)) shipToLines.push(clean);
             }
-            if (customerPart) {
-                const cleanC = customerPart.split(/\s{3,}/)[0];
-                if (cleanC.length > 2) customerLines.push(cleanC);
+            if (customerPart && customerPart.length > 3 && !keywords.some(k => customerPart.includes(k))) {
+                const clean = customerPart.replace(/\s{3,}/g, ' ').replace(/Spett\.le/gi, '').trim();
+                if (clean.length > 2 && !customerLines.includes(clean)) customerLines.push(clean);
+            }
+        }
+
+        // Doc Number
+        if (!extracted.docNumber || extracted.docNumber.length < 5) {
+            const mDoc = line.match(/(\d{2}\/\d{5})/) || line.match(/(\d{2,}\/\d{4,})/);
+            if (mDoc && !line.includes('Tel') && !line.includes('Fax')) {
+                extracted.docNumber = mDoc[1];
+            }
+        }
+
+        // Date
+        if (!extracted.dates.issued) {
+            const mDate = line.match(/(\d{2}\/\d{2}\/\d{4})/);
+            if (mDate) {
+                const parts = mDate[1].split('/');
+                extracted.dates.issued = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+        }
+
+        // Customer Ref / Project (Looks at next line)
+        if (line.includes('your ref.')) {
+            nextLineIsRef = true;
+        } else if (nextLineIsRef) {
+            const refVal = line.substring(35, 85).trim();
+            if (refVal && refVal.length > 2) {
+                extracted.docRefs.customerRef = refVal;
+                nextLineIsRef = false;
+            }
+        }
+
+        // --- Totals Zone (Footer) ---
+        if (line.includes('Goods Value') && (line.includes('TOTAL AMOUNT') || line.includes('Charges'))) {
+            nextLineIsTotals = true;
+            zone = 'footer';
+            continue;
+        }
+
+        if (nextLineIsTotals) {
+            const moneyMatches = line.match(/\d+(?:\.\d{3})*,\d{2}/g);
+            if (moneyMatches && moneyMatches.length >= 1) {
+                const subVal = parseMoneyEU(line.substring(0, 55).trim());
+                const transVal = parseMoneyEU(line.substring(55, 95).trim());
+                const totVal = parseMoneyEU(line.substring(95).trim());
+
+                if (subVal) extracted.totals.subtotal = subVal;
+                if (transVal) extracted.totals.transport = transVal;
+                if (!extracted.totals.subtotal && moneyMatches[0]) extracted.totals.subtotal = parseMoneyEU(moneyMatches[0]);
+
+                if (totVal) {
+                    extracted.totals.total = totVal;
+                    nextLineIsTotals = false;
+                }
+            } else if (trimmed && (trimmed.includes('Price List') || trimmed.includes('Volume'))) {
+                nextLineIsTotals = false;
+            }
+        }
+
+        // Fallback total detection (max found)
+        if (zone === 'footer' || line.includes('TOTAL AMOUNT')) {
+            const moneyMatches = line.match(/\d+(?:\.\d{3})*,\d{2}/g);
+            if (moneyMatches) {
+                const val = parseMoneyEU(moneyMatches[moneyMatches.length - 1]);
+                if (val > (extracted.totals.total || 0)) extracted.totals.total = val;
+            }
+        }
+
+        // --- Item Zone Gating ---
+        if (line.includes('Pos') && line.includes('Article')) {
+            zone = 'items_found';
+            continue;
+        }
+
+        // --- Item Extraction ---
+        const columns = line.split(/\s{2,}/).map(c => c.trim()).filter(c => c.length > 0);
+        const moneyRegex = /^\d+(?:\.\d{3})*,\d{2}$/;
+        const hasMoney = columns.some(c => moneyRegex.test(c));
+
+        if (columns.length >= 4 && hasMoney) {
+            let tStr = null;
+            let uStr = null;
+            let dStr = null;
+            let qVal = 1;
+            let pCode = null;
+            let desc = "";
+            let posVal = null;
+
+            if (moneyRegex.test(columns[columns.length - 1])) {
+                tStr = columns[columns.length - 1];
+                let penIdx = columns.length - 2;
+                const penCand = columns[penIdx];
+                const moneyPartRegex = /(\d+(?:\.\d{3})*,\d{2})/;
+                const discPartRegex = /([\d\+]{1,7})/;
+                const combinedMatch = penCand.match(new RegExp(moneyPartRegex.source + "\\s+" + discPartRegex.source));
+
+                if (combinedMatch) {
+                    uStr = combinedMatch[1];
+                    dStr = combinedMatch[2];
+                } else if (moneyRegex.test(penCand)) {
+                    uStr = penCand;
+                } else if (/^[\d\+]+$/.test(penCand) && penCand.length <= 8) {
+                    dStr = penCand;
+                    if (moneyRegex.test(columns[penIdx - 1])) uStr = columns[penIdx - 1];
+                }
+            }
+
+            if (tStr && uStr) {
+                let s = 0;
+                if (/^\d+$/.test(columns[0])) {
+                    posVal = columns[0];
+                    s++;
+                }
+                if (columns[s] && (columns[s].length >= 4 || columns[s] === '.')) pCode = columns[s++];
+
+                const priceColIdx = (columns.indexOf(uStr) !== -1) ? columns.indexOf(uStr) : columns.length - 2;
+
+                if (priceColIdx > s) {
+                    const qToken = columns[priceColIdx - 1];
+                    if (/^\d+$/.test(qToken)) qVal = parseInt(qToken, 10);
+                    desc = columns.slice(s, priceColIdx - 1).join(" ");
+                }
+
+                if (pCode) {
+                    const lineObj = {
+                        pos: posVal,
+                        code: pCode,
+                        description: desc.replace(/\s+/g, ' ').trim(),
+                        quantity: qVal,
+                        unitPrice: parseMoneyEU(uStr),
+                        total: parseMoneyEU(tStr),
+                        discountText: dStr || null
+                    };
+
+                    const isDup = extracted.lines.some(l =>
+                        l.code === lineObj.code &&
+                        l.pos === lineObj.pos &&
+                        l.total === lineObj.total
+                    );
+                    if (!isDup) extracted.lines.push(lineObj);
+                }
+            }
+        } else if (extracted.lines.length > 0 && !hasMoney && line.length > 3 && !line.includes('Mod.')) {
+            const last = extracted.lines[extracted.lines.length - 1];
+            if (!line.match(/^\d{1,3}\s+/) && !line.includes('NICOLAZZI') && !line.includes('Delivery Address') && !line.includes('Page')) {
+                last.description = (last.description + " " + line).trim();
             }
         }
     }
 
+    // Final Assembly
     if (customerLines.length > 0) {
         extracted.entities.customer.name = customerLines[0];
         extracted.entities.customer.address = customerLines.slice(1).join(', ');
     }
-
     if (shipToLines.length > 0) {
-        // Filter out Nicolazzi's own info if it leaked into shipTo
-        const filteredShipTo = shipToLines.filter(line => !/DURIO|ALZO|PIETRO|NICOLAZZI|S\.P\.A/i.test(line));
-
-        if (filteredShipTo.length > 0) {
-            extracted.entities.shipTo = {
-                name: filteredShipTo[0],
-                address: filteredShipTo.slice(1).join(', ')
-            };
-            // Normalize for canonical output
-            extracted.entities.customer.deliveryAddress = extracted.entities.shipTo.address;
-        } else {
-            extracted.entities.shipTo = null;
-        }
+        extracted.entities.shipTo.name = shipToLines[0];
+        extracted.entities.shipTo.address = shipToLines.slice(1).join(', ');
     }
 
-    // Customer VAT
-    const mVat = text.match(/Vat Number\s*[\s\S]{0,300}?\b(\d{9,11})\b/i);
-    if (mVat) extracted.entities.customer.vat = mVat[1];
-
-    // Customer Reference ("your ref.")
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.toLowerCase().includes('your ref.')) {
-            const labelPos = line.toLowerCase().indexOf('your ref.');
-
-            // 1. Try checking line below at approximately the same index (preferred for Nicolazzi)
-            const below = lines[i + 1];
-            let val = '';
-            if (below) {
-                // Take a slice around the same horizontal position
-                val = below.substring(labelPos - 5, labelPos + 40).trim().split(/\s{2,}/)[0];
-            }
-
-            // 2. If below is empty or looks like junk, try same line but strictly after label
-            if (!val || val.length < 3) {
-                val = line.substring(labelPos + 9, labelPos + 40).trim().split(/\s{2,}/)[0];
-            }
-
-            if (val && val.length > 2 && !/your ref/i.test(val) && !/Shipping|Phone|Fax/i.test(val)) {
-                // Anti-Pollution: Strictly block IBANs, BIC, SWIFT, etc.
-                const cleanVal = val.replace(/\s/g, '');
-                const isBank = /^[A-Z]{2}\d{15,}/.test(cleanVal) ||
-                    /BANK|IBAN|BIC|SWIFT|CREDITO|VREDO|VAL|TRANSFER|BONIFICO/i.test(val);
-
-                if (!isBank) {
-                    extracted.docRefs = extracted.docRefs || {};
-                    // Cleanup any trailing/leading symbols common in these OCRs
-                    extracted.docRefs.customerRef = val.replace(/^[:\.\-\s]+|[:\.\-\s]+$/g, '').trim();
-                    break;
-                }
-            }
-        }
+    // Capture VAT Number (High Priority for CRM)
+    // Often follows "Vat Number" label, but can be on subsequent lines if IBAN/Shipping is in between
+    // We look for "Vat Number" and then the first 9-digit sequence within the next 500 characters
+    const vatSectionMatch = text.match(/Vat Number[\s\S]{1,500}?\b(\d{9})\b/i);
+    if (vatSectionMatch) {
+        extracted.entities.customer.vat = vatSectionMatch[1];
     }
 
-    // --- Totals Parsing ---
-    // Nicolazzi Totals are in a grid:
-    // Goods Value | Transport Charges | TOTAL AMOUNT
-    // [Value]    | [Value]           |
-    // Price List | Cash Discount     | [Total Value]
+    const computedTotal = extracted.lines.reduce((acc, l) => acc + l.total, 0);
+    if (!extracted.totals.total && computedTotal > 0) extracted.totals.total = computedTotal;
+    if (!extracted.totals.subtotal && computedTotal > 0) extracted.totals.subtotal = computedTotal;
 
-    const allMoneys = text.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/g) || [];
-    const gIdxText = text.lastIndexOf('Goods Value');
-
-    if (gIdxText !== -1) {
-        // We look for money values that appear AFTER the "Goods Value" header
-        const textAfterHeaders = text.substring(gIdxText);
-        const moneysAfter = textAfterHeaders.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/g) || [];
-
-        if (moneysAfter.length >= 2) {
-            extracted.totals.goods = parseMoneyEU(moneysAfter[0]);
-            extracted.totals.transport = parseMoneyEU(moneysAfter[1]);
-
-            // Total is usually the next one after some other fields (like Cash Discount)
-            // In 015.pdf: 330,00 (Goods), 25,00 (Transport), 0,00 (Cash Disc), 355,00 (Total)
-            // So Total is either the 3rd or 4th money value.
-            // Let's find a value that matches Sum(Goods, Transport, Tax)
-            for (let i = 2; i < Math.min(moneysAfter.length, 6); i++) {
-                const candidate = parseMoneyEU(moneysAfter[i]);
-                const sum = (extracted.totals.goods || 0) + (extracted.totals.transport || 0);
-                if (Math.abs(candidate - sum) < 0.05 && candidate > 0) {
-                    extracted.totals.total = candidate;
-                    break;
-                }
-            }
-            // Fallback for total if sum logic didn't hit (e.g. zero values)
-            if (extracted.totals.total === null && moneysAfter.length >= 3) {
-                // If it's the very last money value in the proximty
-                extracted.totals.total = parseMoneyEU(moneysAfter[moneysAfter.length - 1]);
-            }
-        }
-    }
-
-    if (extracted.totals.total && !extracted.totals.goods && extracted.totals.goods !== 0) {
-        extracted.totals.goods = extracted.totals.total;
-    }
-    extracted.totals.subtotal = extracted.totals.goods;
-
-    if (extracted.totals.total !== null && extracted.totals.subtotal !== null) {
-        const diff = Math.abs((extracted.totals.subtotal || 0) + (extracted.totals.transport || 0) - (extracted.totals.total || 0));
-        if (diff < 0.05) extracted.totals.tax = 0;
-    }
-
-
-    // --- Table Parsing with Buffer ---
-    let startIdx = 0;
-    for (let i = 0; i < lines.length; i++) {
-        const l = lines[i];
-        if (l.match(/Pos\s*Article/i) || (l.match(/Unit\s*Value/i) && l.match(/Amount/i))) {
-            startIdx = i + 1;
-            break;
-        }
-    }
-
-    if (startIdx > 0) {
-        for (let i = startIdx; i < lines.length; i++) {
-            let line = lines[i].trim();
-            if (!line) continue;
-
-            // Stop at Footer
-            if (line.match(/Goods\s+Value/i) && i > lines.length - 20) break;
-
-            // Page Header/Footer / Section Headers Junk
-            if (line.match(/NICOLAZZI\s+s\.p\.a\.|Via\s+Pietro\s+Durio|ALZO\s+DI\s+PELLA|tel\.|Telefax|Capitale\s+Sociale/i)) continue;
-            if (line.match(/Number\s+Date\s+Pag\.|Payment\s+Condition|Our\s+Bank|Our\s+Ref\.|your\s+ref\./i)) continue;
-            if (line.match(/Pos\s+Article|Description|Quantity|Unit\s+Value|Discount|Amount|Vat\s+Number|Delivery\s+Address/i)) continue;
-            if (line.match(/^\d{2}\/\d{2}\/\d{4}/)) continue; // Date line
-            if (line.match(/^Pos\s+/i)) continue;
-
-            // Nicolazzi specific: Skip Section Headers (Pos 0)
-            if (line.match(/^0\s+/) || line === "0") continue;
-
-            // Money Regex for totals at end of line
-            const moneyRegexStr = "\\d{1,3}(?:\\.\\d{3})*,\\d{2}";
-            const combinedRegex = new RegExp(`(${moneyRegexStr})\\s+([\\d\\+]+)?\\s*(${moneyRegexStr})$`);
-            const match = line.match(combinedRegex);
-
-            if (match) {
-                const uStr = match[1];
-                const dStr = match[2];
-                const tStr = match[3];
-                let descPart = line.substring(0, match.index).trim();
-
-                // Extract Qty from end of description part
-                const mQty = descPart.match(/(\d+)\s*$/);
-                let q = 1;
-                if (mQty) {
-                    q = parseInt(mQty[1], 10);
-                    descPart = descPart.substring(0, mQty.index).trim();
-                }
-
-                // Remove Leading Position Number (Pos > 0)
-                descPart = descPart.replace(/^\d+[\s\.\-]+/, '').trim();
-
-                // Extract Article Code (Look for first word that looks like a code)
-                let pCode = null;
-                const words = descPart.split(/\s+/);
-                for (let j = 0; j < Math.min(words.length, 3); j++) {
-                    const w = words[j];
-                    if (w.length >= 4 && /\d/.test(w) && !w.includes(',')) {
-                        pCode = w;
-                        descPart = descPart.replace(w, '').trim();
-                        break;
-                    }
-                }
-
-                // Clean Description junk
-                descPart = descPart.replace(/^[\.\-\s]+/, '').replace(/\s{2,}/g, ' ').trim();
-
-                const lineObj = {
-                    code: pCode,
-                    description: descPart,
-                    quantity: q,
-                    unitPrice: parseMoneyEU(uStr),
-                    total: parseMoneyEU(tStr),
-                    discountText: dStr || null
-                };
-
-                // Math Validation
-                let exp = lineObj.unitPrice * lineObj.quantity;
-                if (lineObj.discountText) {
-                    const parts = lineObj.discountText.split('+');
-                    for (const p of parts) exp *= (1 - parseFloat(p) / 100);
-                }
-                if (Math.abs(exp - lineObj.total) > 0.05) {
-                    extracted.needsReview = true;
-                }
-
-                extracted.lines.push(lineObj);
-            } else {
-                // Continuation line -> append to PREVIOUS item
-                if (extracted.lines.length > 0) {
-                    const last = extracted.lines[extracted.lines.length - 1];
-                    // Avoid appending tiny junk or page labels
-                    if (!line.match(/Pag\.\s+\d+/i) && line.length > 2) {
-                        last.description = (last.description + " " + line).trim();
-                    }
-                }
-            }
-        }
-    }
-
-    if (!extracted.docNumber || !extracted.totals.total) extracted.needsReview = true;
-    // --- Anti-Contamination Guard (ShipTo) ---
-    // User Requirement: Reject if matches "Durio", "ALZO" or matches Supplier Address
-    if (extracted.entities.shipTo) {
-        const sName = (extracted.entities.shipTo.name || "").toUpperCase();
-        const sAddr = (extracted.entities.shipTo.address || "").toUpperCase();
-
-        // Explicit Pollution Tokens
-        if (/DURIO|ALZO|PIETRO/i.test(sName) || /DURIO|ALZO|PIETRO/i.test(sAddr)) {
-            extracted.entities.shipTo = null;
-            // We set needsReview because we nuked a potentially valid-but-borked field, or just to warn?
-            // "needsReview=true if shipTo matches supplier address tokens" - Validated Requirement F.
-            extracted.needsReview = true;
-            extracted.reviewReason = (extracted.reviewReason ? extracted.reviewReason + "; " : "") +
-                "ShipTo matched Supplier Address (Set to NULL)";
-        }
+    if (!extracted.docNumber || !extracted.totals.total || extracted.lines.length === 0) {
+        extracted.needsReview = true;
     }
 
     return extracted;

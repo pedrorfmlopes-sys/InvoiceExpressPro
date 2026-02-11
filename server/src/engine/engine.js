@@ -2,10 +2,14 @@ const classifyDocType = require('./classifyDocType');
 const extractFromText = require('./extractFromText');
 // const normalize = require('./normalize'); // Used inside extractFromText
 const validate = require('./validate');
+const { pdfBufferToTextPoppler } = require('../utils/popplerText');
 
 const nicolazziCoords = require('./nicolazziInvoiceCoordsExtraction');
+const nicolazziProforma = require('./nicolazziProformaTableExtraction');
 
 async function process(text, pdfBuffer) {
+    let effectiveText = text;
+
     // 0. Pre-check
     if (!text || text.length < 50) {
         return {
@@ -19,30 +23,63 @@ async function process(text, pdfBuffer) {
         };
     }
 
-    // 1. Classify
-    const docType = classifyDocType(text);
+    // 1. High Fidelity Text Support (Nicolazzi / Ritmonio)
+    if (pdfBuffer && (/NICOLAZZI/i.test(text) || /Ritmonio/i.test(text))) {
+        try {
+            const popplerText = await pdfBufferToTextPoppler(pdfBuffer); // Ensure await if async, usually is promise
+            if (popplerText && popplerText.length > 100) {
+                effectiveText = popplerText;
+            }
+        } catch (e) {
+            console.warn("[Engine] Poppler re-extraction failed, using original text.", e.message);
+        }
+    }
 
-    // 2. Extract
+    // 2. Classify
+    const docType = classifyDocType(effectiveText);
+
+    // 3. Extract
     // Gating for Nicolazzi Coords
     let extractedData = null;
 
-    // Strict Gating: Must be Nicolazzi AND (Invoice OR Proforma) AND have buffer
-    if (pdfBuffer && /NICOLAZZI/i.test(text) && (/Fattura|Invoice/i.test(text)) && !/Proforma/i.test(text)) {
+    // A. Nicolazzi Proforma (Text/Poppler Based)
+    // Inclusive regex for variations: Proforma, Pro-forma, Pro forma, etc.
+    const isProforma = /Pro[\s-]*forma/i.test(effectiveText);
+
+    if (/NICOLAZZI/i.test(effectiveText) && isProforma) {
         try {
-            console.log("[Engine] Attempting Nicolazzi Coords Extraction...");
-            extractedData = await nicolazziCoords(pdfBuffer);
+            console.log("[Engine] Attempting Nicolazzi Proforma Extraction...");
+            extractedData = nicolazziProforma(effectiveText);
             if (extractedData) {
-                console.log("[Engine] Coords Extraction Successful.");
-            } else {
-                console.log("[Engine] Coords Extraction returned null (Grid not found? process fallback).");
+                console.log("[Engine] Nicolazzi Proforma Extraction Successful.");
+                // Ensure docType is 'proforma' for frontend routing
+                extractedData.docType = 'proforma';
             }
         } catch (e) {
-            console.error("[Engine] Coords Extraction Error:", e);
+            console.error("[Engine] Nicolazzi Proforma Extraction Error:", e);
+        }
+    }
+
+    // B. Strict Gating for Invoices: Must be Nicolazzi AND (Invoice/Fattura) AND NOT any Proforma variation
+    if (!extractedData && /NICOLAZZI/i.test(effectiveText) && (/Fattura|Invoice/i.test(effectiveText)) && !isProforma) {
+        try {
+            console.log("[Engine] Attempting Nicolazzi Invoice Table Extraction (New)...");
+            // Load the new extractor dynamically
+            const nicolazziInvoiceTable = require('./nicolazziInvoiceTableExtraction');
+            extractedData = nicolazziInvoiceTable(effectiveText);
+
+            if (extractedData) {
+                console.log("[Engine] Nicolazzi Invoice Table Extraction Successful.");
+                // Ensure docType is 'invoice'
+                extractedData.docType = 'invoice';
+            }
+        } catch (e) {
+            console.error("[Engine] Nicolazzi Invoice Extraction Error:", e);
         }
     }
 
     // Gating for Ritmonio Confirmation Coords
-    if (!extractedData && pdfBuffer && /Ritmonio/i.test(text) && (/CONFERMA D'ORDINE|ORDER CONFIRMATION/i.test(text))) {
+    if (!extractedData && pdfBuffer && /Ritmonio/i.test(effectiveText) && (/CONFERMA D'ORDINE|ORDER CONFIRMATION/i.test(effectiveText))) {
         try {
             const ritmonioConf = require('./ritmonioConfirmationExtraction');
             console.log("[Engine] Attempting Ritmonio Confirmation Extraction...");
@@ -56,7 +93,7 @@ async function process(text, pdfBuffer) {
     }
 
     // Gating for Ritmonio Coords (Invoices)
-    if (!extractedData && pdfBuffer && /Ritmonio/i.test(text) && (/Fattura|Invoice|FA5/i.test(text)) && !/CONFERMA|CONFIRMATION/i.test(text)) {
+    if (!extractedData && pdfBuffer && /Ritmonio/i.test(effectiveText) && (/Fattura|Invoice|FA5/i.test(effectiveText)) && !/CONFERMA|CONFIRMATION/i.test(effectiveText)) {
         try {
             const ritmonioCoords = require('./ritmonioInvoiceExtraction');
             console.log("[Engine] Attempting Ritmonio Coords Extraction...");
@@ -71,7 +108,7 @@ async function process(text, pdfBuffer) {
 
     // Fallback to Text Extractor
     if (!extractedData) {
-        extractedData = extractFromText(text);
+        extractedData = extractFromText(effectiveText);
     }
 
     // 3. Normalize (Already done inside extractFromText for specific fields, 
@@ -90,6 +127,7 @@ async function process(text, pdfBuffer) {
         totals: extractedData.totals,
         lines: extractedData.lines,
         docRefs: extractedData.docRefs,
+        projectRef: extractedData.projectRef, // [NEW] Pass through Project Ref
 
         confidence: validation.confidence,
         needsReview: validation.needsReview,

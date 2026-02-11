@@ -11,6 +11,7 @@ const ProjectService = require('../../services/ProjectService');
 const ConfigService = require('../../services/ConfigService');
 const Adapter = require('../../storage/getDocsAdapter');
 const ExtractionService = require('../extraction/service');
+const MasterEngine = require('../../engine/engine');
 const knex = require('../../db/knex'); // For meta insert
 
 // Multer config
@@ -27,9 +28,7 @@ const upload = multer({ storage });
 
 exports.uploadMiddleware = upload.array('files');
 
-// Progress MAP (In memory for now, like legacy)
-const progressMap = new Map();
-const batchRowsMap = new Map();
+// Progress MAP removed in favor of extraction_batches table
 
 // Helper: Classic Regex Fallback
 function extractRegex(text) {
@@ -83,14 +82,24 @@ exports.extract = async (req, res) => {
     }
     const hasKey = !!secrets.openaiApiKey;
 
-    // Init progress
-    progressMap.set(batchId, { project, total: req.files.length, done: 0, errors: 0 });
-    batchRowsMap.set(batchId, []);
+    // Init progress in DB
+    await knex('extraction_batches').insert({
+        id: batchId,
+        project,
+        total_files: req.files.length,
+        done_files: 0,
+        error_files: 0,
+        status: 'processing',
+        created_at: new Date(),
+        updated_at: new Date()
+    });
 
     res.json({ batchId, count: req.files.length, project, aiRequested: hasKey });
 
     // Async processing
     (async () => {
+        let done = 0;
+        let errors = 0;
         for (const f of req.files) {
             try {
                 const buf = fs.readFileSync(f.path);
@@ -125,69 +134,46 @@ exports.extract = async (req, res) => {
                     console.error("[Extract] Profile Logic Error:", profileErr);
                 }
 
-                // --- AI Logic (Only if Profile didnt satisfy) ---
-                if (extractionMethod !== 'profile' && hasKey && text.length >= 200) {
-                    try {
-                        const openai = new OpenAI({ apiKey: secrets.openaiApiKey });
-                        const completion = await openai.chat.completions.create({
-                            model: "gpt-3.5-turbo-1106", // or gpt-4o-mini if avail. 3.5 turbo json mode is good/cheap
-                            messages: [
-                                {
-                                    role: "system", content: `You are an expert invoice data extractor for Portuguese documents.
-                                Extract the following fields into JSON: docType, docNumber, date (YYYY-MM-DD), dueDate (YYYY-MM-DD), supplier, customer, total (number), currency (EUR), notes.
-                                
-                                Field 'docType' MUST be one of: 'fatura', 'recibo', 'nota_credito', 'guia_remessa'.
-                                Translate foreign types (e.g. 'Invoice', 'Fattura', 'Rechnung') to the closest Portuguese match from the list.
-                                
-                                If a field is not found, use null.
-                                Normalize numbers to float (e.g. "1.000,00" -> 1000.0).` },
-                                { role: "user", content: `Extract from this text:\n\n${text.substring(0, 3000)}` }
-                            ],
-                            response_format: { type: "json_object" },
-                            temperature: 0
-                        });
-                        const raw = JSON.parse(completion.choices[0].message.content);
+                // --- Master Engine (Phase C) ---
+                // If profile didn't extract LINES (weak profile), OR didn't match, use the Master Engine
+                // This ensures we don't get stuck with a "Date-Only" profile when the Engine could find 50 lines.
+                // FORCE: Always try Engine for Nicolazzi/Ritmonio (V2 Migration Candidates)
+                const isV2Candidate = /NICOLAZZI|Ritmonio/i.test(text);
+                const profileMissedLines = extractionMethod === 'profile' && (!extracted.lines || extracted.lines.length === 0);
 
-                        // Normalization Helper
-                        const normalizeType = (t) => {
-                            if (!t) return 'other';
-                            const lower = t.toLowerCase().replace(/[\s-]/g, '_');
-                            if (lower.includes('credit') || lower.includes('nota_de_credito')) return 'nota_credito';
-                            if (lower.includes('guia') || lower.includes('remessa')) return 'guia_remessa';
-                            if (lower.includes('fatura') || lower.includes('invoice') || lower.includes('fattura')) return 'fatura';
-                            if (lower.includes('recibo') || lower.includes('receipt')) return 'recibo';
-                            return lower; // fallback
+                if (extractionMethod !== 'profile' || profileMissedLines || isV2Candidate) {
+                    try {
+                        const engineResult = await MasterEngine.process(text, buf);
+
+                        // Smart Merge: Prefer Engine lines if Profile has none
+                        // If we are here because profileMissedLines is true, matches will be merged.
+                        const newExtracted = {
+                            ...extracted,
+                            ...engineResult,
+                            // Priority: if engine found lines, use them. If not, keep what we had (empty).
+                            lines: (engineResult.lines && engineResult.lines.length > 0) ? engineResult.lines : (extracted.lines || [])
                         };
 
-                        raw.docType = normalizeType(raw.docType);
+                        extracted = newExtracted;
 
-                        // Validation
-                        // check total sanity
-                        const nTotal = parseFloat(raw.total);
-                        if (!isNaN(nTotal) && nTotal > 0 && nTotal < 1e7) raw.total = nTotal;
-                        else raw.total = 0;
-
-                        // Check basic required fields to consider "AI Success"
-                        if (raw.docNumber || raw.date || raw.total > 0) {
-                            extracted = {
-                                docType: raw.docType,
-                                docNumber: raw.docNumber || '',
-                                date: raw.date || '',
-                                dueDate: raw.dueDate || '',
-                                supplier: raw.supplier || '',
-                                customer: raw.customer || '',
-                                total: raw.total || 0,
-                                needsOcr: false,
-                                confidence: 0.9,
-                                notes: raw.notes || ''
-                            };
-                            extractionMethod = 'ai';
-                        } else {
-                            throw new Error("AI returned empty/invalid data");
+                        // Update Method tracking only if Engine actually contributed useful data (lines)
+                        if (engineResult.lines && engineResult.lines.length > 0) {
+                            extractionMethod = engineResult.docTypeSource || 'engine_override';
+                        } else if (extractionMethod !== 'profile') {
+                            extractionMethod = engineResult.docTypeSource || 'engine';
                         }
-                    } catch (aiErr) {
-                        console.log("AI Extraction failed, falling back:", aiErr.message);
-                        extractionMethod = 'fallback_regex'; // Explicit fallback
+
+                        if (profileMissedLines && extracted.lines && extracted.lines.length > 0) {
+                            console.log("[Extract] Engine rescued Profile: Found lines where Profile found none.");
+                        }
+
+                    } catch (engineErr) {
+                        console.error("[Extract] Master Engine Error:", engineErr);
+                        // Fallback only if we really have nothing yet
+                        if (extractionMethod !== 'profile') {
+                            extracted = { ...extracted, ...extractRegex(text) };
+                            extractionMethod = 'fallback_regex';
+                        }
                     }
                 }
 
@@ -245,8 +231,8 @@ exports.extract = async (req, res) => {
                     } catch (e) { console.log("[Extract] Reprompt failed", e.message); }
                 }
 
-                // Fallback / Regex if AI failed or not requested or text too short
-                if (extractionMethod !== 'ai') {
+                // Fallback / Regex ONLY if other methods failed (AI, Engine, Profile)
+                if (extractionMethod === 'regex' || extractionMethod === 'fallback_regex') {
                     extracted = extractRegex(text);
                 }
 
@@ -254,11 +240,25 @@ exports.extract = async (req, res) => {
                 const stagingPath = path.join(ctx.dirs.staging, stagingName);
                 fs.copyFileSync(f.path, stagingPath);
 
+                // Flatten complex objects for DB/List View
+                const flatData = {
+                    total: extracted.total || (extracted.totals ? extracted.totals.total : 0),
+                    date: extracted.date || (extracted.dates ? extracted.dates.issued : null),
+                    supplier: (extracted.entities && extracted.entities.supplier && extracted.entities.supplier.name)
+                        ? extracted.entities.supplier.name
+                        : (extracted.supplier || ''),
+                    customer: (extracted.entities && extracted.entities.customer && extracted.entities.customer.name)
+                        ? extracted.entities.customer.name
+                        : (extracted.customer || '')
+                };
+
                 const row = {
                     id: uuidv4(),
                     project,
                     batchId,
                     ...extracted,
+                    ...flatData, // Overwrite with flattened versions for top-level columns
+                    rawJson: extracted, // Store the full object for viewers
                     extractionMethod,
                     status: 'staging',
                     filePath: stagingPath,
@@ -267,7 +267,6 @@ exports.extract = async (req, res) => {
 
                 // Save to DB
                 await Adapter.saveDocument(project, row);
-                batchRowsMap.get(batchId).push(row);
 
                 // Save Extraction Meta (if profiled)
                 if (profileMatch && profileMatch.profile) {
@@ -282,34 +281,123 @@ exports.extract = async (req, res) => {
                     }
                 }
 
-                const p = progressMap.get(batchId);
-                if (p) p.done++;
+                done++;
+                await knex('extraction_batches').where({ id: batchId }).update({
+                    done_files: done,
+                    updated_at: new Date()
+                });
 
             } catch (e) {
                 console.error(e);
-                const p = progressMap.get(batchId);
-                if (p) p.errors++;
+                errors++;
+                await knex('extraction_batches').where({ id: batchId }).update({
+                    error_files: errors,
+                    updated_at: new Date()
+                });
             } finally {
                 try { fs.unlinkSync(f.path) } catch { }
             }
         }
+
+        // Finalize Batch Status
+        await knex('extraction_batches').where({ id: batchId }).update({
+            status: 'finished',
+            updated_at: new Date()
+        });
     })();
 };
 
-exports.getProgress = (req, res) => {
+exports.getProgress = async (req, res) => {
     const batchId = req.params.batchId;
-    const p = progressMap.get(batchId);
-    if (!p) return res.status(404).json({ error: 'Not found' });
+    try {
+        const p = await knex('extraction_batches').where({ id: batchId }).first();
+        if (!p) return res.status(404).json({ error: 'Not found' });
 
-    // Check if finished logic (legacy has complex check on DB, we simplify)
-    if (p.done + p.errors >= p.total) {
-        return res.json({ ...p, status: 'finished' });
+        // Map canonical fields to frontend names if necessary (or keep simple)
+        const response = {
+            project: p.project,
+            total: p.total_files,
+            done: p.done_files,
+            errors: p.error_files,
+            status: p.status
+        };
+
+        res.json(response);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
-    res.json(p);
 };
 
-exports.getBatch = (req, res) => {
+exports.getBatch = async (req, res) => {
     const batchId = req.params.batchId;
-    const rows = batchRowsMap.get(batchId) || [];
-    res.json({ batchId, rows });
-}
+    const project = req.project || 'default';
+    try {
+        const result = await Adapter.getDocs(project, { page: 1, limit: 1000, status: 'staging' });
+        const rows = result.rows.filter(r => r.batchId === batchId);
+        res.json({ batchId, rows });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.reprocess = async (req, res) => {
+    const { id } = req.params;
+    const project = req.project;
+
+    try {
+        console.log(`[Reprocess] Starting for doc ${id} in project ${project}`);
+
+        // 1. Fetch doc from DB
+        const doc = await Adapter.getDoc(project, id);
+        if (!doc) return res.status(404).json({ error: 'Document not found' });
+        if (!doc.filePath || !fs.existsSync(doc.filePath)) {
+            return res.status(400).json({ error: 'Source file not found on disk' });
+        }
+
+        // 2. Read and Extract
+        const buf = fs.readFileSync(doc.filePath);
+        const parsed = await pdf(buf);
+        const text = (parsed.text || '').trim();
+
+        // 3. Run Master Engine
+        let engineResult;
+        try {
+            engineResult = await MasterEngine.process(text, buf);
+        } catch (engineErr) {
+            console.error(`[Reprocess] Engine Failed for doc ${id}:`, engineErr);
+            throw new Error(`MasterEngine Extraction Failed: ${engineErr.message}`);
+        }
+
+        // Flatten complex objects for DB/List View
+        const flatData = {
+            total: engineResult.total || (engineResult.totals ? engineResult.totals.total : 0),
+            date: engineResult.date || (engineResult.dates ? engineResult.dates.issued : null),
+            supplier: (engineResult.entities && engineResult.entities.supplier && engineResult.entities.supplier.name)
+                ? engineResult.entities.supplier.name
+                : (engineResult.supplier || ''),
+            customer: (engineResult.entities && engineResult.entities.customer && engineResult.entities.customer.name)
+                ? engineResult.entities.customer.name
+                : (engineResult.customer || '')
+        };
+
+        // 4. Merge results
+        const updatedDoc = {
+            ...doc,
+            ...engineResult,
+            ...flatData, // Ensure top-level columns are populated
+            rawJson: engineResult,
+            extractionMethod: engineResult.docTypeSource || 'reprocessed',
+            status: 'staging' // Keep in staging
+        };
+
+        // 5. Save back to DB
+        await Adapter.saveDocument(project, updatedDoc);
+
+        console.log(`[Reprocess] Success for doc ${id}`);
+        res.json(updatedDoc);
+
+    } catch (err) {
+        console.error(`[Reprocess] Error for doc ${id}:`, err);
+        res.status(500).json({ error: err.message });
+    }
+};

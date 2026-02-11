@@ -1,0 +1,73 @@
+{
+  "docType": "invoice",
+  "docNumber": "FA5/B2500235",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-01-23",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT00200844310",
+      "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+    },
+    "customer": {
+      "name": "DVTKB",
+      "vat": "PT515834807",
+      "address": "RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO"
+    }
+  },
+  "totals": {
+    "goods": 677.6,
+    "transport": 0,
+    "packaging": null,
+    "discount": null,
+    "subtotal": 677.6,
+    "tax": 0,
+    "total": 677.6,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "PR51AU201CRL",
+      "description": "D35 IMPRONTE - LAVABO APPOGGIO S /SALTERELLO NR SENZA COMANDO - MIX MONOCOMANDO CANNA",
+      "quantity": 2,
+      "unitPrice": 220,
+      "total": 176,
+      "discountPercent": 60
+    },
+    {
+      "code": "PR51MA102CRL",
+      "description": "D35 IMPRONTE - COMANDO APPOGGI TRATTO CON NR LEVA - FINITURA CROMO LUCIDO",
+      "quantity": 2,
+      "unitPrice": 101,
+      "total": 80.8,
+      "discountPercent": 60
+    },
+    {
+      "code": "PR52AL202CRL",
+      "description": "DIAMETRO35 S - PARTI ESTERNE PER LAVABO NR INCASSO SENZA PIASTRA - CANNA LMAX 193,",
+      "quantity": 4,
+      "unitPrice": 162,
+      "total": 259.2,
+      "discountPercent": 60
+    },
+    {
+      "code": "PR52EC201CRL",
+      "description": "DIAMETRO35 S - PARTI ESTERNE VASCA INCASSO NR SENZA PIASTRA - CANNA L 200, FINITURA CROMO",
+      "quantity": 1,
+      "unitPrice": 404,
+      "total": 161.6,
+      "discountPercent": 60
+    }
+  ],
+  "confidence": 0.8,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioInvoiceExtraction",
+    "textLength": 8729,
+    "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                       Cod.cliente/Cust.code          Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                              C 13316                        PT515834807\r\n   DVTKB, LDA. (DIEGO LARANJO)\r\n   DIVITEK ARCH & DESIGN BRANDS\r\n                                                                                                              Agente/Agent                                                                                      Pag.1/1\r\n   RUA DA "
+  }
+}

@@ -35,9 +35,9 @@ if (['pg', 'postgres', 'postgresql'].includes(rawClient)) {
 
     // Resolve filename
     if (!sqliteFilename) {
-        // Safe default: ../../../../data/db.sqlite relative to this file (server/src/db/knex.js)
-        // Adjust based on project structure: root/data/db.sqlite
-        sqliteFilename = path.resolve(__dirname, '../../../../data/db.sqlite');
+        // Safe default: ../../../data/db.sqlite relative to this file (server/src/db/knex.js)
+        // server/src/db -> server/src -> server -> root -> data/db.sqlite
+        sqliteFilename = path.resolve(__dirname, '../../../data/db.sqlite');
     } else {
         sqliteFilename = path.resolve(sqliteFilename);
     }

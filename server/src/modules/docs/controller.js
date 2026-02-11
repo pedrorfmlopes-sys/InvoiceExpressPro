@@ -77,6 +77,18 @@ exports.viewDoc = async (req, res) => {
     }
 };
 
+exports.getDocJson = async (req, res) => {
+    try {
+        const project = req.project;
+        const { id } = req.params;
+        const doc = await DocService.getDoc(project, id);
+        if (!doc) return res.status(404).json({ error: 'Document not found' });
+        res.json(doc);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 exports.getExcelJson = async (req, res) => {
     // Mimic /api/excel.json which returns all docs
     try {

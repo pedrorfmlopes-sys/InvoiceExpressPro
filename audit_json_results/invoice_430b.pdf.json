@@ -1,0 +1,62 @@
+{
+  "docType": "invoice",
+  "docNumber": "000430/B",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-04-08",
+    "due": null
+  },
+  "entities": {
+    "customer": {
+      "name": null,
+      "vat": "PT502494638",
+      "address": null
+    },
+    "supplier": {
+      "name": "NICOLAZZI s.p.a.",
+      "vat": "IT00115930034",
+      "address": "28010 ALZO (NO) - Via P. Durio, 119"
+    },
+    "shipTo": null
+  },
+  "totals": {
+    "goods": null,
+    "transport": null,
+    "packaging": null,
+    "discount": null,
+    "subtotal": null,
+    "tax": 443.3,
+    "total": 443.3,
+    "discountMain": null,
+    "discountExtra": null
+  },
+  "lines": [
+    {
+      "code": "3431NS",
+      "description": "SINGLE LEVER MIXER WITH EXTRACTABLE SHOWER",
+      "quantity": 1,
+      "unitPrice": 443.3,
+      "total": 443.3,
+      "taxCode": "NI410",
+      "orderRef": null,
+      "uom": "NR",
+      "customerRef": null,
+      "finishText": null
+    }
+  ],
+  "docRefs": {
+    "deliveryNote": {
+      "number": "000862",
+      "date": "2025-04-07",
+      "raw": "DDT Nr. 000862 del 07/04/2025"
+    }
+  },
+  "confidence": 0.94,
+  "needsReview": true,
+  "reviewReason": "Missing Totals",
+  "debug": {
+    "extractor": "nicolazziInvoiceExtraction",
+    "textLength": 1717,
+    "textSample": "NICOLAZZI s.p.a.\n28010 ALZO (NO) - Via P. Durio, 119\ntel. (0322) 969.672 r.a.\nTelefax (0322) 969.532\nC.C.I.A.A. n. 84286-M. NO 001005\nPart. IVA e Cod. Fiscale: 00115930034\nIsc. Trib. Verbania Reg. Soc. n: 3398\nCapitale Sociale € 1.800.000,00 i.v.\nLOJA DO BANHO - EQUIPAMIENTOS SA\nRUA EUGENIO DE CASTRO RODRIGUES 2\n1700 184LISBONA\nINVOICE\n1\nInvoice\nPrivacy information available on www.nicolazzi.it\nPag.\n000430/B\nNumero/ Number\n08/04/2025\nData/ Date\n030LO041\nCodice Cliente\nBanca di appoggio\nPAYMENT IN ADVANCE AT ORDER\nCondizione pagamento /Payment\nNEM\nAgente\nW/CHARGES ON INVOICE\nPorto\nGOODS OF ITALIAN ORIGIN\nAnnotazioni\nAS ADDRESS\nRiferimento / Shipping Marks\nREF. YOUR P.O.\nvsrife\nPT502494638\nP.IVAVolume\n1\nColli / Cases\n6,00\nPeso lordo/ Gross W. Kg.\n4,90\nPeso Netto/Net W. Kg.\nArticleYour ArticleDescription UMQuantity CurrencyUnit ValueAMOUNT IVAPosition\nDDT Nr. 000862 del 07/04/2025\n91\n3431NS SINGLE LEVER MIXER WITH EXTRACTABLE SHOWERNR1EUR443,30443,30NI410\n443,30\nWE DECLARE THAT GOODS BEIN"
+  }
+}

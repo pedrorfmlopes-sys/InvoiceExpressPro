@@ -1,0 +1,773 @@
+[
+  {
+    "docType": "order_confirmation",
+    "docNumber": "OA2/003146",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-10-15",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT01495130021",
+        "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+      },
+      "customer": {
+        "name": "DVTKB, LDA. (DIEGO LARANJO)",
+        "vat": "PT515834807",
+        "address": "( ) DIVITEK ARCH & DESIGN BRANDS RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL)",
+        "deliveryAddress": "Divitek(Adz) 963549543 João Paulo Rua da Boavista, 91 3800- 115 Taboeira (PORTUGAL)"
+      }
+    },
+    "totals": {
+      "goods": 7530,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 7530,
+      "tax": 0,
+      "total": 7530,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "78T002INOX",
+        "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, FINITURA ACCIAIO INOX SPAZZOLATO - PLACA DE ACCIONAMIENTO PARA CISTERNAS DE DESCARGA INODORO EN ACERO INOXIDABLE, DOBLE DESCARGA, COMPATIBLE CON GEBERIT SIGMA 8, ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+        "quantity": 6,
+        "unitPrice": 424,
+        "total": 1017.6,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "78Q007INOX",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 48,
+        "total": 19.2,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0123CSINOX",
+        "description": "Ø35INOX - LAVABO APPOGGIO NR S/SALTERELLO - MIX MONOCOMANDO CANNA CURVA L 126, LEVA L 50, ATTACCO 3/8\", SENZA PILETTA , ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO PARA LAVABO , MANDO CON PALANCA 50MM, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 371,
+        "total": 148.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "78Q007INOX",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 48,
+        "total": 19.2,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0107INOX",
+        "description": "Ø35INOX - CORPO MIX DA PIANO - NR COMPLETO DI CARTUCCIA E COMANDO , INGRESSI DA 3/8\", USCITA DA 1/2\", ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 338,
+        "total": 135.2,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0108QH1INOX",
+        "description": "Ø35INOX - BOCCA D 'EROGAZIONE DA NR PIANO - CANNA QUADRA Ø 22 GIREVOLE, H=220mm, ACCIAIO INOX SPAZZOLATO - CAÑO CUADRADO GIRATORIO 360° DE ENCIMERA PARA LAVABO , H=220MM, SOPORTE Y KIT DE FIJACIÓN , ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+        "quantity": 1,
+        "unitPrice": 361,
+        "total": 144.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "78Q007INOX",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 48,
+        "total": 19.2,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0117SPCINOX",
+        "description": "Ø35INOX - PARTI ESTERNE PER LAVABO NR INCASSO SENZA PIASTRA - CANNA CURVA L210, ACCIAIO INOX SPAZZOLATO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA LAVABO , CAÑO SX LMAX=196MM, PARTES INTERNAS VENDIDAS SEPARADAMENTE [E0BA 0115 SX], ACERO CEPILLADO (CÓDIGO ADUANERO : 73249000)",
+        "quantity": 3,
+        "unitPrice": 444,
+        "total": 532.8,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0115SX",
+        "description": "PARTI INTERNE MIX LAVABO AD INCASSO NR CON BOCCA FISSA SINISTRA - GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO (CÓDIGO ADUANERO: 84818011 )",
+        "quantity": 3,
+        "unitPrice": 129,
+        "total": 154.8,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-17"
+      },
+      {
+        "code": "78Q007INOX",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 3,
+        "unitPrice": 48,
+        "total": 57.6,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0129CSINOX",
+        "description": "Ø35INOX - LAVABO SOPRAPIANO NR S/SALTERELLO - MIX MONOCOMANDO CORPO H 311 , CANNA CURVA L 166, LEVA L50, ATTACCO 3/8\", SENZA PILETTA , ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO SOBRE ENCIMERA, MANDO CON PALANCA 50MM, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 2,
+        "unitPrice": 463,
+        "total": 370.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "78Q007INOX",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 2,
+        "unitPrice": 48,
+        "total": 38.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "78Q007INOX",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR CLIC-CLAC - CON E SENZA FORO TROPPO-PIENO, CORPO IN ACCIAIO , FINITURA ACCIAIO INOX SPAZZOLATO - VÁLVULA DE DESCARGA EN ACERO INOXIDABLE CON TAPÒN PRESSION CLIC-CLAC, CON Y SIN AGUJERO REBOSADERO, ACERO CEPILLADO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 48,
+        "total": 19.2,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0466ESPINOX",
+        "description": "Ø35INOX - PARTI ESTERNE DOCCIA NR INCASSO CON DEVIATORE 2-3 VIE E DOCCETTA SENZA PIASTRA - FINITURA ACCIAIO INOX SPAZZOLATO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO BAÑERA/DUCHA, DUCHA TELÉFONO Ø23 MM EN ACERO INOXIDABLE CON FLEXIBLE DE 1500MM, PARTES INTERNAS VENDIDAS SEPARADAMENTE [PM0020L], ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+        "quantity": 5,
+        "unitPrice": 662,
+        "total": 1324,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-11-10"
+      },
+      {
+        "code": "PM0020L",
+        "description": "PARTI INTERNE PER MONOCOMANDO NR VASCA /DOCCIA INCASSO C /DEVIATORE GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA BAÑERA/ DUCHA CON DESVIADOR ROTATIVO Y SALIDA DE TOMA DE AGUA (CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 5,
+        "unitPrice": 456,
+        "total": 912,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-17"
+      },
+      {
+        "code": "75S021INOX",
+        "description": "SOFFIONE DOCCIA Ø 250 ACCIAIO - GETTO NR FISSO, ANTICALCARE, FINITURA ACCIAIO INOX SPAZZOLATO - POMO DE DUCHA ARTICULADO Ø 250MM EN ACERO INOXIDABLE , DISPOSITIVO ANTICAL, CHORRO FIJO, ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+        "quantity": 5,
+        "unitPrice": 582,
+        "total": 1164,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "75B005INOX",
+        "description": "BRACCIO DOCCIA DA PARETE NR ORIZZONTALE CURVO Ø 22MM - L345MM, ATTACCHI RETE E SOFFIONE M G 1/2, ACCIAIO INOX SPAZZOLATO - BRAZO DE DUCHA HORIZONTAL REDONDO EN ACERO INOXIDABLE L=345MM, ACERO CEPILLADO (CÓDIGO ADUANERO: 73249000)",
+        "quantity": 5,
+        "unitPrice": 149,
+        "total": 298,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0468ESCINOX",
+        "description": "Ø35INOX - PARTI ESTERNE VASCA NR INCASSO CANNA CURVA CON DEVIATORE 2-3 VIE SENZA PIASTRA - FINITURA ACCIAIO INOX SPAZZOLATO - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO BAÑERA, CAÑO L=200MM, DUCHA TELÉFONO Ø23 MM EN ACERO INOXIDABLE CON FLEXIBLE DE 1500MM, PARTES INTERNAS VENDIDAS SEPARADAMENTE [PM0020L], ACERO CEPILLADO ( CÓDIGO ADUANERO : 73249000)",
+        "quantity": 1,
+        "unitPrice": 1005,
+        "total": 402,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-11-10"
+      },
+      {
+        "code": "PM0020L",
+        "description": "PARTI INTERNE PER MONOCOMANDO NR VASCA /DOCCIA INCASSO C /DEVIATORE GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA BAÑERA/ DUCHA CON DESVIADOR ROTATIVO Y SALIDA DE TOMA DE AGUA (CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 456,
+        "total": 182.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-17"
+      },
+      {
+        "code": "E0CU230CRL",
+        "description": "MISCELATORE CUCINA - CANNA CIGNO NR TONDA GIREVOLE E DOCCETTA ESTRAIBILE, FINITURA CROMO LUCIDO - MEZCLADOR MONOMANDO PARA COCINA, CAÑO CISNE GIRATORIO 360°, DUCHITA EXTRAIBLE 2 FUNCIÓNES, CROMO ( CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 454,
+        "total": 181.6,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0CU270INOX",
+        "description": "DIA.35 CUCINA INOX - MISCELATORE NR CUCINA - CANNA TONDA \"L\" GIREVOLE, FINITURA ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO PARA COCINA, CAÑO REDONDO TUBO EN L GIRATORIO 360°, ACERO CEPILLADO (CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 521,
+        "total": 208.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "E0BA0122DSINOX",
+        "description": "Ø35INOX - BIDET APPOGGIO NR S/SALTERELLO - MISCELATORE MONOCOMANDO, LEVA L 50, ATTACCO 3/8\", SENZA PILETTA , ACCIAIO INOX SPAZZOLATO - MEZCLADOR MONOMANDO PARA BIDET , MANDO CON PALANCA 50MM, ACERO CEPILLADO ( CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 422,
+        "total": 168.8,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      },
+      {
+        "code": "RCMB823",
+        "description": "AERATORE 28x7 - PCA 1,5GPM CON NR CHIAVETTA - AIREADOR ( CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 31,
+        "total": 12.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2025-10-30"
+      }
+    ],
+    "docRefs": {
+      "customerOrder": {
+        "number": "OR M2025/104",
+        "date": "2025-10-15"
+      }
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioConfirmationExtraction",
+      "textLength": 59661,
+      "textSample": "                                                                                              geral@divitek.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                    Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                Carlotta Patriarca\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   DVTKB, LDA. (DIEGO LARANJO)\r\n      Divitek(Adz) 963549543 João Paulo\r\n                     "
+    }
+  },
+  {
+    "docType": "order_confirmation",
+    "docNumber": "OA2/003307",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-10-30",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT01495130021",
+        "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+      },
+      "customer": {
+        "name": "FRANCISCO CONTREIRAS LDA",
+        "vat": "PT502293667",
+        "address": "HOUSECONCEPTSTORE SITIO DA FRANQUEADA 8100-302 LOULÉ (PORTUGAL)",
+        "deliveryAddress": ""
+      }
+    },
+    "totals": {
+      "goods": 383.13,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 383.13,
+      "tax": 0,
+      "total": 383.13,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "7BW002BLX",
+        "description": "ELEMENTA - APPENDINO DA MURO / NR SUPPORTO ASTA - FINITURA BRUSHED BLACK CHROME - SUPPORT FOR RODS - HANGER, BRUSHED BLACK CHROME ( CUSTOMS CODE: 83025000)",
+        "quantity": 5,
+        "unitPrice": 102,
+        "total": 219.3,
+        "discountPercent": 57,
+        "foreeseenShippingDate": "2025-11-19"
+      },
+      {
+        "code": "7L0002BLX",
+        "description": "ELEMENTA - ASTA Ø 10 ACCESSORI NR L390mm - FINITURA BRUSHED BLACK CHROME - ROD 390, L=390MM, FOR ACCESSORIES , BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+        "quantity": 1,
+        "unitPrice": 73,
+        "total": 31.39,
+        "discountPercent": 57,
+        "foreeseenShippingDate": "2025-11-19"
+      },
+      {
+        "code": "7L0004BLX",
+        "description": "ELEMENTA - ASTA Ø 10 ACCESSORI NR L690mm - FINITURA BRUSHED BLACK CHROME - ROD 690, L=690MM, FOR ACCESSORIES , BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+        "quantity": 1,
+        "unitPrice": 122,
+        "total": 52.46,
+        "discountPercent": 57,
+        "foreeseenShippingDate": "2025-11-19"
+      },
+      {
+        "code": "7L0003BLX",
+        "description": "ELEMENTA - ASTA Ø 10 ACCESSORI NR L540mm - FINITURA BRUSHED BLACK CHROME AT THE MOMENT ; IN THIS CASE WE WILL ADVISE YOU PROMPTLY OF ANY DELAYS DHL EXPRESS (ITALY) SRL - ROD 540, L=540MM, FOR ACCESSORIES , BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+        "quantity": 2,
+        "unitPrice": 93,
+        "total": 79.98,
+        "discountPercent": 57,
+        "foreeseenShippingDate": "2025-11-19"
+      }
+    ],
+    "docRefs": {
+      "customerOrder": {
+        "number": "82586",
+        "date": "2025-10-29"
+      }
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioConfirmationExtraction",
+      "textLength": 11685,
+      "textSample": "                                                                                              pedro.carvalho@hcslx.pt;raquel.carvalho@hcslx.pt;silvia@hscag.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                    Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                Carlotta Patriarca\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   FRANCISCO CONTREIRAS LDA\r\n                 "
+    }
+  },
+  {
+    "docType": "order_confirmation",
+    "docNumber": "OA2/003824",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-12-16",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT01495130021",
+        "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+      },
+      "customer": {
+        "name": "WATERWORKS BY SANIBANHO, LDA",
+        "vat": "PT503031542",
+        "address": "BY ,  AVENIDA DR. FRANCISCO SA CARNEIRO, 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL)",
+        "deliveryAddress": ""
+      }
+    },
+    "totals": {
+      "goods": 619.25,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 619.25,
+      "tax": 0,
+      "total": 619.25,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "PM0020L",
+        "description": "PARTI INTERNE PER MONOCOMANDO NR VASCA /DOCCIA INCASSO C /DEVIATORE GHIERA NICHELATA - INNER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER ( CUSTOMS CODE: 84818011 )",
+        "quantity": 2,
+        "unitPrice": 456,
+        "total": 451.44,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2025-12-18"
+      },
+      {
+        "code": "E0BA0115SX",
+        "description": "PARTI INTERNE MIX LAVABO AD INCASSO NR CON BOCCA FISSA SINISTRA - GHIERA NICHELATA - INNER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER ( CUSTOMS CODE : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 129,
+        "total": 63.86,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2025-12-18"
+      },
+      {
+        "code": "E0BA0143",
+        "description": "PARTI INCASSO PER MIX AD INCASSO AD NR UNA USCITA - GHIERA NICHELATA - INNER PARTS FOR BUILT -IN SINGLE LEVER MIXER ( CUSTOMS CODE : 84818011 )",
+        "quantity": 2,
+        "unitPrice": 105,
+        "total": 103.95,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2025-12-18"
+      }
+    ],
+    "docRefs": {
+      "customerOrder": {
+        "number": "LX2 425",
+        "date": "2025-12-15"
+      }
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioConfirmationExtraction",
+      "textLength": 6646,
+      "textSample": "                                                                                              jr@sanibanho.pt;lmc@sanibanho.pt;compras@sanibanho.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                     Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                 Fiorenza Pozzolo\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   WATERWORKS BY SANIBANHO, LDA\r\n\r\n\r\n                    "
+    }
+  },
+  {
+    "docType": "order_confirmation",
+    "docNumber": "OA2/003855",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-12-17",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT01495130021",
+        "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+      },
+      "customer": {
+        "name": "DVTKB, LDA. (DIEGO LARANJO)",
+        "vat": "PT515834807",
+        "address": "( ) DIVITEK ARCH & DESIGN BRANDS RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL)",
+        "deliveryAddress": "DeluxHomes - VIRGINIA PACHECO +351 913909196 IC2, km 102, Casal B 2480-009 Porto de Mós - LEIRIA (PORTUGAL)"
+      }
+    },
+    "totals": {
+      "goods": 2657.6,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 2657.6,
+      "tax": 0,
+      "total": 2657.6,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "PR35AV201CRB",
+        "description": "TAORMINA - LAVABO SOPRAPIANO NR S/SALTERELLO SENZA COMANDO - MIX MONOCOMANDO, EROGAZIONE H265, CANNA L 180, SENZA PILETTA , FINITURA BLACK CHROME - MEZCLADOR MONOMANDO SOBRE ENCIMERA, SIN MANDO [PR35MA001] O [PR35MA101], BLACK CHROME (CÓDIGO ADUANERO: 84818011 )",
+        "quantity": 2,
+        "unitPrice": 761,
+        "total": 608.8,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35MA101CRB",
+        "description": "COMANDO APPOGGI CON LEVA - SERIE NR PR35, FINITURA BLACK CHROME - MANDO CON PALANCA , BLACK CHROME (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 2,
+        "unitPrice": 65,
+        "total": 52,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35BU101CRB",
+        "description": "TAORMINA - BIDET APPOGGIO NR C/SALTERELLO SENZA COMANDO - MISCELATORE MONOCOMANDO , CORPO CON SALTERELLO , PILETTA 1\"1/4, FINITURA BLACK CHROME - MEZCLADOR MONOMANDO PARA BIDET , SIN MANDO [PR35MA001] O [PR35MA101], BLACK CHROME ( CÓDIGO ADUANERO : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 467,
+        "total": 186.8,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35MA101CRB",
+        "description": "COMANDO APPOGGI CON LEVA - SERIE NR PR35, FINITURA BLACK CHROME - MANDO CON PALANCA , BLACK CHROME (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 65,
+        "total": 26,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "E0BA0176S/FCRB",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR SENZA TROPPO PIENO , FINITURA BLACK CHROME - VÁLVULA DE DESCARGA CON TAPÒN PRESSION CLIC -CLAC, CON Y SIN AGUJERO REBOSADERO, BLACK CHROME ( CÓDIGO ADUANERO : 84819000)",
+        "quantity": 3,
+        "unitPrice": 62,
+        "total": 74.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35AZ102CRB",
+        "description": "TAORMINA - PARTI ESTERNE LAVABO NR INCASSO CON PIASTRA SENZA COMANDO - CANNA L 204, FINITURA BLACK CHROME - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA LAVABO , CAÑO SX LMAX=189MM, PLANCHA EXTERNA , PARTES INTERNAS VENDIDAS SEPARADAMENTE [E0BA 0115 SX], SIN MANDO [PR35MC001] O [PR35MC101], BLACK CHROME (CÓDIGO ADUANERO: 74182000)",
+        "quantity": 1,
+        "unitPrice": 615,
+        "total": 246,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35MC101CRB",
+        "description": "COMANDO INCASSI CON LEVA - SERIE NR PR35, FINITURA BLACK CHROME - MANDO CON PALANCA , BLACK CHROME (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 73,
+        "total": 29.2,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "E0BA0115SX",
+        "description": "PARTI INTERNE MIX LAVABO AD INCASSO NR CON BOCCA FISSA SINISTRA - GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO (CÓDIGO ADUANERO: 84818011 )",
+        "quantity": 1,
+        "unitPrice": 129,
+        "total": 51.6,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-01-08"
+      },
+      {
+        "code": "E0BA0176S/FCRB",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR SENZA TROPPO PIENO , FINITURA BLACK CHROME - VÁLVULA DE DESCARGA CON TAPÒN PRESSION CLIC -CLAC, CON Y SIN AGUJERO REBOSADERO, BLACK CHROME ( CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 62,
+        "total": 24.8,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "RCMB027CRB",
+        "description": "SIFONE DI SCARICO 1\"1/4 - CON TUBO A NR MURO 300mm, FINITURA BLACK CHROME - SIFÓN DE DESCARGA, CON TUBO EMPOTRADO, BLACK CHROME (CÓDIGO ADUANERO: 84819000)",
+        "quantity": 1,
+        "unitPrice": 187,
+        "total": 74.8,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35AV201CRL",
+        "description": "TAORMINA - LAVABO SOPRAPIANO NR S/SALTERELLO SENZA COMANDO - MIX MONOCOMANDO, EROGAZIONE H265, CANNA L 180, SENZA PILETTA , FINITURA CROMO LUCIDO - MEZCLADOR MONOMANDO SOBRE ENCIMERA, SIN MANDO [PR35MA001] O [PR35MA101], CROMO (CÓDIGO ADUANERO: 84818011 )",
+        "quantity": 1,
+        "unitPrice": 525,
+        "total": 210,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35MA101CRL",
+        "description": "COMANDO APPOGGI CON LEVA - SERIE NR PR35, FINITURA CROMO LUCIDO - MANDO CON PALANCA , CROMO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 45,
+        "total": 18,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "E0BA0176S/FCRL",
+        "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR SENZA TROPPO PIENO , FINITURA CROMO LUCIDO. - VÁLVULA DE DESCARGA CON TAPÒN PRESSION CLIC -CLAC, CON Y SIN AGUJERO REBOSADERO, CROMO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 43,
+        "total": 17.2,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35ES101CRL",
+        "description": "TAORMINA - BORDOVASCA 4 FORI CON NR PIASTRA SENZA COMANDO - MIX MONOCOM. A DUE USCITE CON DEVIATORE BOCCA DI EROGAZIONE/ DOCCETTA , CON DOCCETTA OT Ø 24 E FLESSIBILE L1800, FINITURA CROMO LUCIDO - GRUPO PARA BORDE BAÑERA , MEZCLADOR MONOMANDO DOS SALIDAS CON DESVIADOR AUTOMÁTICO CAÑO/ DUCHITA , DUCHA TELÉFONO CON FLEXIBLE DE 1.800MM, PLANCHA EXTERNA, DUCHA TELÉFONO Ø 24MM EN LATÓN , SIN MANDO [PR35MC001] O [PR35MC101], CROMO (CÓDIGO ADUANERO: 84818011 )",
+        "quantity": 1,
+        "unitPrice": 886,
+        "total": 354.4,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "PR35MC101CRL",
+        "description": "COMANDO INCASSI CON LEVA - SERIE NR PR35, FINITURA CROMO LUCIDO - MANDO CON PALANCA , CROMO (CÓDIGO ADUANERO : 84819000)",
+        "quantity": 1,
+        "unitPrice": 50,
+        "total": 20,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-02-19"
+      },
+      {
+        "code": "7ADN2H7CRB",
+        "description": "MIX. TERMOSTATICO ESTERNO CON NR COLONNA A PONTE SENZA SOFFIONE - COLONNA TELESCOPICA E ORIENTABILE , DOCCETTA OT Ø 24, FLESSIBILE L1500, FINITURA BLACK CHROME - GRUPO EXTERNO PARA DUCHA , MEZCLADOR TERMOSTÁTICO , DOS SALIDAS Y DESVIADOR AUTOMÁTICO POMO DUCHA/ DUCHITA , DUCHA TELÉFONO CON FLEXIBLE DE 1.500MM, DUCHA TELÉFONO Ø 24 MM EN LATÓN , SIN POMO DUCHA, BLACK CHROME (CÓDIGO ADUANERO: 84818011 )",
+        "quantity": 1,
+        "unitPrice": 1034,
+        "total": 413.6,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "75A025CRB",
+        "description": "SOFFIONE DOCCIA 250x250 OTTONE - NR GETTO FISSO , ANTICALCARE, FINITURA BLACK CHROME - POMO DUCHA ARTICULADO 250X250MM EN LATÓN , DISPOSITIVO ANTICAL , CHORRO FIJO, ACABADO Y MATERIAL DE FUNDO COMO EL CUERPO DEL ROCIADOR, BLACK CHROME (CÓDIGO ADUANERO: 74182000)",
+        "quantity": 1,
+        "unitPrice": 625,
+        "total": 250,
+        "discountPercent": 60,
+        "foreeseenShippingDate": "2026-03-12"
+      }
+    ],
+    "docRefs": {
+      "customerOrder": {
+        "number": "OR M2025/148",
+        "date": "2025-12-17"
+      }
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioConfirmationExtraction",
+      "textLength": 39938,
+      "textSample": "                                                                                              pedrolopes@divitek.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                    Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                Fiorenza Pozzolo\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   DVTKB, LDA. (DIEGO LARANJO)\r\n      DeluxHomes - VIRGINIA PACHECO +351\r\n                 "
+    }
+  },
+  {
+    "docType": "order_confirmation",
+    "docNumber": "OA2/000025",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2026-01-07",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "Rubinetterie Ritmonio Srl",
+        "vat": "IT01495130021",
+        "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+      },
+      "customer": {
+        "name": "SANIMAIA, MAT. CONSTR. DECOR,. UNIP. LDA",
+        "vat": "PT502952113",
+        "address": "RUA DA INDUSTRIA, 2891 4785-627 TROFA (PORTUGAL)",
+        "deliveryAddress": ""
+      }
+    },
+    "totals": {
+      "goods": 4140.19,
+      "transport": 0,
+      "packaging": null,
+      "discount": 0,
+      "subtotal": 4140.19,
+      "tax": 0,
+      "total": 4140.19,
+      "discountMain": null
+    },
+    "lines": [
+      {
+        "code": "78T002BRX",
+        "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, OTTONE FINITURA BRONZO SPAZZOLATO - BRASS WC FLUSH PLATE , DOUBLE FLUSH, COMPATIBLE WITH GEBERIT SIGMA 8, BRUSHED BRONZE ( CUSTOMS CODE: 74182000)",
+        "quantity": 1,
+        "unitPrice": 700,
+        "total": 346.5,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "PR52AF201BRX",
+        "description": "DIAMETRO35 S - LAVABO SOPRAPIANO NR S/SALTERELLO - MIX MONOCOMANDO H290, CANNA L 167, SENZA PILETTA , FINITURA BRONZO SPAZZOLATO - EXPOSED SINGLE LEVER BASIN MIXER, BRUSHED BRONZE ( CUSTOMS CODE : 84818011 )",
+        "quantity": 1,
+        "unitPrice": 438,
+        "total": 216.81,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "78T002BLX",
+        "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, ACCIAIO INOX FINITURA BRUSHED BLACK CHROME - STAINLESS STEEL WC FLUSH PLATE , DOUBLE FLUSH, COMPATIBLE WITH GEBERIT SIGMA 8, BRUSHED BLACK CHROME ( CUSTOMS CODE : 73249000)",
+        "quantity": 1,
+        "unitPrice": 700,
+        "total": 346.5,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "PR52AL202BLX",
+        "description": "DIAMETRO35 S - PARTI ESTERNE PER NR LAVABO INCASSO SENZA PIASTRA - CANNA LMAX 193, FINITURA BRUSHED BLACK CHROME - OUTER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER, SPOUT SX LMAX=193MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], BRUSHED BLACK CHROME ( CUSTOMS CODE : 74182000)",
+        "quantity": 1,
+        "unitPrice": 302,
+        "total": 149.49,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "78T002CHX",
+        "description": "PLACCA COMANDO PER WC - FISSAGGIO NR MAGNETICO, ACCIAIO INOX FINITURA CHAMPAGNE SPAZZOLATO - STAINLESS STEEL WC FLUSH PLATE , DOUBLE FLUSH, COMPATIBLE WITH GEBERIT SIGMA 8, BRUSHED CHAMPAGNE (CUSTOMS CODE : 73249000)",
+        "quantity": 1,
+        "unitPrice": 966,
+        "total": 478.17,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "PR52AL202CHX",
+        "description": "DIAMETRO35 S - PARTI ESTERNE PER NR LAVABO INCASSO SENZA PIASTRA - CANNA LMAX 193, FINITURA CHAMPAGNE SPAZZOLATO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER, SPOUT SX LMAX=193MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], BRUSHED CHAMPAGNE (CUSTOMS CODE : 74182000)",
+        "quantity": 2,
+        "unitPrice": 465,
+        "total": 460.35,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "PR52GG201CHX",
+        "description": "DIAMETRO35 S - PARTI ESTERNE PER MIX NR DOCCIA INCASSO CON DEV . E DOCC. 2-3 VIE SENZA PIASTRA - FINITURA CHAMPAGNE SPAZZOLATO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [PM0020L], BRUSHED CHAMPAGNE (CUSTOMS CODE : 74182000)",
+        "quantity": 1,
+        "unitPrice": 996,
+        "total": 493.02,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "PR52GG201C04",
+        "description": "DIAMETRO35 S - PARTI ESTERNE PER MIX NR DOCCIA INCASSO CON DEV . E DOCC. 2-3 VIE SENZA PIASTRA - FINITURA NERO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [PM0020L], BLACK (CUSTOMS CODE : 74182000)",
+        "quantity": 1,
+        "unitPrice": 597,
+        "total": 295.52,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "PR52AL202C03",
+        "description": "DIAMETRO35 S - PARTI ESTERNE PER NR LAVABO INCASSO SENZA PIASTRA - CANNA LMAX 193, FINITURA BIANCO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BASIN MIXER, SPOUT SX LMAX=193MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], WHITE ( CUSTOMS CODE: 74182000)",
+        "quantity": 1,
+        "unitPrice": 302,
+        "total": 149.49,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "PR52GG201C03",
+        "description": "DIAMETRO35 S - PARTI ESTERNE PER MIX NR DOCCIA INCASSO CON DEV . E DOCC. 2-3 VIE SENZA PIASTRA - FINITURA BIANCO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [PM0020L], WHITE (CUSTOMS CODE : 74182000)",
+        "quantity": 1,
+        "unitPrice": 597,
+        "total": 295.52,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "75T001C03",
+        "description": "SOFFIONE DA SOFFITO - Ø340, NR LIMITATORE 15l/min, FISSAGGIO CON MOLLE, UGELLI TRASPARENTI , FINITURA BIANCO - STAINLESS STEEL Ø 340MM CEILING SHOWER, ANTILIMESTONE SYSTEM , FIXED JET, FIXING SYSTEM WITH SPRINGS, WHITE ( CUSTOMS CODE : 73249000)",
+        "quantity": 1,
+        "unitPrice": 918,
+        "total": 454.41,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      },
+      {
+        "code": "75T001C04",
+        "description": "SOFFIONE DA SOFFITO - Ø340, NR LIMITATORE 15l/min, FISSAGGIO CON MOLLE, UGELLI TRASPARENTI , FINITURA NERO - STAINLESS STEEL Ø 340MM CEILING SHOWER, ANTILIMESTONE SYSTEM , FIXED JET, FIXING SYSTEM WITH SPRINGS, BLACK ( CUSTOMS CODE : 73249000)",
+        "quantity": 1,
+        "unitPrice": 918,
+        "total": 454.41,
+        "discountPercent": 50.499999999999986,
+        "foreeseenShippingDate": "2026-03-12"
+      }
+    ],
+    "docRefs": {
+      "customerOrder": {
+        "number": "5048",
+        "date": "2026-01-04"
+      }
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null,
+    "debug": {
+      "extractor": "ritmonioConfirmationExtraction",
+      "textLength": 31452,
+      "textSample": "                                                                                              encomendas@sanimaia.com\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                   Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                               Carlotta Patriarca\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   SANIMAIA, MAT. CONSTR. DECOR,. UNIP. LDA\r\n\r\n\r\n                                        "
+    }
+  }
+]

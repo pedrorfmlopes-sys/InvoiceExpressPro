@@ -1,0 +1,525 @@
+{
+  "documents": [
+    {
+      "sourceFile": "038B.pdf",
+      "docType": "invoice",
+      "docNumber": "000038/B",
+      "docDate": "20/01/2026",
+      "currency": "EUR",
+      "entities": {
+        "customer": {
+          "raw": "2775-770 SASSOEIROS CARCAVELOS | Portogallo",
+          "name": "WATERWORKS BY SANIBANHO LDA",
+          "country": "Portogallo",
+          "addressLines": [
+            "AV. DR. FRANCISCO SA' CARNEIRO 83",
+            "2775-770 SASSOEIROS CARCAVELOS"
+          ]
+        }
+      },
+      "docRefs": {
+        "deliveryNote": {
+          "number": "000067",
+          "date": "20/01/2026",
+          "rawLine": "DDT Nr. 000067 del 20/01/2026"
+        }
+      },
+      "totals": {
+        "netGoods": 86.5,
+        "taxable": 86.5,
+        "vat": 0.0,
+        "total": 86.5,
+        "currency": "EUR",
+        "taxExemptText": "Non Imp.ART.41 D.L.331/93 86,50",
+        "payable": 86.5,
+        "maturityDate": "20/03/2026"
+      },
+      "payment": {
+        "maturityDate": "20/03/2026"
+      },
+      "lines": [
+        {
+          "code": "R2438TCOS_2208/312",
+          "description": "BOCCA LAVABO PER 2438 CON AERATORE KC2208/312 - GIREVOLE",
+          "orderRef": "25/02326",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 86.5,
+          "amount": 86.5,
+          "vatCode": "NI41"
+        }
+      ],
+      "validation": {
+        "linesAmountSum": 86.5,
+        "issue": null,
+        "linesTotal": 86.5,
+        "linesMatchDocumentTotal": true
+      }
+    },
+    {
+      "sourceFile": "049B.pdf",
+      "docType": "invoice",
+      "docNumber": "000049/B",
+      "docDate": "15/01/2025",
+      "currency": "EUR",
+      "entities": {
+        "customer": {
+          "raw": "4785-627 TROFA | Portogallo",
+          "name": "SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA",
+          "country": "Portogallo",
+          "addressLines": [
+            "RUA DA INDUSTRIA 2891",
+            "4785-627 TROFA"
+          ]
+        }
+      },
+      "docRefs": {
+        "deliveryNote": {
+          "number": "000085",
+          "date": "15/01/2025",
+          "rawLine": "DDT Nr. 000085 del 15/01/2025"
+        }
+      },
+      "totals": {
+        "netGoods": 10278.25,
+        "taxable": 10278.25,
+        "vat": 0.0,
+        "total": 10278.25,
+        "currency": "EUR",
+        "taxExemptText": "Non Imp.ART.41 D.L.331/93 10.278,25",
+        "payable": 10278.25,
+        "maturityDate": "15/02/2025"
+      },
+      "payment": {
+        "maturityDate": "15/02/2025"
+      },
+      "lines": [
+        {
+          "code": "5107EXTGFB2",
+          "description": "EXTERNAL PART WASH BASIN WALL MOUNTED",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 390.0,
+          "amount": 390.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2407EXTOS21",
+          "description": "EXTERNAL PARTS WALL MOUNTED BASIN MIXER KHADY",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 139.5,
+          "amount": 279.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2437TCOS21",
+          "description": "SINGLE HOLE BIDET MIXER KHADY WITHOUT WASTE",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 205.5,
+          "amount": 205.5,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2403EXTOS21",
+          "description": "BUILT IN BATH MIXER",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 269.5,
+          "amount": 269.5,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2207EXTOS27",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER M.CROCE",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 103.5,
+          "amount": 207.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2237OS27",
+          "description": "SINGLE HOLE BIDET MIXER M.CROCE",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 188.5,
+          "amount": 377.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2203EXTOS27",
+          "description": "EXTERNAL PARTS FOR BUILT IN BATH MIXER M.CROCE",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 197.0,
+          "amount": 197.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2207EXTOS29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 103.5,
+          "amount": 103.5,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "3336TCNEM44",
+          "description": "SINGLE HOLE BASIN MIXER *ARENA* WITHOUT WASTE",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 337.0,
+          "amount": 337.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "3706EXTNEM56M",
+          "description": "SINGLE LEVER BUILT IN SHOWER MIXER ARENA EXTERNAL PARTS",
+          "orderRef": "ARQ.JOANA POSAS",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 105.5,
+          "amount": 105.5,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2233EXTOG29",
+          "description": "SHOWER SET WITH DIVERTER, HEAD SHOWER D.200 AND DUPLEX",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 424.05,
+          "amount": 424.05,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2207EXTOG29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 113.85,
+          "amount": 113.85,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2233EXTOG29",
+          "description": "SHOWER SET WITH DIVERTER, HEAD SHOWER D.200 AND DUPLEX",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 424.05,
+          "amount": 424.05,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2207EXTOG29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 113.85,
+          "amount": 113.85,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2225OG29",
+          "description": "EXTERNAL SHOWER MIXER MC. KINLEY 05",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 122.65,
+          "amount": 122.65,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "5712WSOGSPEC",
+          "description": "COLUMN SHOWER 1200x320 W/HEAD D.200 W/DIVERTER & SHOWER OG",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 333.3,
+          "amount": 333.3,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "4804/1OG",
+          "description": "SOFFIONE DOCCIA CONICO D.200",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 275.0,
+          "amount": 275.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "3450WSOG75C",
+          "description": "SINGLE LEVER SINK MIXER W/SIDE SPRAY EL CAPITAN",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 294.8,
+          "amount": 294.8,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "5574OG",
+          "description": "COUPLE OF FIXED VERTICAL CONNECTIONS h.820 mm",
+          "orderRef": "4200",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 255.75,
+          "amount": 255.75,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2207EXTSE29",
+          "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 262.9,
+          "amount": 262.9,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "5559SE",
+          "description": "MINIMAL SIPHON 1\"1/4 W/OUT PILLAR",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 150.15,
+          "amount": 150.15,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "5558SE",
+          "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\"",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 53.35,
+          "amount": 106.7,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2208TCSE29",
+          "description": "BASIN MIXER WITHOUT POP UP WASTE MAC KINLEY 05",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 304.7,
+          "amount": 609.4,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "4909SE29",
+          "description": "TRIM SET THERMOSTATIC MIXER 3/4\" MC KINLEY 05",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 403.7,
+          "amount": 403.7,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "7124MSE",
+          "description": "HOOK FOR DUPLEX, BUILT IN TYPE, AG",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 119.35,
+          "amount": 119.35,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "R7097SE",
+          "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 83.6,
+          "amount": 83.6,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "7135SE",
+          "description": "PUMORI HAND SHOWER",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 55.0,
+          "amount": 55.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "5734SE30",
+          "description": "OVERSIZE SHOWER HEAD W/5605 CELING CONNECTION",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 641.3,
+          "amount": 641.3,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "1483SE27",
+          "description": "Towel holder cm. 30 *M. CROCE*",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 142.45,
+          "amount": 284.9,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "5558SE",
+          "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\"",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 55.55,
+          "amount": 111.1,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "2208TCSE29",
+          "description": "BASIN MIXER WITHOUT POP UP WASTE MAC KINLEY 05",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 304.7,
+          "amount": 609.4,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "4909SE29",
+          "description": "TRIM SET THERMOSTATIC MIXER 3/4\" MC KINLEY 05",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 403.7,
+          "amount": 403.7,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "7124MSE",
+          "description": "HOOK FOR DUPLEX, BUILT IN TYPE, AG",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 119.35,
+          "amount": 119.35,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "R7097SE",
+          "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 83.6,
+          "amount": 83.6,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "7135SE",
+          "description": "PUMORI HAND SHOWER",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 55.0,
+          "amount": 55.0,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "5734SE30",
+          "description": "OVERSIZE SHOWER HEAD W/5605 CELING CONNECTION",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 641.3,
+          "amount": 641.3,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "1483SE27",
+          "description": "Towel holder cm. 30 *M. CROCE*",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 2,
+          "currency": "EUR",
+          "unitPrice": 142.45,
+          "amount": 284.9,
+          "vatCode": "NI41"
+        },
+        {
+          "code": "3430SE",
+          "description": "SINGLE LEVER MIXER WITH EXTRACTABLE SHOWER",
+          "orderRef": "4335",
+          "uom": "NR",
+          "qty": 1,
+          "currency": "EUR",
+          "unitPrice": 424.6,
+          "amount": 424.6,
+          "vatCode": "NI41"
+        }
+      ],
+      "validation": {
+        "linesAmountSum": 10278.25,
+        "issue": null,
+        "linesTotal": 10278.25,
+        "linesMatchDocumentTotal": true
+      }
+    }
+  ]
+}

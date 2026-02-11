@@ -1,0 +1,42 @@
+{
+  "docType": "proforma",
+  "docNumber": null,
+  "currency": "EUR",
+  "dates": {
+    "issued": null,
+    "due": null
+  },
+  "entities": {
+    "customer": {
+      "name": "Via Pietro Durio 119",
+      "vat": null,
+      "address": "28010 ALZO DI PELLA (NO), tel. (0322) 969.672 r.a., Telefax (0322) 969.532, C.C.I.A.A. n. 84286-M. NO 001005, Part. IVA e Cod. Fiscale: 00115930034, Isc. Trib. Verbania Reg. Soc. n: 3398, Capitale Sociale € 1.800.000,00 i.v., WATERWORKS BY SANIBANHO LDA, AV. DR. FRANCISCO SA' CARNEIRO 83, SASSOEIROS  CARCAVELOS2775-770"
+    },
+    "supplier": {
+      "name": "NICOLAZZI s.p.a.",
+      "vat": "IT00115930034",
+      "address": "28010 ALZO (NO) - Via P. Durio, 119"
+    },
+    "shipTo": null
+  },
+  "totals": {
+    "goods": 25,
+    "transport": 355,
+    "packaging": null,
+    "discount": null,
+    "subtotal": 25,
+    "tax": null,
+    "total": 0
+  },
+  "lines": [],
+  "docRefs": {
+    "customerRef": "00351214581861"
+  },
+  "confidence": 0.72,
+  "needsReview": true,
+  "reviewReason": "Missing Document Number, Missing Totals",
+  "debug": {
+    "textLength": 1205,
+    "textSample": "NICOLAZZI s.p.a.\n030WA012\nDelivery Address\nSpett.le\nVia Pietro Durio 119\n28010 ALZO DI PELLA (NO)\ntel. (0322) 969.672 r.a.\nTelefax (0322) 969.532\nC.C.I.A.A. n. 84286-M. NO 001005\nPart. IVA e Cod. Fiscale: 00115930034\nIsc. Trib. Verbania Reg. Soc. n: 3398\nCapitale Sociale € 1.800.000,00 i.v.\nWATERWORKS BY SANIBANHO LDA\nAV. DR. FRANCISCO SA' CARNEIRO 83 \nSASSOEIROS  CARCAVELOS2775-770\nPROFORMA INVOICE\nPortogallo\n26/00015\nNumber\n09/01/2026\nDate\nPag.\n1\n60 DAYS BANK TRANSFER\nPayment Condition\nNI41\nCodIVAShipping Date\n503031542\nVat Number\nOur Bank\nLISTO PARA CARGAR EN 5/6 SEMANAS \nDESDE APROBATION ESCRITA\nOur Ref.\nAF11020\nyour ref.\n00351214581861\nPhoneFax\nPosArticleColDescriptionQuantityUnit ValueDiscountAmount\n1C2177DXSX\nBUILT IN PARTS ONLY FOR WALL MOUNTED BASIN MIXER DX+SX VALVES\n1\n137,004575,35\n22207EXTOS29\nEXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05\n1\n207,0045113,85\n35553OS\nMINIMAL WASTE 1 1/4\" \"CLIC/CLAC\" W/OUT OVERFLOW\n1\n78,004542,90\n45559OS\nMINIMAL SIPHON 1\"1/4 W/OU"
+  }
+}

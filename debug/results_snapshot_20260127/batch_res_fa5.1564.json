@@ -1,0 +1,69 @@
+{
+  "docType": "invoice",
+  "docNumber": "FA5/2401564",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2024-04-19",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT00200844310",
+      "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+    },
+    "customer": {
+      "name": "SUBLIME BANHO, UNIPESSOAL LDA",
+      "vat": "PT515386618",
+      "address": "IC2, KM 102, NO180-CASAL BOIEIRO, PEDREIRAS 2480-009 LEIRIA (PORTUGAL) IC2, KM 102, NO180- CASAL BOIEIRO , PEDREIRAS 2480-009 LEIRIA (PORTUGAL )",
+      "deliveryAddress": "IC2, KM 102, NO180- CASAL BOIEIRO , PEDREIRAS 2480-009 LEIRIA (PORTUGAL ) UNICREDIT Spa SWIFT 002008 44310 IT28L0200844310000005358331 UNCRITM1014 Resa/Delivery terms Vettore /Carrier name"
+    }
+  },
+  "totals": {
+    "goods": 1100.39,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 1100.39,
+    "tax": 0,
+    "total": 1100.39,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "PR28HE103BLX",
+      "description": "FEELGOOD - PARTI ESTERNE MIX TERM. DA",
+      "quantity": 3,
+      "unitPrice": 300,
+      "total": 445.5,
+      "discountPercent": 50.499999999999986
+    },
+    {
+      "code": "PM0030EBLX",
+      "description": "FEELGOOD - PARTI INTERNE TERMOSTATICO INC.",
+      "quantity": 3,
+      "unitPrice": 441,
+      "total": 654.89,
+      "discountPercent": 50.499999999999986
+    }
+  ],
+  "docRefs": {
+    "deliveryNote": {
+      "number": "00000001334",
+      "date": "2024-04-19"
+    },
+    "orderConfirmation": {
+      "number": "240102",
+      "date": "2024-03-04"
+    },
+    "customerOrder": null
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioInvoiceExtraction",
+    "textLength": 8119,
+    "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                      Cod.cliente/Cust.code           Partita IVA/VAT nr                     Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                             C 13445                         PT515386618\r\n   SUBLIME BANHO, UNIPESSOAL LDA\r\n                                                                                                             Agente/Agent\r\n                                                                                                                                       "
+  }
+}

@@ -56,8 +56,10 @@ class DocService {
     return true;
   }
 
-  async finalizeDoc(projectId, { id, docType, docNumber }) {
-    const doc = await Adapter.getDoc(projectId, id);
+  async finalizeDoc(projectId, { id, docType, docNumber }, options = {}) {
+    const { force = false, trx = null } = options;
+    // Pass trx to getDoc to avoid pool exhaustion in transactions
+    const doc = await Adapter.getDoc(projectId, id, trx);
     if (!doc) throw new Error('not found');
 
     const finalType = (docType || doc.docType || '').trim();
@@ -66,16 +68,19 @@ class DocService {
     if (!finalType) throw new Error('docType required');
     if (!finalNumber) throw new Error('docNumber vazio');
 
-    // Check duplicates
-    const res = await Adapter.getDocs(projectId);
-    const all = Array.isArray(res) ? res : (res.rows || []);
-    const dup = all.find(r =>
-      r.id !== id &&
-      r.status === 'processado' &&
-      String(r.docType || '').toLowerCase() === String(finalType).toLowerCase() &&
-      String(r.docNumber || '').toLowerCase() === String(finalNumber).toLowerCase()
-    );
-    if (dup) throw new Error('Documento duplicado');
+    // Check duplicates (unless forced)
+    if (!options.force) {
+      // Pass trx to getDocs
+      const res = await Adapter.getDocs(projectId, {}, trx);
+      const all = Array.isArray(res) ? res : (res.rows || []);
+      const dup = all.find(r =>
+        r.id !== id &&
+        r.status === 'processado' &&
+        String(r.docType || '').toLowerCase() === String(finalType).toLowerCase() &&
+        String(r.docNumber || '').toLowerCase() === String(finalNumber).toLowerCase()
+      );
+      if (dup) throw new Error('Documento duplicado');
+    }
 
     if (!doc.filePath || !fs.existsSync(doc.filePath)) throw new Error('staging file missing');
 
@@ -90,9 +95,21 @@ class DocService {
     const destName = `${sanitize(finalType)}-${sanitize(finalNumber)}.pdf`;
     const destPath = path.join(outDir, destName);
 
-    if (fs.existsSync(destPath)) throw new Error('Já existe ficheiro igual no arquivo');
+    const destDir = path.dirname(destPath);
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
 
-    fs.renameSync(doc.filePath, destPath);
+    if (doc.filePath === destPath) {
+      console.log(`[Finalize] File already at destination: ${destPath}`);
+    } else {
+      if (fs.existsSync(destPath) && !force) throw new Error('Já existe ficheiro igual no arquivo');
+
+      // Move or Copy (Overwrite if forced)
+      if (force && fs.existsSync(destPath)) {
+        fs.unlinkSync(destPath); // Remove existing to allow move
+        console.log(`[Finalize] Forced overwrite of ${destPath}`);
+      }
+      fs.renameSync(doc.filePath, destPath);
+    }
 
     const updates = {
       docType: finalType,
@@ -103,9 +120,50 @@ class DocService {
       updatedAt: new Date()
     };
 
-    const updated = await Adapter.updateDoc(projectId, id, updates);
+    // --- CONSOLIDATION: Merge Satellite data into Main DB (rawJson) ---
+    try {
+      const SatelliteStorage = require('../../storage/SatelliteStorage');
+      console.log(`[Consolidation] Check: doc.id=${id}, supplier=${JSON.stringify(doc.supplier)}, finalType=${finalType}`);
+
+      // Determine satellite name (standard pattern)
+      let satName = null;
+
+      // Handle supplier being either a string or an object with a 'name' property
+      const supplierName = (doc.supplier && typeof doc.supplier === 'object')
+        ? (doc.supplier.name || '')
+        : (doc.supplier || '');
+
+      const supplierUpper = String(supplierName).toUpperCase();
+      const typeLower = String(finalType).toLowerCase();
+
+      console.log(`[Consolidation] Resolved: supplierUpper='${supplierUpper}', typeLower='${typeLower}'`);
+
+      if (supplierUpper.includes('NICOLAZZI') && typeLower === 'proforma') {
+        satName = 'nicolazzi_proformas';
+      } else if (supplierUpper.includes('NICOLAZZI') && typeLower === 'fatura') {
+        satName = 'nicolazzi_invoices';
+      }
+
+      console.log(`[Consolidation] satName result: ${satName}`);
+
+      if (satName) {
+        const satData = await SatelliteStorage.getData(satName, id);
+        if (satData) {
+          // Phase 17: PROTECT canonical fields from satellite overwrite
+          // This prevents status reverting to 'staging' after finalization
+          const { status, docType, docNumber, ...safeSatData } = satData;
+          Object.assign(updates, safeSatData);
+          console.log(`[Consolidation] Merged satellite '${satName}' fields into doc ${id} (Status Protected)`);
+        }
+      }
+    } catch (e) {
+      console.warn(`[Consolidation] Failed to merge satellite data for doc ${id}:`, e.message);
+    }
+    // -----------------------------------------------------------------
+
+    const updated = await Adapter.updateDoc(projectId, id, updates, trx);
     if (Adapter.appendAudit) {
-      await Adapter.appendAudit(projectId, { action: 'finalize', id, docType: finalType, docNumber: finalNumber });
+      await Adapter.appendAudit(projectId, { action: 'finalize', id, docType: finalType, docNumber: finalNumber }, trx);
     }
 
     return updated;

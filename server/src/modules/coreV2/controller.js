@@ -12,6 +12,7 @@ const ConfigService = require('../../services/ConfigService');
 const Adapter = require('../../storage/getDocsAdapter');
 const SatelliteStorage = require('../../storage/SatelliteStorage');
 const UniversalDocService = require('./UniversalDocService');
+const CustomerService = require('../crm/CustomerService');
 
 // --- Helper: Regex Fallback ---
 function matchDocType(raw, definitions) {
@@ -25,6 +26,8 @@ function matchDocType(raw, definitions) {
     }
 
     // 2. Contains Match (heuristic)
+    // Priority: If both 'Proforma' and 'Fatura' match, 'Proforma' should win
+    // We achieve this by checking in order (Proforma is first in definitions now)
     for (const def of definitions) {
         if (clean.includes(def.labelPt.toLowerCase())) return { id: def.id, label: def.labelPt, confidence: 0.8 };
         if (def.keywords.some(k => clean.includes(k))) return { id: def.id, label: def.labelPt, confidence: 0.75 };
@@ -89,10 +92,11 @@ function extractRegex(text) {
         let m = text.match(/\b(\d{1,6})\s*[\/-]\s*([A-Z0-9]{1,4})\b/);
         if (m) docNumber = `${m[1]}/${m[2]}`;
         else {
-            m = text.match(/(?:Fatura|Recibo|FT|FR|NC|ND|Guia)\s*(?:n\.?|nº|number|num)?\s*[:#.]?\s*([A-Z0-9\/-]{3,})/i);
+            m = text.match(/(Fatura|Recibo|Proforma|FT|FR|NC|ND|Guia|Fattura|Invoice)\s*(?:n\.?|nº|number|num)?\s*[:#.]?\s*([A-Z0-9\/-]{3,})/i);
             if (m) {
-                docType = 'Fatura'; // Guess
-                docNumber = m[1].replace(/\s+/g, '');
+                // Instead of hardcoded 'Fatura', use the actually matched word
+                docType = m[1];
+                docNumber = m[2].replace(/\s+/g, '');
             }
         }
     }
@@ -255,6 +259,14 @@ exports.extract = async (req, res) => {
                 };
 
                 const updated = await Adapter.updateDoc(project, id, updates);
+
+                // Phase 36: Capture Customer Data during EXTRACTION
+                try {
+                    await CustomerService.upsertFromExtraction(project, updated, false);
+                } catch (e) {
+                    console.error('[CRM] Failed to capture customer during extraction:', e.message);
+                }
+
                 results.push({ id, ok: true, row: updated });
 
             } catch (err) {

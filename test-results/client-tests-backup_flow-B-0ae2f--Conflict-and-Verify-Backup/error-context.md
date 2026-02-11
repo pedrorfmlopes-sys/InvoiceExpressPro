@@ -1,0 +1,234 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: IS
+      - generic [ref=e8]:
+        - generic [ref=e9]: Invoice Studio
+        - generic [ref=e10]: Workspace
+    - navigation [ref=e11]:
+      - generic [ref=e12]:
+        - button "Workspace ▼" [ref=e13] [cursor=pointer]:
+          - generic [ref=e14]: Workspace
+          - generic [ref=e15]: ▼
+        - generic [ref=e16]:
+          - button "Dashboard" [ref=e17] [cursor=pointer]:
+            - generic [ref=e19]: Dashboard
+          - button "Projetos" [ref=e21] [cursor=pointer]:
+            - generic [ref=e22]: Projetos
+          - button "Process (V2)" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: Process (V2)
+          - button "Reports V2" [ref=e25] [cursor=pointer]:
+            - generic [ref=e26]: Reports V2
+          - button "Core V2" [ref=e27] [cursor=pointer]:
+            - generic [ref=e28]: Core V2
+          - button "Transactions" [ref=e29] [cursor=pointer]:
+            - generic [ref=e30]: Transactions
+      - generic [ref=e32]:
+        - button "System ▼" [ref=e33] [cursor=pointer]:
+          - generic [ref=e34]: System
+          - generic [ref=e35]: ▼
+        - generic [ref=e36]:
+          - button "Settings" [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]: Settings
+          - button "Gestão de Etiquetas" [ref=e39] [cursor=pointer]:
+            - generic [ref=e40]: Gestão de Etiquetas
+          - button "Perfis de Leitura" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: Perfis de Leitura
+          - button "Imagens & Ícones" [ref=e43] [cursor=pointer]:
+            - generic [ref=e44]: Imagens & Ícones
+          - button "System Health" [ref=e45] [cursor=pointer]:
+            - generic [ref=e46]: System Health
+    - generic [ref=e48] [cursor=pointer]:
+      - generic [ref=e49]: AD
+      - generic [ref=e50]:
+        - generic [ref=e51]: Admin User
+        - generic [ref=e52]: admin@invoice.studio
+  - banner [ref=e53]:
+    - generic [ref=e55]:
+      - img [ref=e56]
+      - textbox "Search documents, batches..." [ref=e58]
+    - generic [ref=e59]:
+      - generic [ref=e60]:
+        - generic [ref=e61]: Prj
+        - combobox [ref=e62] [cursor=pointer]:
+          - option "Proj_2026" [selected]
+          - option "+ Criar Novo"
+      - combobox [ref=e63] [cursor=pointer]:
+        - option "Teal" [selected]
+        - option "Blue"
+        - option "Mono"
+      - button "Switch to light mode" [ref=e64] [cursor=pointer]:
+        - img [ref=e65]
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - generic [ref=e69]: Local Admin
+          - generic [ref=e70]: admin
+        - button [ref=e71] [cursor=pointer]:
+          - img [ref=e72]
+  - main [ref=e74]:
+    - generic [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]: Receita do Mês
+            - generic [ref=e82]: 💰
+          - generic [ref=e83]:
+            - generic [ref=e84]: 0,00 €
+            - generic [ref=e85]: Valores extraídos
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - generic [ref=e88]: Docs Pendentes
+            - generic [ref=e90]: ⏳
+          - generic [ref=e91]:
+            - generic [ref=e92]: "10"
+            - generic [ref=e93]: A aguardar revisão
+        - generic [ref=e94]:
+          - generic [ref=e95]:
+            - generic [ref=e96]: Precisão AI
+            - generic [ref=e98]: 🤖
+          - generic [ref=e99]:
+            - generic [ref=e100]: 98.5%
+            - generic [ref=e101]: Média global
+        - generic [ref=e102]:
+          - generic [ref=e103]:
+            - generic [ref=e104]: Ligações Ativas
+            - generic [ref=e106]: 🔗
+          - generic [ref=e107]:
+            - generic [ref=e108]: "3"
+            - generic [ref=e109]: Entidades detectadas
+      - generic [ref=e110]:
+        - button "📤 Novo Upload Arraste ou clique" [ref=e111] [cursor=pointer]:
+          - generic [ref=e112]: 📤
+          - generic [ref=e113]: Novo Upload
+          - generic [ref=e114]: Arraste ou clique
+        - button "✨ Relatório IA Gerar análise PDF" [ref=e115] [cursor=pointer]:
+          - generic [ref=e116]: ✨
+          - generic [ref=e117]: Relatório IA
+          - generic [ref=e118]: Gerar análise PDF
+        - button "📊 Ver Gráficos Alternar visualização" [ref=e119] [cursor=pointer]:
+          - generic [ref=e120]: 📊
+          - generic [ref=e121]: Ver Gráficos
+          - generic [ref=e122]: Alternar visualização
+        - button "⚙️ Definições" [ref=e123] [cursor=pointer]:
+          - generic [ref=e124]: ⚙️
+          - generic [ref=e125]: Definições
+        - button "❓ Ajuda" [ref=e126] [cursor=pointer]:
+          - generic [ref=e127]: ❓
+          - generic [ref=e128]: Ajuda
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - heading "Documentos Recentes" [level=3] [ref=e132]
+            - button "Ver Todos" [ref=e133] [cursor=pointer]
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: STRESS-1770728144833
+                - generic [ref=e138]: STRESS_SUPPLIER_1770728144833
+              - generic [ref=e139]:
+                - generic [ref=e140]: extracted
+                - generic [ref=e141]: 200,00 €
+                - button "🔗" [ref=e142] [cursor=pointer]
+            - generic [ref=e143]:
+              - generic [ref=e144]:
+                - generic [ref=e145]: STRESS-1770728144833
+                - generic [ref=e146]: STRESS_SUPPLIER_1770728144833
+              - generic [ref=e147]:
+                - generic [ref=e148]: extracted
+                - generic [ref=e149]: 200,00 €
+                - button "🔗" [ref=e150] [cursor=pointer]
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - generic [ref=e153]: STRESS-1770728144833
+                - generic [ref=e154]: STRESS_SUPPLIER_1770728144833
+              - generic [ref=e155]:
+                - generic [ref=e156]: extracted
+                - generic [ref=e157]: 200,00 €
+                - button "🔗" [ref=e158] [cursor=pointer]
+            - generic [ref=e159]:
+              - generic [ref=e160]:
+                - generic [ref=e161]: STRESS-1770728144833
+                - generic [ref=e162]: STRESS_SUPPLIER_1770728144833
+              - generic [ref=e163]:
+                - generic [ref=e164]: finalized
+                - generic [ref=e165]: 100,00 €
+                - button "🔗" [ref=e166] [cursor=pointer]
+            - generic [ref=e167]:
+              - generic [ref=e168]:
+                - generic [ref=e169]: STRESS-1770728033996
+                - generic [ref=e170]: STRESS_SUPPLIER_1770728033996
+              - generic [ref=e171]:
+                - generic [ref=e172]: extracted
+                - generic [ref=e173]: 200,00 €
+                - button "🔗" [ref=e174] [cursor=pointer]
+        - generic [ref=e175]:
+          - heading "System Health" [level=3] [ref=e177]
+          - generic [ref=e178]:
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - generic [ref=e181]: ✅
+                - generic [ref=e182]:
+                  - generic [ref=e183]: coreV2
+                  - generic [ref=e184]: N/A
+              - generic [ref=e186]: STABLE
+            - generic [ref=e187]:
+              - generic [ref=e188]:
+                - generic [ref=e189]: ✅
+                - generic [ref=e190]:
+                  - generic [ref=e191]: transactions
+                  - generic [ref=e192]: N/A
+              - generic [ref=e194]: STABLE
+            - generic [ref=e195]:
+              - generic [ref=e196]:
+                - generic [ref=e197]: ✅
+                - generic [ref=e198]:
+                  - generic [ref=e199]: docs
+                  - generic [ref=e200]: N/A
+              - generic [ref=e202]: STABLE
+            - generic [ref=e203]:
+              - generic [ref=e204]:
+                - generic [ref=e205]: ✅
+                - generic [ref=e206]:
+                  - generic [ref=e207]: reports
+                  - generic [ref=e208]: N/A
+              - generic [ref=e210]: STABLE
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - generic [ref=e213]: ✅
+                - generic [ref=e214]:
+                  - generic [ref=e215]: processing
+                  - generic [ref=e216]: N/A
+              - generic [ref=e218]: STABLE
+            - generic [ref=e219]:
+              - generic [ref=e220]:
+                - generic [ref=e221]: ✅
+                - generic [ref=e222]:
+                  - generic [ref=e223]: exports
+                  - generic [ref=e224]: N/A
+              - generic [ref=e226]: STABLE
+            - generic [ref=e227]:
+              - generic [ref=e228]:
+                - generic [ref=e229]: ✅
+                - generic [ref=e230]:
+                  - generic [ref=e231]: normalize
+                  - generic [ref=e232]: N/A
+              - generic [ref=e234]: STABLE
+            - generic [ref=e235]:
+              - generic [ref=e236]:
+                - generic [ref=e237]: ✅
+                - generic [ref=e238]:
+                  - generic [ref=e239]: audit
+                  - generic [ref=e240]: N/A
+              - generic [ref=e242]: STABLE
+            - generic [ref=e243]:
+              - generic [ref=e244]:
+                - generic [ref=e245]: ✅
+                - generic [ref=e246]:
+                  - generic [ref=e247]: health
+                  - generic [ref=e248]: N/A
+              - generic [ref=e250]: STABLE
+          - generic [ref=e252]: Gravity Engine v2.4.0 • Running on Local
+```

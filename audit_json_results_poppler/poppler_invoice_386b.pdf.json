@@ -1,0 +1,51 @@
+{
+  "docType": "invoice",
+  "docNumber": "000386/B",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-03-28",
+    "due": null
+  },
+  "entities": {
+    "customer": {
+      "name": "LOJA DO BANHO - EQUIPAMIENTOS SA",
+      "vat": "PT502494638",
+      "address": "1700 184     LISBONA, 0 i.v., 124                                                                 PT502494638                                       0,00                1                 6,00                    4,90"
+    },
+    "supplier": {
+      "name": "NICOLAZZI s.p.a.",
+      "vat": "IT00115930034",
+      "address": "28010 ALZO (NO) - Via P. Durio, 119"
+    },
+    "shipTo": null
+  },
+  "totals": {
+    "goods": 294.8,
+    "transport": 25,
+    "packaging": null,
+    "discount": null,
+    "subtotal": 294.8,
+    "tax": 0,
+    "total": 319.8
+  },
+  "lines": [
+    {
+      "code": "3420OG75P",
+      "description": "SINGLE LEVER MIXER WITH EXTRACTABLE SHOWER PULLDOWN EL CAP.",
+      "quantity": 1,
+      "unitPrice": 294.8,
+      "total": 294.8,
+      "taxCode": "NI41",
+      "projectRef": "124"
+    }
+  ],
+  "projectRef": "124",
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "nicolazziInvoiceTableExtraction (V3.3 - State Machine + ProjectRef)",
+    "textLength": 4813,
+    "textSample": "                                                            NICOLAZZI s.p.a.\r\n                                                            28010 ALZO (NO) - Via P. Durio, 119\r\n                                                            tel. (0322) 969.672 r.a.\r\n                                                            Telefax (0322) 969.532                                                         LOJA DO BANHO - EQUIPAMIENTOS SA\r\n                                                            C.C.I.A.A. n. 84286-M. NO 001005\r\n                                                            Part. IVA e Cod. Fiscale: IT 00115930034                                       RUA EUGENIO DE CASTRO RODRIGUES 2\r\n                                                            Isc. Trib. Verbania Reg. Soc. n: 3398\r\n                                                                                                                                           1700 184     LISBONA\r\n                                      "
+  }
+}

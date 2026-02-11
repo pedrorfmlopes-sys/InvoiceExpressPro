@@ -1,0 +1,65 @@
+[
+  {
+    "file": "FA5 2504904.pdf",
+    "docNumber": "FA5/2504904",
+    "total": 38.47,
+    "lines": 1,
+    "customer": "WATERWORKS BY SANIBANHO, LDA",
+    "confidence": 0.99,
+    "status": "OK"
+  },
+  {
+    "file": "fa5.1564.pdf",
+    "docNumber": "FA5/2401564",
+    "total": 1100.39,
+    "lines": 2,
+    "customer": "SUBLIME BANHO, UNIPESSOAL LDA",
+    "confidence": 0.99,
+    "status": "OK"
+  },
+  {
+    "file": "fa5.522.pdf",
+    "docNumber": "FA5/2500522",
+    "total": 3739.2,
+    "lines": 10,
+    "customer": "FRANCISCO CONTREIRAS LDA",
+    "confidence": 0.99,
+    "status": "REVIEW"
+  },
+  {
+    "file": "Fattura_FA5 B2500260_C013316.pdf",
+    "docNumber": "FA5/2500260",
+    "total": 125,
+    "lines": 1,
+    "customer": "DVTKB, LDA. (DIEGO LARANJO)",
+    "confidence": 0.99,
+    "status": "OK"
+  },
+  {
+    "file": "Fattura_FA5 B2500592_C013316.PDF.pdf",
+    "docNumber": "FA5/2500592",
+    "total": 456.4,
+    "lines": 2,
+    "customer": "DVTKB, LDA. (DIEGO LARANJO)",
+    "confidence": 0.99,
+    "status": "OK"
+  },
+  {
+    "file": "Fattura_FA5 B2500721_C013316.PDF.pdf",
+    "docNumber": "FA5/2500721",
+    "total": 136,
+    "lines": 1,
+    "customer": "DVTKB, LDA. (DIEGO LARANJO)",
+    "confidence": 0.99,
+    "status": "OK"
+  },
+  {
+    "file": "Fattura_FA5 B2501052_C013316.PDF.pdf",
+    "docNumber": "FA5/2501052",
+    "total": 376.4,
+    "lines": 1,
+    "customer": "DVTKB, LDA. (DIEGO LARANJO)",
+    "confidence": 0.99,
+    "status": "OK"
+  }
+]

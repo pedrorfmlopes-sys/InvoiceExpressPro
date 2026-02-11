@@ -1,0 +1,75 @@
+{
+  "docType": "proforma",
+  "docNumber": "26/00015",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2026-01-09",
+    "due": null
+  },
+  "entities": {
+    "customer": {
+      "name": "WATERWORKS BY SANIBANHO LDA",
+      "vat": "503031542",
+      "address": "AV. DR. FRANCISCO SA' CARNEIRO 83, SASSOEIROS CARCAVELOS"
+    },
+    "supplier": {
+      "name": "NICOLAZZI s.p.a.",
+      "vat": "IT00115930034",
+      "address": "28010 ALZO (NO) - Via P. Durio, 119"
+    },
+    "shipTo": null
+  },
+  "totals": {
+    "goods": 330,
+    "transport": 25,
+    "packaging": null,
+    "discount": null,
+    "subtotal": 330,
+    "tax": 0,
+    "total": 355
+  },
+  "lines": [
+    {
+      "code": "C2177DXSX",
+      "description": "BUILT IN PARTS ONLY FOR WALL MOUNTED BASIN MIXER DX+SX VALVES",
+      "quantity": 1,
+      "unitPrice": 137,
+      "total": 75.35,
+      "discountText": "45"
+    },
+    {
+      "code": "2207EXTOS29",
+      "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05",
+      "quantity": 1,
+      "unitPrice": 207,
+      "total": 113.85,
+      "discountText": "45"
+    },
+    {
+      "code": "5553OS",
+      "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\" W/OUT OVERFLOW",
+      "quantity": 1,
+      "unitPrice": 78,
+      "total": 42.9,
+      "discountText": "45"
+    },
+    {
+      "code": "5559OS",
+      "description": "MINIMAL SIPHON 1\"1/4 W/OUT PILLAR OG",
+      "quantity": 1,
+      "unitPrice": 178,
+      "total": 97.9,
+      "discountText": "45"
+    }
+  ],
+  "docRefs": {
+    "customerRef": "AF11020"
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "textLength": 3943,
+    "textSample": "                         NICOLAZZI s.p.a.\r\n                                                                                                                                                                        030WA012\r\n                         Via Pietro Durio 119                            Delivery Address                            Spett.le\r\n                         28010 ALZO DI PELLA (NO)\r\n                         tel. (0322) 969.672 r.a.\r\n                         Telefax (0322) 969.532                                                                       WATERWORKS BY SANIBANHO LDA\r\n                         C.C.I.A.A. n. 84286-M. NO 001005\r\n                         Part. IVA e Cod. Fiscale: 00115930034\r\n                         Isc. Trib. Verbania Reg. Soc. n: 3398                                                        AV. DR. FRANCISCO SA' CARNEIRO 83\r\n                         Capitale Sociale € 1.800.000,00 i.v.\r\n                                                                "
+  }
+}

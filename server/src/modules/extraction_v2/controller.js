@@ -23,8 +23,21 @@ async function processFile(project, filePath, originalName, batchId, ctx) {
         const stagingPath = path.join(ctx.dirs.staging, stagingName);
         fs.copyFileSync(filePath, stagingPath);
 
+        const rowId = uuidv4();
+
+        // 3.5 Sandbox-First Persistence (Gold Standard Architecture)
+        // Check if it's a Nicolazzi Proforma
+        const isNicolazziProforma = normalized.docType === 'proforma' &&
+            (normalized.entities.supplier.name || '').toUpperCase().includes('NICOLAZZI');
+
+        if (isNicolazziProforma) {
+            const Satellite = require('../../storage/SatelliteStorage');
+            await Satellite.saveData('nicolazzi_proformas', rowId, normalized);
+            console.log(`[V2] Saved detailed extraction to satellite: nicolazzi_proformas -> ${rowId}`);
+        }
+
         const row = {
-            id: uuidv4(),
+            id: rowId,
             project,
             batchId,
             status: 'staging',
@@ -34,23 +47,29 @@ async function processFile(project, filePath, originalName, batchId, ctx) {
             docType: normalized.docType,
             docNumber: normalized.docNumber,
             date: normalized.dates.issued,
-            total: normalized.totals.gross || normalized.totals.net || 0,
+            total: normalized.totals.total || normalized.totals.gross || normalized.totals.net || 0,
             clientName: normalized.entities.customer.name,
             needsReview: normalized.needsReview,
             confidence: normalized.confidence,
             extractionMethod: 'v2_engine',
 
-            // V2 Data
+            // V2 Data - Sandbox Mode: High fidelity data is prioritized in satellite
             raw_json: {
-                normalized,
+                // For sandbox docs, we keep a reference rather than the full heavy object in main DB
+                normalized: isNicolazziProforma ? {
+                    id: rowId,
+                    satellite: 'nicolazzi_proformas',
+                    isSandbox: true
+                } : normalized,
                 v2_metadata: {
                     engineVersion: '2.0.0',
-                    textLength: text.length
+                    textLength: text.length,
+                    isSandbox: isNicolazziProforma
                 }
             }
         };
 
-        // 4. Save to DB
+        // 4. Save to DB (Anchor / Ledger)
         await Adapter.saveDocument(project, row);
 
         return {

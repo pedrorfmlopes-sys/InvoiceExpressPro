@@ -7,6 +7,7 @@ import { LinkDocsModal } from '../components/modals/LinkDocsModal';
 import ProjectSelectorModal from '../components/dossiers/ProjectSelectorModal';
 import { getViewer } from '../components/viewers/ViewerRegistry';
 import { BackupDataViewer } from '../components/viewers/BackupDataViewer'; // Phase 20
+import ProposalEditor from '../components/proposals/ProposalEditor'; // Phase 32
 import api from '../api/apiClient';
 import { qp } from '../shared/ui';
 import { createPortal } from 'react-dom';
@@ -19,7 +20,7 @@ const IconFolder = () => <span>📁</span>; // New
 const IconTrash = () => <span>🗑️</span>;
 const IconEye = () => <span>👁️</span>;
 
-export default function CoreV2Tab({ project }) {
+export default function CoreV2Tab({ project, setEditingProposalId }) {
     const { t } = useTranslation();
     const {
         docs, loading, filters, setFilters, updateDoc,
@@ -41,7 +42,7 @@ export default function CoreV2Tab({ project }) {
     // Column Visibility & Order
     // Initial order needs to match COLUMNS_DEF keys roughly
     const [columnOrder, setColumnOrder] = useState([
-        'archived', 'docType', 'docNumber', 'date', 'supplier', 'total',
+        'archived', 'docType', 'docNumber', 'date', 'supplier', 'customer', 'shipTo', 'total',
         'sub_project_id', 'category_id', 'scope', 'links'
     ]);
     const [visibleCols, setVisibleCols] = useState(new Set(columnOrder));
@@ -54,6 +55,9 @@ export default function CoreV2Tab({ project }) {
 
     // Project Selector
     const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
+
+    // Proposal Studio (Phase 32)
+    // const [editingProposalId, setEditingProposalId] = useState(null); // Removed local state
 
     // -- Drag & Drop Upload --
     const onDrop = useCallback(async (acceptedFiles) => {
@@ -277,6 +281,17 @@ export default function CoreV2Tab({ project }) {
         }
     };
 
+    const handleCreateProposal = async (row) => {
+        if (!confirm(`Deseja criar uma proposta personalizada com base no documento ${row.docNumber}?`)) return;
+        try {
+            const res = await api.post(qp('/api/proposals/clone', project), { docId: row.id });
+            alert("Proposta criada com sucesso! A abrir editor...");
+            setEditingProposalId(res.data.proposalId);
+        } catch (e) {
+            alert("Erro ao criar proposta: " + (e.response?.data?.error || e.message));
+        }
+    };
+
 
     // Columns Def 
     const COLUMNS_DEF = [
@@ -288,6 +303,13 @@ export default function CoreV2Tab({ project }) {
         { key: 'docNumber', label: 'Doc #', width: 120, editable: true },
         { key: 'date', label: 'Date', width: 100, editable: true, type: 'date' },
         { key: 'supplier', label: 'Entity', width: 200, editable: true },
+        { key: 'customer', label: 'Cliente', width: 200, editable: true },
+        {
+            key: 'shipTo',
+            label: 'Entrega',
+            width: 200,
+            render: (r) => r.entities?.shipTo?.name || r.shipTo?.name || '-'
+        },
         // RIGHT ALIGN TOTAL
         { key: 'total', label: 'Total', width: 100, editable: true, align: 'right', format: (v) => v ? `${parseFloat(v).toFixed(2)} €` : '-' },
         {
@@ -566,6 +588,7 @@ export default function CoreV2Tab({ project }) {
                                             {row.archived ? <IconUnarchive /> : <IconArchive />}
                                         </button>
                                         <button className="btn-icon text-xs text-red-500 hover:scale-110 transition-transform" onClick={() => deleteRow(row.id)} title="Delete"><IconTrash /></button>
+                                        <button className="btn-icon text-xs text-green-500 hover:scale-110 transition-transform" onClick={() => handleCreateProposal(row)} title="Criar Proposta">📝</button>
                                     </div>
                                 </td>
                             </tr>
@@ -617,6 +640,7 @@ export default function CoreV2Tab({ project }) {
                     onRestore={() => previewBackupId && handleRestore(previewBackupId)} // Phase 31
                 />
             )}
+
 
             {/* PDF Viewer */}
             {viewPdfUrl && createPortal(

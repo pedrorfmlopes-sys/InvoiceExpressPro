@@ -1,0 +1,28 @@
+PHASE 3.1 CHANGELOG
+===================
+
+Correções:
+- `server/src/storage/getDocsAdapter.js`: Robustez na leitura de `DB_CLIENT` (trim/lowercase). Garante log `[Storage] Using DB Adapter (...)` se configurado.
+
+Entitlements (Enforcement & Usage):
+- Middleware `requireEntitlement(key)`:
+  - AUTH_MODE=optional: Apenas log.
+  - AUTH_MODE=required: Enforce (403 se disabled/missing).
+  - Usage Tracking: Regista evento em `usage_events` via `EntitlementsService.trackUsage`.
+
+Endpoints Protegidos:
+- POST /api/extract -> requer `ai_extract`
+- POST /api/reports/pro-pdf (Novo Mock) -> requer `pro_reports`
+
+Configuração Env Vars:
+- DB_CLIENT=sqlite | sqlite3 | pg
+- AUTH_MODE=optional (default) | required
+
+Como Testar Enforcement:
+1. `set AUTH_MODE=required` e `set DB_CLIENT=sqlite3`
+2. Login com admin (Plano Normal nao tem ai_extract por defeito na seed?).
+   - A seed `20240102` diz: normal entitlements = ai_extract: false.
+3. Tentar `POST /api/extract` (com token de plano Normal).
+   - Deve dar 403 Forbidden.
+4. Tentar com token de admin (se admin tiver plano Pro/custom com entitlement).
+   - Se seed deu Pro ao Admin, deve dar 200.

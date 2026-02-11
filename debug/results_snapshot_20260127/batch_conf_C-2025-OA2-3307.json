@@ -1,0 +1,84 @@
+{
+  "docType": "order_confirmation",
+  "docNumber": "OA2/003307",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-10-30",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT01495130021",
+      "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+    },
+    "customer": {
+      "name": "FRANCISCO CONTREIRAS LDA",
+      "vat": "PT502293667",
+      "address": "HOUSECONCEPTSTORE SITIO DA FRANQUEADA 8100-302 LOULÉ (PORTUGAL)",
+      "deliveryAddress": ""
+    }
+  },
+  "totals": {
+    "goods": 383.13,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 383.13,
+    "tax": 0,
+    "total": 383.13,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "7BW002BLX",
+      "description": "ELEMENTA - APPENDINO DA MURO / NR SUPPORTO ASTA - FINITURA BRUSHED BLACK CHROME - SUPPORT FOR RODS - HANGER, BRUSHED BLACK CHROME ( CUSTOMS CODE: 83025000)",
+      "quantity": 5,
+      "unitPrice": 102,
+      "total": 219.3,
+      "discountPercent": 57,
+      "foreeseenShippingDate": "2025-11-19"
+    },
+    {
+      "code": "7L0002BLX",
+      "description": "ELEMENTA - ASTA Ø 10 ACCESSORI NR L390mm - FINITURA BRUSHED BLACK CHROME - ROD 390, L=390MM, FOR ACCESSORIES , BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+      "quantity": 1,
+      "unitPrice": 73,
+      "total": 31.39,
+      "discountPercent": 57,
+      "foreeseenShippingDate": "2025-11-19"
+    },
+    {
+      "code": "7L0004BLX",
+      "description": "ELEMENTA - ASTA Ø 10 ACCESSORI NR L690mm - FINITURA BRUSHED BLACK CHROME - ROD 690, L=690MM, FOR ACCESSORIES , BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+      "quantity": 1,
+      "unitPrice": 122,
+      "total": 52.46,
+      "discountPercent": 57,
+      "foreeseenShippingDate": "2025-11-19"
+    },
+    {
+      "code": "7L0003BLX",
+      "description": "ELEMENTA - ASTA Ø 10 ACCESSORI NR L540mm - FINITURA BRUSHED BLACK CHROME AT THE MOMENT ; IN THIS CASE WE WILL ADVISE YOU PROMPTLY OF ANY DELAYS DHL EXPRESS (ITALY) SRL - ROD 540, L=540MM, FOR ACCESSORIES , BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+      "quantity": 2,
+      "unitPrice": 93,
+      "total": 79.98,
+      "discountPercent": 57,
+      "foreeseenShippingDate": "2025-11-19"
+    }
+  ],
+  "docRefs": {
+    "customerOrder": {
+      "number": "82586",
+      "date": "2025-10-29"
+    }
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioConfirmationExtraction",
+    "textLength": 11685,
+    "textSample": "                                                                                              pedro.carvalho@hcslx.pt;raquel.carvalho@hcslx.pt;silvia@hscag.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                    Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                Carlotta Patriarca\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   FRANCISCO CONTREIRAS LDA\r\n                 "
+  }
+}

@@ -16,6 +16,7 @@ module.exports = {
         CONFIG: path.join(DATA_ROOT, 'config'),
         UPLOADS: path.join(PROJECT_ROOT, 'uploads'), // Assuming uploads is at root as seen in tree
         CLIENT_DIST: path.resolve(PROJECT_ROOT, 'client/dist'),
+        EXTRACTORS_DIR: path.join(DATA_ROOT, 'extractors'),
     },
     DEFAULTS: {
         PROJECT: 'default',

@@ -1,0 +1,61 @@
+{
+  "docType": "invoice",
+  "docNumber": "FA5/2504904",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-12-11",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT00200844310",
+      "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+    },
+    "customer": {
+      "name": "WATERWORKS BY SANIBANHO, LDA",
+      "vat": "PT503031542",
+      "address": "AVENIDA DR. FRANCISCO SA CARNEIRO, 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL) (PT) , AVENIDA DR . FRANCISCO SA CARNEIRO , 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL )",
+      "deliveryAddress": ", AVENIDA DR . FRANCISCO SA CARNEIRO , 83 A E B 2775-769 SASSOEIROS - CARCAVELOS (PORTUGAL ) UNICREDIT Spa 002008 44310 IT28L0200844310000005358331 Resa/Delivery terms Vettore /Carrier name"
+    }
+  },
+  "totals": {
+    "goods": 3.47,
+    "transport": 35,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 3.47,
+    "tax": 0,
+    "total": 38.47,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "RCMB898",
+      "description": "CODOLO COMANDO PORTATA-DEVIATORE E",
+      "quantity": 1,
+      "unitPrice": 7,
+      "total": 3.47,
+      "discountPercent": 50.499999999999986
+    }
+  ],
+  "docRefs": {
+    "deliveryNote": {
+      "number": "00000004167",
+      "date": "2025-12-11"
+    },
+    "orderConfirmation": {
+      "number": "CSO1212",
+      "date": "2025-12-09"
+    },
+    "customerOrder": null
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioInvoiceExtraction",
+    "textLength": 14843,
+    "textSample": "                                                                                                                                                       Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000 - Fax +39 0163 560100\r\n                                                                                                                                                       CAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\n                                                                                                                                                       P. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021\r\n\r\n                                                                                                                                                                                                                 "
+  }
+}

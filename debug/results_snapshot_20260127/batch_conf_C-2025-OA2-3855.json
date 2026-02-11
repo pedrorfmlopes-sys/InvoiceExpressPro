@@ -1,0 +1,201 @@
+{
+  "docType": "order_confirmation",
+  "docNumber": "OA2/003855",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-12-17",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT01495130021",
+      "address": "Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy"
+    },
+    "customer": {
+      "name": "DVTKB, LDA. (DIEGO LARANJO)",
+      "vat": "PT515834807",
+      "address": "( ) DIVITEK ARCH & DESIGN BRANDS RUA DA BAIXA 326 - 3D - DRT 2870-231 MONTIJO (PORTUGAL)",
+      "deliveryAddress": "DeluxHomes - VIRGINIA PACHECO +351 913909196 IC2, km 102, Casal B 2480-009 Porto de Mós - LEIRIA (PORTUGAL)"
+    }
+  },
+  "totals": {
+    "goods": 2657.6,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 2657.6,
+    "tax": 0,
+    "total": 2657.6,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "PR35AV201CRB",
+      "description": "TAORMINA - LAVABO SOPRAPIANO NR S/SALTERELLO SENZA COMANDO - MIX MONOCOMANDO, EROGAZIONE H265, CANNA L 180, SENZA PILETTA , FINITURA BLACK CHROME - MEZCLADOR MONOMANDO SOBRE ENCIMERA, SIN MANDO [PR35MA001] O [PR35MA101], BLACK CHROME (CÓDIGO ADUANERO: 84818011 )",
+      "quantity": 2,
+      "unitPrice": 761,
+      "total": 608.8,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35MA101CRB",
+      "description": "COMANDO APPOGGI CON LEVA - SERIE NR PR35, FINITURA BLACK CHROME - MANDO CON PALANCA , BLACK CHROME (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 2,
+      "unitPrice": 65,
+      "total": 52,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35BU101CRB",
+      "description": "TAORMINA - BIDET APPOGGIO NR C/SALTERELLO SENZA COMANDO - MISCELATORE MONOCOMANDO , CORPO CON SALTERELLO , PILETTA 1\"1/4, FINITURA BLACK CHROME - MEZCLADOR MONOMANDO PARA BIDET , SIN MANDO [PR35MA001] O [PR35MA101], BLACK CHROME ( CÓDIGO ADUANERO : 84818011 )",
+      "quantity": 1,
+      "unitPrice": 467,
+      "total": 186.8,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35MA101CRB",
+      "description": "COMANDO APPOGGI CON LEVA - SERIE NR PR35, FINITURA BLACK CHROME - MANDO CON PALANCA , BLACK CHROME (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 65,
+      "total": 26,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "E0BA0176S/FCRB",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR SENZA TROPPO PIENO , FINITURA BLACK CHROME - VÁLVULA DE DESCARGA CON TAPÒN PRESSION CLIC -CLAC, CON Y SIN AGUJERO REBOSADERO, BLACK CHROME ( CÓDIGO ADUANERO : 84819000)",
+      "quantity": 3,
+      "unitPrice": 62,
+      "total": 74.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35AZ102CRB",
+      "description": "TAORMINA - PARTI ESTERNE LAVABO NR INCASSO CON PIASTRA SENZA COMANDO - CANNA L 204, FINITURA BLACK CHROME - PARTES EXTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO PARA LAVABO , CAÑO SX LMAX=189MM, PLANCHA EXTERNA , PARTES INTERNAS VENDIDAS SEPARADAMENTE [E0BA 0115 SX], SIN MANDO [PR35MC001] O [PR35MC101], BLACK CHROME (CÓDIGO ADUANERO: 74182000)",
+      "quantity": 1,
+      "unitPrice": 615,
+      "total": 246,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35MC101CRB",
+      "description": "COMANDO INCASSI CON LEVA - SERIE NR PR35, FINITURA BLACK CHROME - MANDO CON PALANCA , BLACK CHROME (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 73,
+      "total": 29.2,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "E0BA0115SX",
+      "description": "PARTI INTERNE MIX LAVABO AD INCASSO NR CON BOCCA FISSA SINISTRA - GHIERA NICHELATA - PARTES INTERNAS PARA MEZCLADOR MONOMANDO EMPOTRADO (CÓDIGO ADUANERO: 84818011 )",
+      "quantity": 1,
+      "unitPrice": 129,
+      "total": 51.6,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-01-08"
+    },
+    {
+      "code": "E0BA0176S/FCRB",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR SENZA TROPPO PIENO , FINITURA BLACK CHROME - VÁLVULA DE DESCARGA CON TAPÒN PRESSION CLIC -CLAC, CON Y SIN AGUJERO REBOSADERO, BLACK CHROME ( CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 62,
+      "total": 24.8,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "RCMB027CRB",
+      "description": "SIFONE DI SCARICO 1\"1/4 - CON TUBO A NR MURO 300mm, FINITURA BLACK CHROME - SIFÓN DE DESCARGA, CON TUBO EMPOTRADO, BLACK CHROME (CÓDIGO ADUANERO: 84819000)",
+      "quantity": 1,
+      "unitPrice": 187,
+      "total": 74.8,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35AV201CRL",
+      "description": "TAORMINA - LAVABO SOPRAPIANO NR S/SALTERELLO SENZA COMANDO - MIX MONOCOMANDO, EROGAZIONE H265, CANNA L 180, SENZA PILETTA , FINITURA CROMO LUCIDO - MEZCLADOR MONOMANDO SOBRE ENCIMERA, SIN MANDO [PR35MA001] O [PR35MA101], CROMO (CÓDIGO ADUANERO: 84818011 )",
+      "quantity": 1,
+      "unitPrice": 525,
+      "total": 210,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35MA101CRL",
+      "description": "COMANDO APPOGGI CON LEVA - SERIE NR PR35, FINITURA CROMO LUCIDO - MANDO CON PALANCA , CROMO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 45,
+      "total": 18,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "E0BA0176S/FCRL",
+      "description": "SCAR 1\"1/4 C/ TAPPO A PRESSIONE NR SENZA TROPPO PIENO , FINITURA CROMO LUCIDO. - VÁLVULA DE DESCARGA CON TAPÒN PRESSION CLIC -CLAC, CON Y SIN AGUJERO REBOSADERO, CROMO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 43,
+      "total": 17.2,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35ES101CRL",
+      "description": "TAORMINA - BORDOVASCA 4 FORI CON NR PIASTRA SENZA COMANDO - MIX MONOCOM. A DUE USCITE CON DEVIATORE BOCCA DI EROGAZIONE/ DOCCETTA , CON DOCCETTA OT Ø 24 E FLESSIBILE L1800, FINITURA CROMO LUCIDO - GRUPO PARA BORDE BAÑERA , MEZCLADOR MONOMANDO DOS SALIDAS CON DESVIADOR AUTOMÁTICO CAÑO/ DUCHITA , DUCHA TELÉFONO CON FLEXIBLE DE 1.800MM, PLANCHA EXTERNA, DUCHA TELÉFONO Ø 24MM EN LATÓN , SIN MANDO [PR35MC001] O [PR35MC101], CROMO (CÓDIGO ADUANERO: 84818011 )",
+      "quantity": 1,
+      "unitPrice": 886,
+      "total": 354.4,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "PR35MC101CRL",
+      "description": "COMANDO INCASSI CON LEVA - SERIE NR PR35, FINITURA CROMO LUCIDO - MANDO CON PALANCA , CROMO (CÓDIGO ADUANERO : 84819000)",
+      "quantity": 1,
+      "unitPrice": 50,
+      "total": 20,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-02-19"
+    },
+    {
+      "code": "7ADN2H7CRB",
+      "description": "MIX. TERMOSTATICO ESTERNO CON NR COLONNA A PONTE SENZA SOFFIONE - COLONNA TELESCOPICA E ORIENTABILE , DOCCETTA OT Ø 24, FLESSIBILE L1500, FINITURA BLACK CHROME - GRUPO EXTERNO PARA DUCHA , MEZCLADOR TERMOSTÁTICO , DOS SALIDAS Y DESVIADOR AUTOMÁTICO POMO DUCHA/ DUCHITA , DUCHA TELÉFONO CON FLEXIBLE DE 1.500MM, DUCHA TELÉFONO Ø 24 MM EN LATÓN , SIN POMO DUCHA, BLACK CHROME (CÓDIGO ADUANERO: 84818011 )",
+      "quantity": 1,
+      "unitPrice": 1034,
+      "total": 413.6,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-03-12"
+    },
+    {
+      "code": "75A025CRB",
+      "description": "SOFFIONE DOCCIA 250x250 OTTONE - NR GETTO FISSO , ANTICALCARE, FINITURA BLACK CHROME - POMO DUCHA ARTICULADO 250X250MM EN LATÓN , DISPOSITIVO ANTICAL , CHORRO FIJO, ACABADO Y MATERIAL DE FUNDO COMO EL CUERPO DEL ROCIADOR, BLACK CHROME (CÓDIGO ADUANERO: 74182000)",
+      "quantity": 1,
+      "unitPrice": 625,
+      "total": 250,
+      "discountPercent": 60,
+      "foreeseenShippingDate": "2026-03-12"
+    }
+  ],
+  "docRefs": {
+    "customerOrder": {
+      "number": "OR M2025/148",
+      "date": "2025-12-17"
+    }
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioConfirmationExtraction",
+    "textLength": 39938,
+    "textSample": "                                                                                              pedrolopes@divitek.pt\r\n\r\n\r\n\r\n\r\nRubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313                                    Da/From:\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n                                                                                                                                                                Fiorenza Pozzolo\r\n\r\n   Destinazione merce / Delivery address                                                           Spettabile/Messrs.\r\n                                                                                                   DVTKB, LDA. (DIEGO LARANJO)\r\n      DeluxHomes - VIRGINIA PACHECO +351\r\n                 "
+  }
+}

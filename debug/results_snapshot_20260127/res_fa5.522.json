@@ -1,0 +1,132 @@
+{
+  "docType": "invoice",
+  "docNumber": "FA5/B2500522",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-02-10",
+    "due": null
+  },
+  "entities": {
+    "supplier": {
+      "name": "Rubinetterie Ritmonio Srl",
+      "vat": "IT00200844310",
+      "address": "Via Indipendenza 2, 13019 Varallo (VC) - ITALY"
+    },
+    "customer": {
+      "name": "FRANCISCO CONTREIRAS LDA",
+      "vat": "PT502293667",
+      "address": "HOUSECONCEPTSTORE SITIO DA FRANQUEADA 8100-302 LOULÉ (PORTUGAL) HOUSECONCEPTSTORE SITIO DA FRANQUEADA 8100-302 LOULÉ ( PORTUGAL ) HOUSECONCEPTSTORE"
+    }
+  },
+  "totals": {
+    "goods": 3739.2,
+    "transport": 0,
+    "packaging": null,
+    "discount": 0,
+    "subtotal": 3739.2,
+    "tax": 0,
+    "total": 3739.2,
+    "discountMain": null
+  },
+  "lines": [
+    {
+      "code": "E0BA0104H3C04",
+      "description": "DIA.35 - BOCCA D 'EROGAZIONE DA TERRA ALTEZZA NR 1145 mm - FINITURA NERO - WASHBASIN STANDING FLOOR SPOUT , H= 1145 MM, BLACK ( CUSTOMS CODE : 74182000)",
+      "quantity": 1,
+      "unitPrice": 820,
+      "total": 393.6,
+      "discountPercent": 52
+    },
+    {
+      "code": "E0BA0144S/PC04",
+      "description": "DIA.35 - PARTI ESTERNE x MIX INCASSO AD UNA NR USCITA CON ATTACCHI DA 1/2 - FINITURA NERO - OUTER PARTS FOR BUILT -IN SINGLE LEVER MIXER, ONE WAY , INNER PARTS SEPARATELY SOLD [E0BA0143], BLACK ( CUSTOMS CODE : 74182000)",
+      "quantity": 1,
+      "unitPrice": 223,
+      "total": 107.04,
+      "discountPercent": 52
+    },
+    {
+      "code": "E0BA0117SPCCRL",
+      "description": "DIA.35 - PARTI ESTERNE PER LAVABO INCASSO NR SENZA PIASTRA - CANNA CURVA L 210, FINITURA CROMO LUCIDO - OUTER PARTS FOR BUILT -IN SINGLE LEVER MIXER, HANDLES Ø45MM, HANDLES Ø45MM, SPOUT SX LMAX=196MM, INNER PARTS SEPARATELY SOLD [E0BA 0115 SX], CHROME ( CUSTOMS CODE :",
+      "quantity": 2,
+      "unitPrice": 188,
+      "total": 180.48,
+      "discountPercent": 52
+    },
+    {
+      "code": "E0BA0450ECRL",
+      "description": "DIA.35 - PARTI ESTERNE PER MIX DOCCIA INCASSO NR CON DEVIATORE ROTATIVO - FINITURA CROMO LUCIDO - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, TWO WAYS WITH ROTATIVE DIVERTER , INNER PARTS SEPARATELY SOLD [PM0020M], CHROME ( CUSTOMS CODE : 74182000)",
+      "quantity": 2,
+      "unitPrice": 200,
+      "total": 192,
+      "discountPercent": 52
+    },
+    {
+      "code": "72J021CRL",
+      "description": "DOCCETTA CON FLESSIBILE E PRESA ACQUA NR C/SUPPORTO - DOCCETTA OTTONE Ø 24, FLESSIBILE 1500MM, FINITURA CROMO LUCIDO - BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE AND WATER CONNECTION WITH HAND SHOWER SUPPORT , Ø24MM BRASS HAND SHOWER, THREE LAYERS FLEXIBLE , REINFORCED WITH METALIZED NYLON YARN , CHROME (CUSTOMS CODE : 74182000)",
+      "quantity": 2,
+      "unitPrice": 201,
+      "total": 192.96,
+      "discountPercent": 52
+    },
+    {
+      "code": "75A013CRL",
+      "description": "SOFFIONE DOCCIA Ø 300 OTTONE - GETTO FISSO , NR ANTICALCARE, FINITURA CROMO LUCIDO",
+      "quantity": 2,
+      "unitPrice": 621,
+      "total": 596.16,
+      "discountPercent": 52
+    },
+    {
+      "code": "E0BA0125H3BLX",
+      "description": "DIA.35 - MIX MONOCOMANDO SOPRAPIANO CON NR CANNA CURVA (400mm) - FINITURA BRUSHED BLACK CHROME - EXPOSED SINGLE LEVER BASIN MIXER, ROUND TURNING SPOUT 360°, BRUSHED BLACK CHROME (CUSTOMS CODE : 84818011 ) FINITURA BRUSHED BLACK CHROME - OUTER PARTS FOR STANDING FLOOR BATH GROUP, HOT/ COLD CONTROL HANDLES , TWO WAYS SINGLE LEVER WITH AUTOMATIC DIVERTER HAND SHOWER/SPOUT, Ø24MM BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE, INNER PARTS SEPARATELY SOLD [RCMB201], BRUSHED BLACK CHROME ( CUSTOMS CODE : 84818019)",
+      "quantity": 1,
+      "unitPrice": 552,
+      "total": 264.96,
+      "discountPercent": 52
+    },
+    {
+      "code": "E0BA0450EBLX",
+      "description": "DIA.35 - PARTI ESTERNE PER MIX DOCCIA INCASSO NR CON DEVIATORE ROTATIVO - FINITURA BRUSHED BLACK CHROME - OUTER PARTS FOR BUILT -IN SINGLE LEVER BATH /SHOWER MIXER, TWO WAYS WITH ROTATIVE DIVERTER , INNER PARTS SEPARATELY SOLD [PM0020M], BRUSHED BLACK CHROME ( CUSTOMS CODE: 74182000)",
+      "quantity": 1,
+      "unitPrice": 382,
+      "total": 183.36,
+      "discountPercent": 52
+    },
+    {
+      "code": "75T005IBX",
+      "description": "SOFFIONE DA SOFFITO - 360x360, LIMITATORE NR 15l/min, FISSAGGIO CON VITI, UGELLI TRASPARENTI , FINITURA BLACK STAINLESS STEEL - STAINLESS STEEL 360X360MM CEILING SHOWER, ANTILIMESTONE SYSTEM , FIXED JET, FIXING WITH SCREWS, BLACK STAINLES STEEL (CUSTOMS CODE: 73249000)",
+      "quantity": 1,
+      "unitPrice": 723,
+      "total": 347.04,
+      "discountPercent": 52
+    },
+    {
+      "code": "72J021BLX",
+      "description": "DOCCETTA CON FLESSIBILE E PRESA ACQUA NR C/SUPPORTO - DOCCETTA OTTONE Ø 24, FLESSIBILE 1500MM, FINITURA BRUSHED BLACK CHROME - BRASS HAND SHOWER WITH 1.500MM FLEXIBLE HOSE AND WATER CONNECTION WITH HAND SHOWER SUPPORT , Ø24MM BRASS HAND SHOWER, THREE LAYERS FLEXIBLE , REINFORCED WITH METALIZED NYLON YARN , BRUSHED BLACK",
+      "quantity": 1,
+      "unitPrice": 292,
+      "total": 140.16,
+      "discountPercent": 52
+    }
+  ],
+  "docRefs": {
+    "deliveryNote": {
+      "number": "00000000443",
+      "date": "2025-02-10"
+    },
+    "orderConfirmation": {
+      "number": "75930",
+      "date": "2024-11-20"
+    },
+    "customerOrder": null
+  },
+  "confidence": 0.8,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "extractor": "ritmonioInvoiceExtraction",
+    "textLength": 21572,
+    "textSample": "Rubinetterie Ritmonio Srl - Via Indren 4, Zona Ind. Roccapietra - 13019 Varallo (VC) Italy - Tel. +39 0163 560000\r\nCAP. SOCIALE EURO 50.000 i.v. - C.C.I.A.A. Vercelli R.E.A. N. 143168 - Export VC 004524 - Iscr. REG. Imprese Vercelli n.5313\r\nP. IVA - Cod. Fisc.:01495130021 - Codice Internazionale: IT 01495130021- PEC: mailcert@pec.ritmonio.it\r\n\r\n   Intestatario fattura/Invoice address                                                                      Cod.cliente/Cust.code       Partita IVA/VAT nr           Cod.Fiscale/Fiscal code\r\n\r\n                                                                                                             C 12939                     PT502293667\r\n   FRANCISCO CONTREIRAS LDA\r\n   HOUSECONCEPTSTORE                                                                                         Agente/Agent\r\n                                                                                                                                                              "
+  }
+}

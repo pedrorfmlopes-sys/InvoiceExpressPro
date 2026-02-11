@@ -1,11 +1,13 @@
 const knex = require('../db/knex');
 const { v4: uuidv4 } = require('uuid');
+const SatelliteStorage = require('./SatelliteStorage');
 
 class DbDocsAdapter {
     // --- Documents ---
-    async getDocs(project, { page = 1, limit = 50, q, status, docType, from, to } = {}) {
+    async getDocs(project, { page = 1, limit = 50, q, status, docType, from, to } = {}, trx = null) {
         // Base Query (Filters only)
-        let baseQuery = knex('documents').where({ project });
+        const db = trx || knex;
+        let baseQuery = db('documents').where({ project });
 
         if (status) baseQuery = baseQuery.where('status', status);
         if (docType) baseQuery = baseQuery.where((b) => b.where('docType', docType).orWhere('docTypeId', docType));
@@ -21,8 +23,7 @@ class DbDocsAdapter {
             baseQuery = baseQuery.where((b) => {
                 b.where('docNumber', op, like)
                     .orWhere('supplier', op, like)
-                    .orWhere('customer', op, like)
-                    .orWhere('origName', op, like);
+                    .orWhere('customer', op, like);
             });
         }
 
@@ -36,9 +37,22 @@ class DbDocsAdapter {
 
         return {
             rows: rows.map(r => {
-                const raw = r.rawJson ? JSON.parse(r.rawJson) : {};
-                const refs = r.references_json ? JSON.parse(r.references_json) : (raw.references || []);
-                return { ...raw, ...r, references: refs };
+                const { rawJson: rawStr, references_json, ...row } = r;
+                let raw = {};
+                try {
+                    raw = rawStr ? JSON.parse(rawStr) : {};
+                } catch (e) {
+                    console.error("[Adapter] Failed to parse rawJson", e);
+                }
+
+                const refs = references_json ? JSON.parse(references_json) : (raw.references || []);
+
+                // RESTORE rawJson as object for Viewer compatibility
+                // but keep it clean from string/nesting
+                const docWithRaw = { ...raw, ...row, references: refs };
+                docWithRaw.rawJson = { ...raw };
+
+                return docWithRaw;
             }),
             total,
             page: parseInt(page),
@@ -46,20 +60,50 @@ class DbDocsAdapter {
         };
     }
 
-    async getDoc(project, id) {
-        const r = await knex('documents').where({ project, id }).first();
-        if (!r) return null;
-        const raw = r.rawJson ? JSON.parse(r.rawJson) : {};
-        return { ...raw, ...r };
+    async getDoc(project, id, trx = null) {
+        const db = trx || knex;
+        console.log(`[Adapter] getDoc searching for: project=${project}, id=${id}`);
+        const r = await db('documents').where({ project, id }).first();
+        if (!r) {
+            console.log(`[Adapter] getDoc NOT FOUND for: project=${project}, id=${id}`);
+            return null;
+        }
+        const { rawJson: rawStr, ...row } = r;
+        let raw = {};
+        try {
+            raw = rawStr ? JSON.parse(rawStr) : {};
+        } catch (e) {
+            console.error("[Adapter] Failed to parse rawJson in getDoc", e);
+        }
+
+        let docWithRaw = { ...raw, ...row };
+
+        // --- SMART MERGE (Phase 17/27) ---
+        // If specialized brand, merge latest from satellite
+        const satelliteTypes = ['nicolazzi_proformas', 'nicolazzi_invoices'];
+        for (const type of satelliteTypes) {
+            try {
+                const satData = await SatelliteStorage.getData(type, id);
+                if (satData) {
+                    // console.log(`[Adapter] Smart Merge: Found ${type} data for ${id}`);
+                    const { rawJson: satRaw, ...cleanSat } = satData;
+                    docWithRaw = { ...docWithRaw, ...cleanSat };
+                    break;
+                }
+            } catch (e) { /* ignore single sat load failure */ }
+        }
+
+        docWithRaw.rawJson = { ...raw }; // Restore for viewer
+        return docWithRaw;
     }
 
-    async saveDocument(project, doc) {
+    async saveDocument(project, doc, trx = null) {
         if (!doc.id) doc.id = uuidv4();
 
-        // Split known columns vs raw
+        // 1. CLEAN GATE: Strip any recursion/nesting attempts
         const { id, docType, docNumber, supplier, customer, date, dueDate, total, status, filePath, batchId,
             docTypeId, docTypeLabel, docTypeRaw, docTypeSource, docTypeConfidence, needsReviewDocType,
-            ...rest } = doc;
+            rawJson: skipJson, raw_data: skipRaw, ...rest } = doc;
 
         // Safe defaults
         const suppliersName = (supplier && typeof supplier === 'object') ? supplier.name : supplier;
@@ -88,30 +132,50 @@ class DbDocsAdapter {
             docTypeConfidence,
             needsReviewDocType,
 
-            rawJson: JSON.stringify(doc), // Store full doc in rawJson for perfect fidelity
+            rawJson: JSON.stringify({ ...rest, id, docType, docNumber, supplier: suppliersName, customer: customersName, date, dueDate, total, status, filePath, batchId, docTypeId, docTypeLabel, docTypeRaw, docTypeSource, docTypeConfidence, needsReviewDocType }), // Store clean flat version
             updated_at: new Date()
         };
 
-        // Upsert
-        const exists = await knex('documents').where({ id }).first();
+        // Upsert Main DB
+        const db = trx || knex;
+        const exists = await db('documents').where({ id }).first();
         if (exists) {
-            await knex('documents').where({ id }).update(row);
+            await db('documents').where({ id }).update(row);
         } else {
             row.created_at = new Date();
-            await knex('documents').insert(row);
+            await db('documents').insert(row);
         }
+
+        // --- WRITE-THROUGH CACHING (Phase 27) ---
+        // If it's a specialized document being V2 validated, we ALSO save to satellite
+        // This keeps the specialized viewer (Nicolazzi) in sync without a manual "consoldiate" event.
+        if (doc.supplier && /NICOLAZZI/i.test(suppliersName)) {
+            const satType = /PROFORMA/i.test(doc.docType || doc.docTypeLabel) ? 'nicolazzi_proformas' : 'nicolazzi_invoices';
+            try {
+                await SatelliteStorage.saveData(satType, id, { ...doc, id, project });
+                // console.log(`[Adapter] Write-Through: Saved to ${satType}`);
+            } catch (e) {
+                console.warn(`[Adapter] Write-Through failed for ${satType}:`, e.message);
+            }
+        }
+
         return doc;
     }
 
-    async updateDoc(project, id, patch) {
-        const existing = await this.getDoc(project, id);
+    async updateDoc(project, id, patch, trx = null) {
+        const existing = await this.getDoc(project, id, trx);
         if (!existing) throw new Error('Document not found');
-        const updated = { ...existing, ...patch };
-        return await this.saveDocument(project, updated);
+
+        // recursion prevention: ignore old rawJson before merge
+        const { rawJson: oldJson, ...cleanExisting } = existing;
+        const updated = { ...cleanExisting, ...patch };
+
+        return await this.saveDocument(project, updated, trx);
     }
 
-    async deleteDoc(project, id) {
-        await knex('documents').where({ project, id }).delete();
+    async deleteDoc(project, id, trx = null) {
+        const db = trx || knex;
+        await db('documents').where({ project, id }).delete();
     }
 
     // --- Normalize Rules ---
@@ -132,8 +196,9 @@ class DbDocsAdapter {
     }
 
     // --- Audit ---
-    async appendAudit(project, entry) {
-        await knex('audit_logs').insert({
+    async appendAudit(project, entry, trx = null) {
+        const db = trx || knex;
+        await db('audit_logs').insert({
             project,
             ts: entry.ts || new Date().toISOString(),
             action: entry.action,
@@ -179,9 +244,55 @@ class DbDocsAdapter {
         // Current doc_links schema is (id, doc_id, group_id).
         // If we delete docs, we delete their links.
 
+        await knex('document_backups').where({ project }).delete();
         await knex('transactions').where({ project }).delete();
         await knex('documents').where({ project }).delete();
         // Optional: Sub-projects/Categories are considered "Config" usually, so we keep them unless "Delete Project".
+    }
+
+    // --- Backups ---
+    async createBackup(project, docId, data, reason = 'Automatic Backup', trx = null) {
+        const id = uuidv4();
+        const expires_at = new Date();
+        expires_at.setDate(expires_at.getDate() + 15); // 15 days retention
+
+        const db = trx || knex;
+        await db('document_backups').insert({
+            id,
+            project,
+            original_doc_id: docId,
+            data_snapshot: JSON.stringify(data),
+            reason,
+            created_at: new Date(),
+            expires_at
+        });
+        return id;
+    }
+
+    async getBackups(project, docId, trx = null) {
+        const db = trx || knex;
+        return await db('document_backups')
+            .where({ project, original_doc_id: docId })
+            .orderBy('created_at', 'desc');
+    }
+
+    async getBackup(project, backupId, trx = null) {
+        const db = trx || knex;
+        return await db('document_backups').where({ project, id: backupId }).first();
+    }
+
+    async deleteBackup(project, backupId, trx = null) {
+        const db = trx || knex;
+        await db('document_backups').where({ project, id: backupId }).delete();
+    }
+
+    async cleanupExpiredBackups() {
+        const now = Date.now();
+        const deleted = await knex('document_backups').where('expires_at', '<', now).delete();
+        if (deleted > 0) {
+            console.log(`[Backups] Cleaned up ${deleted} expired backups.`);
+        }
+        return deleted;
     }
 }
 

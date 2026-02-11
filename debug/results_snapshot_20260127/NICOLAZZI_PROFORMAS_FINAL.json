@@ -1,0 +1,1167 @@
+[
+  {
+    "file": "015.pdf",
+    "docType": "proforma",
+    "docNumber": "26/00015",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2026-01-09",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "NICOLAZZI s.p.a.",
+        "vat": "IT00115930034",
+        "address": "28010 ALZO (NO) - Via P. Durio, 119"
+      },
+      "customer": {
+        "name": "WATERWORKS BY SANIBANHO LDA",
+        "vat": "503031542",
+        "address": "AV. DR. FRANCISCO SA' CARNEIRO 83"
+      }
+    },
+    "totals": {
+      "total": 355,
+      "subtotal": 330,
+      "tax": null,
+      "goods": null,
+      "transport": 25,
+      "packaging": null,
+      "discount": null,
+      "discountMain": null,
+      "discountExtra": null
+    },
+    "lines": [
+      {
+        "code": "C2177DXSX",
+        "description": "BUILT IN PARTS ONLY FOR WALL MOUNTED BASIN MIXER DX+SX VALVES",
+        "quantity": 1,
+        "unitPrice": 137,
+        "discount": "45",
+        "total": 75.35,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2207EXTOS29",
+        "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05",
+        "quantity": 1,
+        "unitPrice": 207,
+        "discount": "45",
+        "total": 113.85,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5553OS",
+        "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\" W/OUT OVERFLOW",
+        "quantity": 1,
+        "unitPrice": 78,
+        "discount": "45",
+        "total": 42.9,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5559OS",
+        "description": "MINIMAL SIPHON 1\"1/4 W/OUT PILLAR OG",
+        "quantity": 1,
+        "unitPrice": 178,
+        "discount": "45",
+        "total": 97.9,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": null,
+      "customerRef": "AF11020"
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null
+  },
+  {
+    "file": "085.pdf",
+    "docType": "proforma",
+    "docNumber": "26/00085",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2026-01-16",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "NICOLAZZI s.p.a.",
+        "vat": "IT00115930034",
+        "address": "28010 ALZO (NO) - Via P. Durio, 119"
+      },
+      "customer": {
+        "name": "SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA",
+        "vat": "502952113",
+        "address": "RUA DA INDUSTRIA 2891"
+      }
+    },
+    "totals": {
+      "total": 0,
+      "subtotal": null,
+      "tax": null,
+      "goods": null,
+      "transport": 0,
+      "packaging": null,
+      "discount": null,
+      "discountMain": null,
+      "discountExtra": null
+    },
+    "lines": [
+      {
+        "code": "R7075",
+        "description": "CERAMIC DISC RIGHT HAND SCREW",
+        "quantity": 5,
+        "unitPrice": 0,
+        "discount": null,
+        "total": 0,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7075SX",
+        "description": "CERAMIC DISC LEFT HAND SCREW",
+        "quantity": 1,
+        "unitPrice": 0,
+        "discount": null,
+        "total": 0,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": null,
+      "customerRef": "621/B"
+    },
+    "confidence": 0.92,
+    "needsReview": true,
+    "reviewReason": "Missing Totals"
+  },
+  {
+    "file": "103.pdf",
+    "docType": "proforma",
+    "docNumber": "26/00103",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2026-01-19",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "NICOLAZZI s.p.a.",
+        "vat": "IT00115930034",
+        "address": "28010 ALZO (NO) - Via P. Durio, 119"
+      },
+      "customer": {
+        "name": "DVTKB, LDA",
+        "vat": "515834807",
+        "address": "RUA DA BAIXA 326-3D-DRT"
+      }
+    },
+    "totals": {
+      "total": 3235,
+      "subtotal": 3235,
+      "tax": null,
+      "goods": null,
+      "transport": 0,
+      "packaging": null,
+      "discount": null,
+      "discountMain": null,
+      "discountExtra": null
+    },
+    "lines": [
+      {
+        "code": "3450WSRA75C",
+        "description": "MON. LAVELLO C/DOCCETTA  CANNA A COLONNA *CINQUANTA*",
+        "quantity": 1,
+        "unitPrice": 834,
+        "discount": "50",
+        "total": 417,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2177DXDX",
+        "description": "PARTE INCASSO DX+DX",
+        "quantity": 5,
+        "unitPrice": 148,
+        "discount": "50",
+        "total": 370,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2233DX",
+        "description": "PARTI INCASSO PER DOCCIA INCASSO M. CROCE DX",
+        "quantity": 4,
+        "unitPrice": 316,
+        "discount": "50",
+        "total": 632,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2233EXTDBM27",
+        "description": "PARTI ESTERNE PER GRUPPO DOCCIA INCASSO *M. CROCE*",
+        "quantity": 1,
+        "unitPrice": 1411,
+        "discount": "50",
+        "total": 705.5,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "1409OG69",
+        "description": "BATT.LAVABO EL CAPITAN",
+        "quantity": 1,
+        "unitPrice": 432,
+        "discount": "50",
+        "total": 216,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2233",
+        "description": "PARTI INCASSO PER DOCCIA INCASSO M. CROCE DX+SX",
+        "quantity": 1,
+        "unitPrice": 316,
+        "discount": "50",
+        "total": 158,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "1433EXTOG69",
+        "description": "PARTI ESTERNE GRUPPO DOCCIA INCASSO C/DEV. C/DUPLEX C/SOFFIONE D. 200 mm EL CAPITAN",
+        "quantity": 1,
+        "unitPrice": 894,
+        "discount": "50",
+        "total": 447,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "3420CR75P",
+        "description": "MONOCOMANDO LAVELLO PULL DOWN ENVIAR LOS EMPOTRADOS POR ADELANTADO",
+        "quantity": 1,
+        "unitPrice": 579,
+        "discount": "50",
+        "total": 289.5,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": null,
+      "customerRef": "ORM2026/8"
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null
+  },
+  {
+    "file": "144.pdf",
+    "docType": "proforma",
+    "docNumber": "25/00144",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-01-23",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "NICOLAZZI s.p.a.",
+        "vat": "IT00115930034",
+        "address": "28010 ALZO (NO) - Via P. Durio, 119"
+      },
+      "customer": {
+        "name": "LOJA DO BANHO - EQUIPAMIENTOS SA",
+        "vat": "502494638",
+        "address": "RUA EUGENIO DE CASTRO RODRIGUES 2"
+      }
+    },
+    "totals": {
+      "total": 14506.99,
+      "subtotal": 14506.99,
+      "tax": null,
+      "goods": null,
+      "transport": 0,
+      "packaging": null,
+      "discount": null,
+      "discountMain": null,
+      "discountExtra": null
+    },
+    "lines": [
+      {
+        "code": "C2177DXSX",
+        "description": "BUILT IN PARTS ONLY FOR WALL MOUNTED BASIN MIXER DX+SX VALVES",
+        "quantity": 19,
+        "unitPrice": 137,
+        "discount": null,
+        "total": 1236.43,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C5523T/1",
+        "description": "BUILT IN PART FOR WALL MOUNTED MIXER",
+        "quantity": 3,
+        "unitPrice": 87,
+        "discount": null,
+        "total": 123.98,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C4915",
+        "description": "BUILT IN PART THERMOSTATIC MIXER 3/4\" WITH TWO WAYS DIVERTER AND STOP VILA EMMA",
+        "quantity": 10,
+        "unitPrice": 544,
+        "discount": null,
+        "total": 2584,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2177DXSX",
+        "description": "BUILT IN PARTS ONLY FOR WALL MOUNTED BASIN MIXER DX+SX VALVES",
+        "quantity": 26,
+        "unitPrice": 137,
+        "discount": null,
+        "total": 1691.95,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C5523T/1",
+        "description": "BUILT IN PART FOR WALL MOUNTED MIXER",
+        "quantity": 12,
+        "unitPrice": 87,
+        "discount": null,
+        "total": 495.9,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C4915",
+        "description": "BUILT IN PART THERMOSTATIC MIXER 3/4\" WITH TWO WAYS DIVERTER AND STOP VILA SARAH",
+        "quantity": 15,
+        "unitPrice": 544,
+        "discount": null,
+        "total": 3876,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C4915",
+        "description": "BUILT IN PART THERMOSTATIC MIXER 3/4\" WITH TWO WAYS DIVERTER AND STOP",
+        "quantity": 9,
+        "unitPrice": 544,
+        "discount": null,
+        "total": 2325.6,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C4915",
+        "description": "BUILT IN PART THERMOSTATIC MIXER 3/4\" WITH TWO WAYS DIVERTER AND STOP",
+        "quantity": 3,
+        "unitPrice": 544,
+        "discount": null,
+        "total": 775.2,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C4911",
+        "description": "ROUGH VALVE BODY ONLY  FOR VOLUME CONTROL",
+        "quantity": 3,
+        "unitPrice": 72,
+        "discount": null,
+        "total": 102.6,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C5523T/1",
+        "description": "BUILT IN PART FOR WALL MOUNTED MIXER",
+        "quantity": 3,
+        "unitPrice": 87,
+        "discount": null,
+        "total": 123.98,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2177DXSX",
+        "description": "BUILT IN PARTS ONLY FOR WALL MOUNTED BASIN MIXER DX+SX VALVES",
+        "quantity": 18,
+        "unitPrice": 137,
+        "discount": null,
+        "total": 1171.35,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": null,
+      "customerRef": "BIC: BCITITMMXXX  IBAN: IT14V0306945580100000002154"
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null
+  },
+  {
+    "file": "145.pdf",
+    "docType": "proforma",
+    "docNumber": "25/00145",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-01-23",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "NICOLAZZI s.p.a.",
+        "vat": "IT00115930034",
+        "address": "28010 ALZO (NO) - Via P. Durio, 119"
+      },
+      "customer": {
+        "name": "LOJA DO BANHO - EQUIPAMIENTOS SA",
+        "vat": "502494638",
+        "address": "RUA EUGENIO DE CASTRO RODRIGUES 2"
+      }
+    },
+    "totals": {
+      "total": 43328.12,
+      "subtotal": 43328.12,
+      "tax": null,
+      "goods": null,
+      "transport": 0,
+      "packaging": null,
+      "discount": null,
+      "discountMain": null,
+      "discountExtra": null
+    },
+    "lines": [
+      {
+        "code": "5568BDBM",
+        "description": "COLUMN BOTTLE  TRAP W/OUT PILLAR",
+        "quantity": 15,
+        "unitPrice": 135,
+        "discount": null,
+        "total": 961.88,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5558DBM",
+        "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\" W/OVERFLOW",
+        "quantity": 15,
+        "unitPrice": 101,
+        "discount": null,
+        "total": 719.63,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2207EXTDBM29",
+        "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER MC KINLEY 05",
+        "quantity": 19,
+        "unitPrice": 478,
+        "discount": null,
+        "total": 4313.95,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 3703DBM",
+        "description": "",
+        "quantity": 4,
+        "unitPrice": 509,
+        "discount": null,
+        "total": 967.1,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5523TDBM",
+        "description": "WALL MOUNTED MIXER WITH SUPPORT AND ROUND HAND SHOWER",
+        "quantity": 3,
+        "unitPrice": 555,
+        "discount": null,
+        "total": 790.88,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7096.1DBM",
+        "description": "FLESSIBILE cm 100 1/2ESx1/2CON D/GRAFF.",
+        "quantity": 3,
+        "unitPrice": 101,
+        "discount": null,
+        "total": 143.93,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "4909DBM29",
+        "description": "TRIM SET THERMOSTATIC MIXER 3/4\" MC KINLEY 05",
+        "quantity": 10,
+        "unitPrice": 734,
+        "discount": null,
+        "total": 3486.5,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5704DBM20",
+        "description": "MODERN HEAD SHOWER WITH ANTISCALE 200mm",
+        "quantity": 10,
+        "unitPrice": 706,
+        "discount": null,
+        "total": 3353.5,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7124MDBM",
+        "description": "HOOK FOR DUPLEX, BUILT IN TYPE, AG",
+        "quantity": 10,
+        "unitPrice": 217,
+        "discount": null,
+        "total": 1030.75,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7097DBM",
+        "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+        "quantity": 10,
+        "unitPrice": 152,
+        "discount": null,
+        "total": 722,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7135DBM",
+        "description": "PUMORI HAND SHOWER VILA EMMA",
+        "quantity": 10,
+        "unitPrice": 100,
+        "discount": null,
+        "total": 475,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5568BOL",
+        "description": "COLUMN BOTTLE  TRAP W/OUT PILLAR",
+        "quantity": 21,
+        "unitPrice": 58,
+        "discount": null,
+        "total": 578.55,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5558OL",
+        "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\"",
+        "quantity": 21,
+        "unitPrice": 78,
+        "discount": null,
+        "total": 778.05,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2207EXTOL29",
+        "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER M.CROCE",
+        "quantity": 26,
+        "unitPrice": 207,
+        "discount": null,
+        "total": 2556.45,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "3703OL",
+        "description": "SINGLE LEVER BIDET MIXER OLYMPUS",
+        "quantity": 5,
+        "unitPrice": 358,
+        "discount": null,
+        "total": 850.25,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5523TOL",
+        "description": "WALL MOUNTED MIXER WITH SUPPORT AND ROUND HAND SHOWER",
+        "quantity": 12,
+        "unitPrice": 397,
+        "discount": null,
+        "total": 2262.9,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7096.1OL",
+        "description": "FLESSIBILE cm 100 1/2ESx1/2CON D/GRAFF.",
+        "quantity": 12,
+        "unitPrice": 49,
+        "discount": null,
+        "total": 279.3,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "4909OL29",
+        "description": "TRIM SET THERMOSTATIC MIXER 3/4\" MC KINLEY 05",
+        "quantity": 15,
+        "unitPrice": 306,
+        "discount": null,
+        "total": 2180.25,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5702OL20",
+        "description": "SHOWER HEAD D.200 W/SHOWER ARM",
+        "quantity": 15,
+        "unitPrice": 544,
+        "discount": null,
+        "total": 3876,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7124MOL",
+        "description": "HOOK FOR DUPLEX, BUILT IN TYPE, AG",
+        "quantity": 15,
+        "unitPrice": 160,
+        "discount": null,
+        "total": 1140,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7097OL",
+        "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+        "quantity": 15,
+        "unitPrice": 40,
+        "discount": null,
+        "total": 285,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7135OL",
+        "description": "PUMORI HAND SHOWER VILA SARAH",
+        "quantity": 15,
+        "unitPrice": 68,
+        "discount": null,
+        "total": 484.5,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5568BOS",
+        "description": "COLUMN BOTTLE  TRAP W/OUT PILLAR",
+        "quantity": 20,
+        "unitPrice": 58,
+        "discount": null,
+        "total": 551,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5558OS",
+        "description": "MINIMAL WASTE 1 1/4\" \"CLIC/CLAC\"",
+        "quantity": 20,
+        "unitPrice": 78,
+        "discount": null,
+        "total": 741,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "4909OS05IN",
+        "description": "TRIM SET THERMOSTATIC MIXER 3/4\" * AGORA'*",
+        "quantity": 9,
+        "unitPrice": 342,
+        "discount": null,
+        "total": 1462.05,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7124OS",
+        "description": "SUPPORTO DUPLEX INCASSO",
+        "quantity": 9,
+        "unitPrice": 55,
+        "discount": null,
+        "total": 235.13,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7097OS",
+        "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+        "quantity": 9,
+        "unitPrice": 40,
+        "discount": null,
+        "total": 171,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7104OS",
+        "description": "DAMES ANGLAISES HAND SHOWER AG",
+        "quantity": 9,
+        "unitPrice": 94,
+        "discount": null,
+        "total": 401.85,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5702OS20",
+        "description": "SHOWER HEAD D.200 W/SHOWER ARM",
+        "quantity": 9,
+        "unitPrice": 544,
+        "discount": null,
+        "total": 2325.6,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "4909OS05IN",
+        "description": "TRIM SET THERMOSTATIC MIXER 3/4\" * AGORA'*",
+        "quantity": 3,
+        "unitPrice": 342,
+        "discount": null,
+        "total": 487.35,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "4912OS05IN",
+        "description": "TRIM ONLY BUILT IN STOP COCK 3/4\" *AGORA'*",
+        "quantity": 3,
+        "unitPrice": 118,
+        "discount": null,
+        "total": 168.15,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7124OS",
+        "description": "SUPPORTO DUPLEX INCASSO",
+        "quantity": 3,
+        "unitPrice": 55,
+        "discount": null,
+        "total": 78.38,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7097OS",
+        "description": "FLESSIBILE cm 150 1/2X1/2 D/GRAFF.",
+        "quantity": 3,
+        "unitPrice": 40,
+        "discount": null,
+        "total": 57,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "7104OS",
+        "description": "DAMES ANGLAISES HAND SHOWER AG",
+        "quantity": 3,
+        "unitPrice": 94,
+        "discount": null,
+        "total": 133.95,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R2503OS",
+        "description": "BOCCA INCASSO A PARETE N.B.COMPL.",
+        "quantity": 3,
+        "unitPrice": 76,
+        "discount": null,
+        "total": 108.3,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5702OS20",
+        "description": "SHOWER HEAD D.200 W/SHOWER ARM",
+        "quantity": 3,
+        "unitPrice": 544,
+        "discount": null,
+        "total": 775.2,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 2337OS18IN",
+        "description": "",
+        "quantity": 3,
+        "unitPrice": 377,
+        "discount": null,
+        "total": 537.23,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "5523TOS",
+        "description": "WALL MOUNTED MIXER WITH SUPPORT AND ROUND HAND SHOWER",
+        "quantity": 3,
+        "unitPrice": 397,
+        "discount": null,
+        "total": 565.73,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "R7096.1OS",
+        "description": "FLESSIBILE cm 100 1/2ESx1/2CON D/GRAFF.",
+        "quantity": 3,
+        "unitPrice": 49,
+        "discount": null,
+        "total": 69.83,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2307EXTOS05IN",
+        "description": "EXTERNAL PARTS ONLY FOR WALL MOUNTED BASIN MIXER *AGORA*",
+        "quantity": 18,
+        "unitPrice": 260,
+        "discount": null,
+        "total": 2223,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": null,
+      "customerRef": "BIC: BCITITMMXXX  IBAN: IT14V0306945580100000002154"
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null
+  },
+  {
+    "file": "2631.pdf",
+    "docType": "proforma",
+    "docNumber": "25/02631",
+    "currency": "EUR",
+    "dates": {
+      "issued": "2025-12-18",
+      "due": null
+    },
+    "entities": {
+      "supplier": {
+        "name": "NICOLAZZI s.p.a.",
+        "vat": "IT00115930034",
+        "address": "28010 ALZO (NO) - Via P. Durio, 119"
+      },
+      "customer": {
+        "name": "DVTKB, LDA",
+        "vat": "515834807",
+        "address": "RUA DA BAIXA 326-3D-DRT"
+      }
+    },
+    "totals": {
+      "total": 17068.22,
+      "subtotal": 17068.22,
+      "tax": null,
+      "goods": null,
+      "transport": 0,
+      "packaging": null,
+      "discount": null,
+      "discountMain": null,
+      "discountExtra": null
+    },
+    "lines": [
+      {
+        "code": "2307EXTCB45IN",
+        "description": "SOLO PARTI ESTERNE PER 2307  *AGORA*",
+        "quantity": 1,
+        "unitPrice": 663,
+        "discount": null,
+        "total": 314.93,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2177DXDX",
+        "description": "PARTE INCASSO DX+DX",
+        "quantity": 1,
+        "unitPrice": 137,
+        "discount": null,
+        "total": 65.08,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 2308TCCB45IN",
+        "description": "",
+        "quantity": 6,
+        "unitPrice": 751,
+        "discount": null,
+        "total": 2140.35,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2307EXTAG45IN",
+        "description": "SOLO PARTI ESTERNE PER 2307  *AGORA*",
+        "quantity": 7,
+        "unitPrice": 663,
+        "discount": null,
+        "total": 2204.48,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2177DXDX",
+        "description": "PARTE INCASSO DX+DX",
+        "quantity": 7,
+        "unitPrice": 137,
+        "discount": null,
+        "total": 455.53,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2308TCAG45IN",
+        "description": "BATTERIA LAVABO T.C.*AGORA*",
+        "quantity": 3,
+        "unitPrice": 751,
+        "discount": null,
+        "total": 1070.18,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2233DX",
+        "description": "PARTI INCASSO PER DOCCIA INCASSO M. CROCE DX",
+        "quantity": 4,
+        "unitPrice": 293,
+        "discount": null,
+        "total": 556.7,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "2333EXTAG45IN",
+        "description": "PARTI ESTERNE PER GRUPPO DOCCIA INCASSO *AGORA'*",
+        "quantity": 4,
+        "unitPrice": 1585,
+        "discount": null,
+        "total": 3011.5,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "C2233DX",
+        "description": "PARTI INCASSO PER DOCCIA INCASSO M. CROCE DX",
+        "quantity": 3,
+        "unitPrice": 293,
+        "discount": null,
+        "total": 417.53,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 2333EXTCB45IN",
+        "description": "",
+        "quantity": 3,
+        "unitPrice": 1585,
+        "discount": null,
+        "total": 2258.63,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 1483INCB",
+        "description": "",
+        "quantity": 1,
+        "unitPrice": 259,
+        "discount": null,
+        "total": 123.03,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 1484INCB",
+        "description": "",
+        "quantity": 5,
+        "unitPrice": 273,
+        "discount": null,
+        "total": 648.38,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "1484INAG",
+        "description": "PORTASALVIETTE CM. 45 AGORA'",
+        "quantity": 10,
+        "unitPrice": 273,
+        "discount": null,
+        "total": 1296.75,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 1492INCB",
+        "description": "",
+        "quantity": 4,
+        "unitPrice": 192,
+        "discount": null,
+        "total": 364.8,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "1492INAG",
+        "description": "PORTAROTOLO *AGORA*",
+        "quantity": 6,
+        "unitPrice": 192,
+        "discount": null,
+        "total": 547.2,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": ". - 1490INCB",
+        "description": "",
+        "quantity": 4,
+        "unitPrice": 267,
+        "discount": null,
+        "total": 507.3,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "1490INAG",
+        "description": "PORTASCOPINO A PARETE  AGORA'",
+        "quantity": 6,
+        "unitPrice": 267,
+        "discount": null,
+        "total": 760.95,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      },
+      {
+        "code": "1481INCB",
+        "description": "APPENDIABITI AGORA'",
+        "quantity": 4,
+        "unitPrice": 171,
+        "discount": null,
+        "total": 324.9,
+        "orderRef": null,
+        "taxCode": null,
+        "uom": null
+      }
+    ],
+    "docRefs": {
+      "deliveryNote": null,
+      "customerRef": "COSTA TERRA AH05 Y AH07"
+    },
+    "confidence": 0.99,
+    "needsReview": false,
+    "reviewReason": null
+  }
+]

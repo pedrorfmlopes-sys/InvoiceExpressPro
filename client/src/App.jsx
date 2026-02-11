@@ -22,6 +22,8 @@ import SystemHealthTab from './tabs/SystemHealthTab'
 import LabelsManagerTab from './tabs/LabelsManagerTab' // New Labels Manager
 import AssetsTab from './tabs/AssetsTab' // New Assets Module
 import ExtractionProfilesTab from './tabs/ExtractionProfilesTab' // New Extraction Module
+import ProposalsTab from './tabs/ProposalsTab' // Phase 34
+import ProposalEditor from './components/proposals/ProposalEditor'; // Phase 33
 
 import Login from './components/Login'
 import { AppShell } from './components/layout/AppShell' // New Layout
@@ -40,6 +42,7 @@ export default function App() {
   const [project, setProject] = useState(localStorage.getItem('project') || 'default')
   const [projects, setProjects] = useState([])
   const [activeTab, setActiveTab] = useState('dashboard'); // Default to Dashboard
+  const [editingProposalId, setEditingProposalId] = useState(null); // Phase 33 Isolation
 
   // -- State: Auth & Boot --
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'))
@@ -175,6 +178,7 @@ export default function App() {
     { id: 'projects', label: 'Projetos', Component: ProjectsTab }, // New Dossiers Module
     { id: 'process_v2', label: t('sidebar.process'), Component: ProcessV2Tab }, // Process V2
     { id: 'reports_v2', label: 'Reports V2', Component: ReportsTab },
+    { id: 'proposals', label: 'Estúdio Propostas', Component: ProposalsTab },
     { id: 'corev2', label: 'Core V2', Component: CoreV2Tab },
     { id: 'transactions', label: 'Transactions', Component: TransactionsTab },
     { id: 'config', label: t('sidebar.config'), Component: ConfigTab },
@@ -234,6 +238,18 @@ export default function App() {
 
   const CurrentComponent = visibleTabs.find(t => t.id === activeTab)?.Component || (() => <div className="p-10">Tab Not Found</div>);
 
+  // Phase 33: True Isolated Editor (Outside AppShell)
+  if (isAuthenticated && editingProposalId) {
+    return (
+      <ErrorBoundary>
+        <ProposalEditor
+          proposalId={editingProposalId}
+          onClose={() => setEditingProposalId(null)}
+        />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <AppShell
       tabs={visibleTabs}
@@ -246,12 +262,15 @@ export default function App() {
       setTheme={setTheme}
       accent={accent}
       setAccent={setAccent}
-      project={project}
       projects={projects}
       setProject={setProject}
+      setEditingProposalId={setEditingProposalId}
     >
       <ErrorBoundary>
-        <CurrentComponent project={project} />
+        <CurrentComponent
+          project={project}
+          setEditingProposalId={setEditingProposalId}
+        />
       </ErrorBoundary>
     </AppShell>
   );

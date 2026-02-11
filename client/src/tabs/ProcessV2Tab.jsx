@@ -18,9 +18,9 @@ const IconArrowLeftRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="
 // Helper: Normalize DB string to Translation Key or Label
 function normalizeDocType(val, availableTypes = []) {
     if (!val) return 'other';
-    // 1. Try exact match in known types (slug or label)
-    const exact = availableTypes.find(t => t.slug === val || t.label === val);
-    if (exact) return exact.slug;
+    // 1. Try exact match in known types (slug/id or label)
+    const exact = availableTypes.find(t => (t.slug || t.id) === val || (t.label || t.labelPt) === val);
+    if (exact) return exact.slug || exact.id;
 
     // 2. Legacy Fallback (Substring)
     const v = String(val).toLowerCase().trim();
@@ -200,7 +200,7 @@ export default function ProcessV2Tab({ project }) {
             if (String(batchId).startsWith('recovered-')) return;
             try {
                 // 1. Get Progress
-                const pRes = await api.get(`/api/progress/${batchId}`);
+                const pRes = await api.get(`/api/progress/${batchId}?project=${project}`);
                 const p = pRes.data;
                 if (isMounted) {
                     setProcessingStats({ done: p.done, total: p.total, errors: p.errors });
@@ -208,18 +208,22 @@ export default function ProcessV2Tab({ project }) {
                     setProcessingProgress(percent);
 
                     // 2. Get Rows
-                    const rowsRes = await api.get(`/api/batch/${batchId}`);
+                    const rowsRes = await api.get(`/api/batch/${batchId}?project=${project}`);
                     if (rowsRes.data.rows && isMounted) {
                         const fmtRows = rowsRes.data.rows.map(r => ({
                             ...r,
                             total: r.total ? parseFloat(String(r.total).replace(',', '.')).toFixed(2) : r.total
                         }));
                         setRows(fmtRows);
+                        // Auto-clear files to hide the "Processar (X)" button once results start appearing
+                        if (fmtRows.length > 0) setFiles([]);
                     }
 
                     // Check finish
                     if (percent >= 100) {
                         setIsUploading(false);
+                        // Ensure batchId is eventually cleared only when results are stable
+                        // but don't clear it immediately if we want to keep the "Review Batch" view
                     } else {
                         // Schedule next
                         timer = setTimeout(poll, 1000);
@@ -703,7 +707,7 @@ function Row({ index, row, updateRow, deleteRow, viewRowPdf, showAdditional, t, 
                     }}
                 >
                     {availableTypes.map(t => (
-                        <option key={t.slug} value={t.slug}>{t.label || t.slug}</option>
+                        <option key={t.slug || t.id} value={t.slug || t.id}>{t.label || t.labelPt || t.slug || t.id}</option>
                     ))}
                     <option value="other">Outro</option>
                     <option disabled>──────────</option>

@@ -38,6 +38,7 @@ class ExplorerService {
         if (category_id) query.where('category_id', category_id);
         if (scope) query.where('scope', scope);
         if (docType) query.where('docType', docType);
+        if (params.status) query.where('status', params.status);
         if (supplier) query.where('supplier', 'like', `%${supplier}%`);
         if (customer) query.where('customer', 'like', `%${customer}%`);
 

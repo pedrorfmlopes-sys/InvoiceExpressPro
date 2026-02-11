@@ -1,0 +1,84 @@
+{
+  "rows": [
+    {
+      "Fornecedor": "NICOLAZZI",
+      "Fatura": "001005",
+      "Data": "",
+      "Total": 0,
+      "Cliente": "Banca di appoggio",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "DVTKB",
+      "Fatura": ".",
+      "Data": "23/09/2025",
+      "Total": 0,
+      "Cliente": "",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "BUTO DESIGN",
+      "Fatura": "de",
+      "Data": "",
+      "Total": 0,
+      "Cliente": "FACTURA",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "CODIS MOBILIARIO",
+      "Fatura": "SU",
+      "Data": "",
+      "Total": 0,
+      "Cliente": "TOTAL",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "SCARABEO",
+      "Fatura": "longer",
+      "Data": "18/06/2025",
+      "Total": 0,
+      "Cliente": "",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "SCARABEO",
+      "Fatura": "tes",
+      "Data": "20/10/2023",
+      "Total": 0,
+      "Cliente": "",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "DVTKB",
+      "Fatura": "con",
+      "Data": "04/11/2025",
+      "Total": 0,
+      "Cliente": "",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "DVTKB",
+      "Fatura": "169",
+      "Data": "15.11.2022",
+      "Total": 0,
+      "Cliente": "no.:79190571",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "DVTKB",
+      "Fatura": "839",
+      "Data": "20.10.2022",
+      "Total": 0,
+      "Cliente": "no.:79190571",
+      "Vencimento": ""
+    },
+    {
+      "Fornecedor": "COLAVENE",
+      "Fatura": "BLOC",
+      "Data": "",
+      "Total": 0,
+      "Cliente": "",
+      "Vencimento": ""
+    }
+  ]
+}

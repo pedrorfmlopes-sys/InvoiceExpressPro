@@ -1,28 +1,21 @@
 const normalizeStr = (str) => (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-const CLASSIFICATION_RULES = [
-    { type: 'invoice', keywords: ['buto design', 'butobath.com'] }, // Specific Priority
-    { type: 'invoice', keywords: ['fatura', 'invoice', 'fattura', 'rechnung', 'recibo'] },
-    { type: 'proforma', keywords: ['proforma', 'pro-forma', 'pro forma', 'pró-forma'] }, // Higher priority usually
-    { type: 'credit_note', keywords: ['nota de credito', 'credit note', 'crédito', 'nc ', 'devolucao'] },
-    { type: 'order_confirmation', keywords: ['encomenda', 'order confirmation', 'confirmacao', 'pedido'] },
-    { type: 'offer', keywords: ['orcamento', 'offer', 'quote', 'cotacao', 'proposta'] }
-];
-
 function classifyDocType(text) {
     if (!text || text.length < 10) return null;
-    const normalized = normalizeStr(text);
+    const normalized = (text || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    // BUTO Priority
+    // 1. Proforma Priority (Nicolazzi & Others)
+    // Check for "proforma" first because many proformas contain the word "invoice" or "fatura"
+    if (normalized.includes('proforma') || normalized.includes('pro-forma') || normalized.includes('pro forma') || normalized.includes('pro-form')) {
+        return 'proforma';
+    }
+
+    // 2. BUTO Priority
     if (normalized.includes('buto design') || normalized.includes('butobath.com') || normalized.includes('b02883957')) {
         return 'invoice';
     }
 
-    // Specific overrides first (Proforma often contains "Fatura", so check Proforma first or check specific combinations)
-    if (normalized.includes('proforma') || normalized.includes('pro-forma') || normalized.includes('pró-forma')) {
-        return 'proforma';
-    }
-
+    // 3. Other specific types
     if (normalized.includes('nota de credito') || normalized.includes('credit note')) {
         return 'credit_note';
     }
@@ -35,8 +28,8 @@ function classifyDocType(text) {
         return 'offer';
     }
 
-    // Default to Invoice if "Fatura" is present and none of the above matched
-    if (normalized.includes('fatura') || normalized.includes('invoice') || normalized.includes('recibo')) {
+    // 4. Default to Invoice
+    if (normalized.includes('fatura') || normalized.includes('invoice') || normalized.includes('recibo') || normalized.includes('fattura')) {
         return 'invoice';
     }
 
