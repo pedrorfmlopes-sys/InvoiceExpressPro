@@ -22,12 +22,26 @@ const upload = multer({ storage });
 router.post('/upload', upload.array('files'), coreController.upload);
 router.post('/extract', coreController.extract);
 router.get('/docs', coreController.listDocs);
+router.get('/docs/:id/view', coreController.viewDoc); // NEW (Unified)
+router.get('/docs/:id/json', coreController.getDocJson); // NEW (Unified)
 router.patch('/docs/:id', coreController.updateDoc);
+router.delete('/docs/:id', coreController.deleteDoc); // NEW (Unified)
 router.post('/docs/finalize', coreController.finalizeDoc);
+router.post('/docs/finalize-bulk', coreController.finalizeBulk);
 router.get('/doctypes', coreController.listDocTypes);
 router.get('/docs/:id/link-suggestions', coreController.getLinkSuggestions);
-router.post('/docs/bulk', coreController.bulkPatch);
+router.post('/docs/:id/reprocess', coreController.reprocess);
 router.post('/links', coreController.createLink);
+
+// --- Backups (Phase 8/20) ---
+router.get('/docs/:id/backups', coreController.listBackups);
+router.get('/backups/:backupId/data', coreController.getBackupData); // Phase 20
+router.post('/backups/:backupId/restore', coreController.restoreBackup);
+router.delete('/backups/:backupId', coreController.deleteBackup);
+
+// Satellite Data Routes (for specialized viewers)
+router.get('/extraction-data/:type/:id', coreController.getExtractionData);
+router.post('/extraction-data/:type/:id', coreController.saveExtractionData);
 
 // DocTypes CRUD (Admin Only)
 const { requireRole } = require('../../middlewares/auth');

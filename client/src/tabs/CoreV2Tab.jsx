@@ -4,7 +4,9 @@ import { useDropzone } from 'react-dropzone';
 import { useExplorer } from '../hooks/useExplorer';
 import { GlassCard } from '../components/ui/GlassCard';
 import { LinkDocsModal } from '../components/modals/LinkDocsModal';
-import ProjectSelectorModal from '../components/dossiers/ProjectSelectorModal'; // New
+import ProjectSelectorModal from '../components/dossiers/ProjectSelectorModal';
+import { getViewer } from '../components/viewers/ViewerRegistry';
+import { BackupDataViewer } from '../components/viewers/BackupDataViewer'; // Phase 20
 import api from '../api/apiClient';
 import { qp } from '../shared/ui';
 import { createPortal } from 'react-dom';
@@ -22,14 +24,19 @@ export default function CoreV2Tab({ project }) {
     const {
         docs, loading, filters, setFilters, updateDoc,
         subProjects, categories, reload
-    } = useExplorer(project);
+    } = useExplorer(project, { status: 'processado' });
 
     // -- State --
     const [editingCell, setEditingCell] = useState(null); // { id, field }
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [viewPdfUrl, setViewPdfUrl] = useState(null);
+    const [viewDoc, setViewDoc] = useState(null); // New State for Enhanced Viewer
     const [viewLinksDoc, setViewLinksDoc] = useState(null); // Doc to show links for
     const [docLinksData, setDocLinksData] = useState([]); // Loaded links
+    const [viewBackupsDoc, setViewBackupsDoc] = useState(null); // Doc to show backups for
+    const [backupsData, setBackupsData] = useState([]); // Loaded backups
+    const [previewBackupData, setPreviewBackupData] = useState(null); // Snapshot to show in preview modal (Phase 20)
+    const [previewBackupId, setPreviewBackupId] = useState(null); // Phase 31: Track specific backup ID being previewed
 
     // Column Visibility & Order
     // Initial order needs to match COLUMNS_DEF keys roughly
@@ -191,7 +198,14 @@ export default function CoreV2Tab({ project }) {
     };
 
     const viewRowPdf = (row) => {
-        api.get(qp(`/api/doc/view?id=${row.id}`, project), { responseType: 'blob' })
+        // Switcher Logic: Check if we have a specialized viewer
+        if (getViewer(row)) {
+            setViewDoc(row);
+            return;
+        }
+
+        // Default Legacy Viewer
+        api.get(qp(`/api/corev2/docs/${row.id}/view`, project), { responseType: 'blob' })
             .then(res => {
                 const url = URL.createObjectURL(res.data);
                 setViewPdfUrl(url);
@@ -206,7 +220,7 @@ export default function CoreV2Tab({ project }) {
     const deleteRow = async (id) => {
         if (!confirm("Delete this document?")) return;
         try {
-            await api.delete(qp(`/api/doc/${id}`, project));
+            await api.delete(qp(`/api/corev2/docs/${id}`, project));
             reload();
         } catch (e) { alert(e.message); }
     };
@@ -214,11 +228,54 @@ export default function CoreV2Tab({ project }) {
     // Load links for popover
     useEffect(() => {
         if (viewLinksDoc) {
-            api.get(`/api/explorer/links/${viewLinksDoc.id}`)
+            api.get(qp(`/api/explorer/links/${viewLinksDoc.id}`, project))
                 .then(res => setDocLinksData(res.data))
                 .catch(e => console.error(e));
         }
-    }, [viewLinksDoc]);
+    }, [viewLinksDoc, project]);
+
+    // Load backups for popover
+    useEffect(() => {
+        if (viewBackupsDoc) {
+            api.get(qp(`/api/corev2/docs/${viewBackupsDoc.id}/backups`, project))
+                .then(res => setBackupsData(res.data.backups))
+                .catch(e => console.error(e));
+        }
+    }, [viewBackupsDoc, project]);
+
+    const handleRestore = async (backupId) => {
+        if (!confirm("Restaurar esta versão? A versão atual será movida para backup e esta passará a ser a única ativa.")) return;
+        try {
+            await api.post(qp(`/api/corev2/backups/${backupId}/restore`, project));
+            setViewBackupsDoc(null);
+            setPreviewBackupData(null); // Close preview if open
+            alert("Restauro concluído com sucesso.");
+            reload();
+        } catch (e) {
+            alert("Erro ao restaurar: " + e.message);
+        }
+    };
+
+    const handleViewBackup = async (backupId) => {
+        try {
+            const res = await api.get(qp(`/api/corev2/backups/${backupId}/data`, project));
+            setPreviewBackupData(res.data.snapshot);
+            setPreviewBackupId(backupId); // Phase 31
+            setViewBackupsDoc(null);      // Phase 31: Close the history list modal
+        } catch (e) {
+            alert("Erro ao carregar dados do backup: " + e.message);
+        }
+    };
+
+    const handleDeleteBackup = async (backupId) => {
+        if (!confirm("Apagar este backup definitivamente?")) return;
+        try {
+            await api.delete(qp(`/api/corev2/backups/${backupId}`, project));
+            setBackupsData(prev => prev.filter(b => b.id !== backupId));
+        } catch (e) {
+            alert("Erro ao apagar backup: " + e.message);
+        }
+    };
 
 
     // Columns Def 
@@ -226,7 +283,7 @@ export default function CoreV2Tab({ project }) {
         { key: 'archived', label: 'Status', width: 80, render: (r) => r.archived ? <span className="text-[var(--text-muted)] text-xs font-bold bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">Archived</span> : <span className="text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30 px-2 py-1 rounded text-xs font-bold">Active</span> },
         {
             key: 'docType', label: 'Type', width: 120,
-            editable: true, type: 'select', options: ['fatura', 'recibo', 'nota_credito', 'guia_remessa', 'other']
+            editable: true, type: 'select', options: ['fatura', 'recibo', 'nota_credito', 'guia_remessa', 'proforma', 'other']
         },
         { key: 'docNumber', label: 'Doc #', width: 120, editable: true },
         { key: 'date', label: 'Date', width: 100, editable: true, type: 'date' },
@@ -420,6 +477,7 @@ export default function CoreV2Tab({ project }) {
                         <option value="recibo">Recibo</option>
                         <option value="nota_credito">Nota Credito</option>
                         <option value="guia_remessa">Guia Remessa</option>
+                        <option value="proforma">Proforma</option>
                     </select>
 
                     <select
@@ -503,6 +561,7 @@ export default function CoreV2Tab({ project }) {
                                     <div className="flex gap-2 justify-center">
                                         <button className="btn-icon text-xs text-blue-500 hover:scale-110 transition-transform" onClick={() => viewRowPdf(row)} title="View"><IconEye /></button>
                                         <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => handleLinkClick([row])} title="Link"><IconLink /></button>
+                                        <button className="btn-icon text-xs text-amber-500 hover:scale-110 transition-transform" onClick={() => setViewBackupsDoc(row)} title="History/Backups">🕒</button>
                                         <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => updateDoc(row.id, { archived: !row.archived })} title={row.archived ? "Restore" : "Archive"}>
                                             {row.archived ? <IconUnarchive /> : <IconArchive />}
                                         </button>
@@ -550,6 +609,15 @@ export default function CoreV2Tab({ project }) {
                 </div>
             )}
 
+            {/* Isolated Backup Preview (Phase 20) */}
+            {previewBackupData && (
+                <BackupDataViewer
+                    snapshot={previewBackupData}
+                    onClose={() => { setPreviewBackupData(null); setPreviewBackupId(null); }}
+                    onRestore={() => previewBackupId && handleRestore(previewBackupId)} // Phase 31
+                />
+            )}
+
             {/* PDF Viewer */}
             {viewPdfUrl && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
@@ -563,11 +631,70 @@ export default function CoreV2Tab({ project }) {
                 </div>, document.body
             )}
 
+            {/* Enhanced Dynamic Viewer */}
+            {viewDoc && (() => {
+                const ViewerComponent = getViewer(viewDoc);
+                if (ViewerComponent) {
+                    return (
+                        <ViewerComponent
+                            doc={viewDoc}
+                            onClose={() => setViewDoc(null)}
+                            updateRow={(id, field, val) => updateDoc(id, { [field]: val })}
+                            mode="archive"
+                        />
+                    );
+                }
+                // Fallback if no specific viewer found but setViewDoc was triggered (shouldn't happen with current logic)
+                return null;
+            })()}
+
             {projectSelectorOpen && (
                 <ProjectSelectorModal
                     onClose={() => setProjectSelectorOpen(false)}
                     onSelect={handleAssignProject}
                 />
+            )}
+
+            {/* Backup History Modal (Phase 8) */}
+            {viewBackupsDoc && createPortal(
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl max-w-2xl w-full mx-4 overflow-hidden flex flex-col gap-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-bold flex items-center gap-2">🕒 Histórico de Backups</h3>
+                            <button className="btn-icon" onClick={() => setViewBackupsDoc(null)}>✕</button>
+                        </div>
+                        <p className="text-sm opacity-60">Histórico de versões para o documento <b>{viewBackupsDoc.docNumber}</b></p>
+
+                        <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                            {backupsData.length === 0 ? (
+                                <div className="p-8 text-center opacity-40 italic">Nenhum backup encontrado para este documento.</div>
+                            ) : (
+                                backupsData.map(b => (
+                                    <div key={b.id} className="bg-[var(--bg-base)] border border-[var(--border)] p-4 rounded-xl flex justify-between items-center group/backup">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="text-sm font-bold">Versão de {new Date(b.created_at).toLocaleString()}</div>
+                                            <div className="text-xs opacity-60">Motivo: {b.reason}</div>
+                                            <div className="text-xs opacity-40 italic text-[var(--err)]">Expira em: {new Date(b.expires_at).toLocaleDateString()}</div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button className="btn-icon text-xs text-blue-500 hover:scale-110 transition-transform" onClick={() => handleViewBackup(b.id)} title="Pré-visualizar">👁️</button>
+                                            <button className="btn text-xs bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20" onClick={() => handleRestore(b.id)}>
+                                                Restaurar
+                                            </button>
+                                            <button className="btn-icon text-sm text-red-500 opacity-0 group-hover/backup:opacity-100 transition-opacity" onClick={() => handleDeleteBackup(b.id)}>
+                                                <IconTrash />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="mt-4 flex justify-end">
+                            <button className="btn" onClick={() => setViewBackupsDoc(null)}>Fechar</button>
+                        </div>
+                    </div>
+                </div>, document.body
             )}
         </div>
     );

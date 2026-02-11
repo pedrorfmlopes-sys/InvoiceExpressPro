@@ -4,11 +4,14 @@ const { v4: uuidv4 } = require('uuid');
 const pdf = require('pdf-parse');
 const OpenAI = require('openai');
 const xlsx = require('xlsx');
+const sqlite3 = require('sqlite3').verbose();
 
 const DocService = require('../../services/DocService');
 const ProjectService = require('../../services/ProjectService');
 const ConfigService = require('../../services/ConfigService');
 const Adapter = require('../../storage/getDocsAdapter');
+const SatelliteStorage = require('../../storage/SatelliteStorage');
+const UniversalDocService = require('./UniversalDocService');
 
 // --- Helper: Regex Fallback ---
 function matchDocType(raw, definitions) {
@@ -97,6 +100,10 @@ function extractRegex(text) {
 }
 
 // --- Controller Methods ---
+
+const processingController = require('../processing/controller');
+
+exports.reprocess = processingController.reprocess;
 
 exports.upload = async (req, res) => {
     try {
@@ -312,30 +319,195 @@ exports.updateDoc = async (req, res) => {
             patch.needsReviewDocType = !!patch.needsReviewDocType;
         }
 
-        const updated = await Adapter.updateDoc(project, id, patch);
+        const updated = await UniversalDocService.updateDoc(project, id, patch);
         res.json({ ok: true, row: updated });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 };
 
+exports.deleteDoc = async (req, res) => {
+    try {
+        const project = req.project || 'default';
+        const { id } = req.params;
+        const ok = await UniversalDocService.deleteDoc(project, id);
+        res.json({ ok });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.viewDoc = async (req, res) => {
+    try {
+        const project = req.project || 'default';
+        const { id } = req.params;
+        const doc = await UniversalDocService.getDoc(project, id);
+        if (!doc) return res.status(404).send('Not found');
+        if (!doc.filePath || !fs.existsSync(doc.filePath)) return res.status(404).send('File missing');
+
+        res.contentType('application/pdf');
+        res.sendFile(doc.filePath);
+    } catch (e) { res.status(500).send(e.message); }
+};
+
+exports.getDocJson = async (req, res) => {
+    try {
+        const project = req.project || 'default';
+        const { id } = req.params;
+        const doc = await UniversalDocService.getDoc(project, id);
+        if (!doc) return res.status(404).json({ error: 'Not found' });
+        res.json(doc);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
 exports.finalizeDoc = async (req, res) => {
     try {
         const project = req.project || 'default';
-        // Allow fallback to canonical fields
-        const { id, docType, docNumber, docTypeLabel, docTypeId } = req.body;
+        const { id, docType, docNumber, docTypeLabel, docTypeId, force, backupReason } = req.body;
 
         const effectiveType = docType || docTypeLabel || docTypeId;
-
-        if (!effectiveType) throw new Error('Type required');
+        if (!effectiveType) throw new Error('Type (fatura/proforma/etc) required');
         if (!docNumber) throw new Error('Number required');
 
-        // Reuse DocService logic which handles file moving/renaming
-        // Ensure we pass the effective docType
-        const result = await DocService.finalizeDoc(project, { id, docType: effectiveType, docNumber });
+        const result = await UniversalDocService.finalizeDoc(project, {
+            id,
+            docType: effectiveType,
+            docNumber,
+            force,
+            backupReason
+        });
+
         res.json({ ok: true, row: result });
     } catch (e) {
-        res.status(e.message === 'not found' ? 404 : 409).json({ error: e.message });
+        console.error('[V2 Finalize] Error:', e);
+        if (e.conflict) {
+            return res.json({
+                ok: false,
+                conflict: true,
+                message: e.message,
+                existing: e.existing
+            });
+        }
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.finalizeBulk = async (req, res) => {
+    try {
+        const project = req.project || 'default';
+        const { items, force, backupReason } = req.body;
+        if (!Array.isArray(items)) throw new Error('items[] required');
+
+        const results = await UniversalDocService.finalizeBulk(project, items, { force, backupReason });
+
+        // Filter out items that had conflicts
+        const conflicts = results.filter(r => r.conflict);
+        const hasConflict = conflicts.length > 0;
+
+        res.json({
+            ok: !hasConflict,
+            conflict: hasConflict,
+            results,
+            conflicts: hasConflict ? conflicts : undefined
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// --- Backups API ---
+
+exports.getBackupData = async (req, res) => {
+    try {
+        const project = req.project || 'default';
+        const { backupId } = req.params;
+        const backup = await Adapter.getBackup(project, backupId);
+        if (!backup) return res.status(404).json({ error: 'Backup not found' });
+
+        // Return cleaned snapshot
+        const snapshot = JSON.parse(backup.data_snapshot);
+        res.json({ snapshot });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.listBackups = async (req, res) => {
+    try {
+        const project = req.project || 'default';
+        const { id } = req.params; // docId
+        const backups = await Adapter.getBackups(project, id);
+        res.json({ ok: true, backups });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.restoreBackup = async (req, res) => {
+    try {
+        const knex = require('../../db/knex');
+        const project = req.query.project || req.project || 'default';
+        const { backupId } = req.params;
+
+        await knex.transaction(async trx => {
+            const backup = await Adapter.getBackup(project, backupId, trx);
+            if (!backup) throw new Error('Backup not found');
+
+            const snapshot = JSON.parse(backup.data_snapshot);
+            const { docNumber, docType, supplier } = snapshot;
+
+            // 1. Find the current active document that "holds the spot"
+            // (Same Business Key: Number, Type, Supplier)
+            const currentActive = await trx('documents')
+                .where({ project, docNumber, docType, supplier })
+                .first();
+
+            // 2. Archive the current active state before replacing
+            if (currentActive) {
+                const { rawJson, ...cleanCurrent } = currentActive;
+                await Adapter.createBackup(
+                    project,
+                    currentActive.id,
+                    cleanCurrent,
+                    `Auto-backup before restoring version from ${backup.created_at}`,
+                    trx
+                );
+            }
+
+            // 3. Perform REPLACEMENT
+            const { rawJson: skip, id: skipId, ...cleanSnapshot } = snapshot;
+
+            if (currentActive) {
+                // Overwrite the existing row to maintain continuity
+                await trx('documents').where({ id: currentActive.id }).update(cleanSnapshot);
+            } else {
+                // If no active version exists, recreate it
+                await Adapter.saveDocument(project, cleanSnapshot, trx);
+            }
+        });
+
+        res.json({ ok: true });
+    } catch (e) {
+        const fs = require('fs');
+        const path = require('path');
+        const logPath = path.join(process.cwd(), 'server_debug.log');
+        const timestamp = new Date().toISOString();
+        const logEntry = `[${timestamp}] RESTORE ERROR: ${e.message}\nStack: ${e.stack}\n\n`;
+        fs.appendFileSync(logPath, logEntry);
+
+        console.error(`[RestoreBackup] Error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.deleteBackup = async (req, res) => {
+    try {
+        const project = req.project || 'default';
+        const { backupId } = req.params;
+        await Adapter.deleteBackup(project, backupId);
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 };
 
@@ -601,6 +773,31 @@ exports.exportXlsx = async (req, res) => {
         res.on('finish', cleanup);
     } catch (e) {
         console.error('[v2 export.xlsx] error:', e);
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// --- Satellite Data for Nicolazzi (Unified Storage) ---
+
+exports.getExtractionData = async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        const data = await SatelliteStorage.getData(type, id);
+        res.json(data || {});
+    } catch (e) {
+        console.error(`[Satellite Read] Error for doc ${req.params.id}:`, e.message);
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.saveExtractionData = async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        const data = req.body;
+        await SatelliteStorage.saveData(type, id, data);
+        res.json({ ok: true });
+    } catch (e) {
+        console.error(`[Satellite Write] Error for doc ${req.params.id}:`, e.message);
         res.status(500).json({ error: e.message });
     }
 };

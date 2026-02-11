@@ -6,6 +6,8 @@ import { qp } from '../shared/ui';
 import api from '../api/apiClient';
 import { GlassCard } from '../components/ui/GlassCard';
 import ProfileEditor from '../components/extraction/ProfileEditor';
+import { SplitScreenOverlay } from '../components/viewers/SplitScreenOverlay';
+import { getViewer } from '../components/viewers/ViewerRegistry';
 
 // -- ICONS --
 const IconBrain = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5a3 3 0 1 0 -5.997 .13a5 5 0 0 0 -2.003 4.87a6 6 0 0 0 13 8.4m-4 -12.4a3 3 0 0 1 2.5 1.4m1.5 -1.4a5 5 0 0 1 5.6 5.6" /><path d="M12 18v4" /><path d="M8 22h8" /></svg>;
@@ -80,12 +82,17 @@ export default function ProcessV2Tab({ project }) {
 
     // -- Selection State --
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [conflictState, setConflictState] = useState(null); // { conflicts, payload, results }
 
     // Load Doc Types
     const [availableTypes, setAvailableTypes] = useState([]);
     useEffect(() => {
-        api.get('/api/settings/doctypes')
-            .then(res => setAvailableTypes(res.data))
+        api.get('/api/corev2/doctypes')
+            .then(res => {
+                const raw = res.data;
+                const list = Array.isArray(raw) ? raw : (raw.types || []);
+                setAvailableTypes(list);
+            })
             .catch(err => console.error("Failed to load doctypes", err));
     }, []);
 
@@ -93,7 +100,7 @@ export default function ProcessV2Tab({ project }) {
     const createType = async (label) => {
         if (!label) return;
         try {
-            const res = await api.post('/api/settings/doctypes', { label });
+            const res = await api.post('/api/corev2/doctypes', { label });
             setAvailableTypes(prev => [...prev, res.data]);
             return res.data;
         } catch (e) {
@@ -105,7 +112,7 @@ export default function ProcessV2Tab({ project }) {
     const [dragModal, setDragModal] = useState(null);
 
     // -- View PDF State --
-    const [viewPdfUrl, setViewPdfUrl] = useState(null);
+    const [activeReviewRow, setActiveReviewRow] = useState(null);
 
     // -- File Handling --
     const onDrop = useCallback((acceptedFiles) => {
@@ -157,8 +164,13 @@ export default function ProcessV2Tab({ project }) {
         try {
             const res = await api.get(`/api/corev2/docs?project=${project}&status=staging&limit=200`);
             const extRes = await api.get(`/api/corev2/docs?project=${project}&status=extracted&limit=200`);
+            const uploadRes = await api.get(`/api/corev2/docs?project=${project}&status=uploaded&limit=200`);
 
-            const allPending = [...(res.data.rows || []), ...(extRes.data.rows || [])];
+            const allPending = [
+                ...(res.data.rows || []),
+                ...(extRes.data.rows || []),
+                ...(uploadRes.data.rows || [])
+            ];
 
             if (allPending.length === 0) {
                 alert("Não foram encontrados documentos pendentes para este projeto.");
@@ -178,55 +190,99 @@ export default function ProcessV2Tab({ project }) {
         }
     }
 
-    // -- Polling --
+    // -- Polling (Recursive Timeout for safety) --
     useEffect(() => {
         if (!batchId) return;
-        let interval = setInterval(async () => {
+        let isMounted = true;
+        let timer = null;
+
+        const poll = async () => {
+            if (String(batchId).startsWith('recovered-')) return;
             try {
                 // 1. Get Progress
                 const pRes = await api.get(`/api/progress/${batchId}`);
                 const p = pRes.data;
-                setProcessingStats({ done: p.done, total: p.total, errors: p.errors });
+                if (isMounted) {
+                    setProcessingStats({ done: p.done, total: p.total, errors: p.errors });
+                    const percent = Math.round(((p.done + p.errors) / p.total) * 100);
+                    setProcessingProgress(percent);
 
-                const percent = Math.round(((p.done + p.errors) / p.total) * 100);
-                setProcessingProgress(percent);
+                    // 2. Get Rows
+                    const rowsRes = await api.get(`/api/batch/${batchId}`);
+                    if (rowsRes.data.rows && isMounted) {
+                        const fmtRows = rowsRes.data.rows.map(r => ({
+                            ...r,
+                            total: r.total ? parseFloat(String(r.total).replace(',', '.')).toFixed(2) : r.total
+                        }));
+                        setRows(fmtRows);
+                    }
 
-                // 2. Get Rows
-                const rowsRes = await api.get(`/api/batch/${batchId}`);
-                if (rowsRes.data.rows) {
-                    const fmtRows = rowsRes.data.rows.map(r => ({
-                        ...r,
-                        total: r.total ? parseFloat(String(r.total).replace(',', '.')).toFixed(2) : r.total
-                    }));
-                    setRows(fmtRows);
-                }
-
-                if (percent >= 100) {
-                    clearInterval(interval);
-                    setIsUploading(false); // Done
+                    // Check finish
+                    if (percent >= 100) {
+                        setIsUploading(false);
+                    } else {
+                        // Schedule next
+                        timer = setTimeout(poll, 1000);
+                    }
                 }
             } catch (e) {
-                console.error("Poll error", e);
+                // Stop polling if 404 (Zombie Batch) - Silent handling
+                if (e.response && e.response.status === 404) {
+                    if (isMounted) {
+                        console.warn(`[Poll] Batch ${batchId} not found, stopping.`);
+                        setBatchId(null);
+                        setIsUploading(false);
+                    }
+                } else if (isMounted) {
+                    console.error("Poll error", e);
+                    // Retry for other errors
+                    timer = setTimeout(poll, 2000);
+                }
             }
-        }, 1000);
-        return () => clearInterval(interval);
+        };
+
+        poll();
+
+        return () => {
+            isMounted = false;
+            if (timer) clearTimeout(timer);
+        };
     }, [batchId]);
 
 
-    // -- Row Updating (Inline Edit) --
     const updateRow = async (id, field, value) => {
         setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
         try {
-            await api.patch(qp(`/api/doc/${id}`, project), { [field]: value });
+            await api.patch(`/api/corev2/docs/${id}?project=${project}`, { [field]: value });
         } catch (e) {
             console.error("Failed to save draft", e);
+        }
+    };
+
+    const handleReprocess = async (rowId) => {
+        if (!confirm("Reprocessar este documento? Todos os campos serão extraídos novamente.")) return;
+        setBusy(true);
+        try {
+            const res = await api.post(qp(`/api/reprocess/${rowId}`, project));
+            const fresh = res.data;
+            // Update rows
+            setRows(prev => prev.map(r => r.id === rowId ? { ...r, ...fresh } : r));
+            // If active, update activeReviewRow too
+            if (activeReviewRow && activeReviewRow.id === rowId) {
+                setActiveReviewRow(prev => ({ ...prev, ...fresh }));
+            }
+            alert("Reprocessamento concluído com sucesso.");
+        } catch (e) {
+            alert("Erro ao reprocessar: " + e.message);
+        } finally {
+            setBusy(false);
         }
     };
 
     const deleteRow = async (id) => {
         if (!confirm(t('process.actions.delete') + '?')) return;
         try {
-            await api.delete(qp(`/api/doc/${id}`, project));
+            await api.delete(`/api/corev2/docs/${id}?project=${project}`);
             setRows(prev => prev.filter(r => r.id !== id));
             setSelectedIds(prev => {
                 const newSet = new Set(prev);
@@ -244,7 +300,7 @@ export default function ProcessV2Tab({ project }) {
         setBusy(true);
         try {
             for (const id of selectedIds) {
-                await api.delete(qp(`/api/doc/${id}`, project));
+                await api.delete(`/api/corev2/docs/${id}?project=${project}`);
             }
             setRows(prev => prev.filter(r => !selectedIds.has(r.id)));
             setSelectedIds(new Set());
@@ -253,38 +309,57 @@ export default function ProcessV2Tab({ project }) {
     }
 
     const finalize = async () => {
-        // If selection exists, finalize ONLY selection. Else finalize ALL.
-        const targetRows = selectedIds.size > 0
-            ? rows.filter(r => selectedIds.has(r.id))
-            : rows;
-
+        const targetRows = selectedIds.size > 0 ? rows.filter(r => selectedIds.has(r.id)) : rows;
         if (!targetRows.length) return;
 
         const count = targetRows.length;
         if (!confirm(`${t('process.actions.finalize')} (${count})?`)) return;
 
+        const items = targetRows.map(r => ({ id: r.id, docType: r.docType, docNumber: r.docNumber }));
+        await performFinalize({ items });
+    };
+
+    const finalizeRow = async (row) => {
+        if (!confirm(`${t('process.actions.finalize')} ${row.docNumber}?`)) return;
+        const items = [{ id: row.id, docType: row.docType, docNumber: row.docNumber }];
+        await performFinalize({ items });
+    };
+
+    const performFinalize = async (payload, force = false) => {
         setBusy(true);
         try {
-            const items = targetRows.map(r => ({ id: r.id, docType: r.docType, docNumber: r.docNumber }));
-            await api.post(qp('/api/docs/finalize-bulk', project), { items });
-            alert("Sucesso! Documentos guardados.");
+            const finalPayload = { ...payload, force };
+            const res = await api.post(qp('/api/corev2/docs/finalize-bulk', project), finalPayload);
+
+            if (res.data.conflict) {
+                setConflictState({ ...res.data.conflicts[0], payload: finalPayload });
+                return;
+            }
 
             // Remove finalized from view
-            const finalizedIds = new Set(targetRows.map(r => r.id));
+            const results = res.data.results || [];
+            const finalizedIds = new Set(results.filter(r => r.ok).map(r => r.id));
+            const failedCount = results.filter(r => !r.ok).length;
+
             setRows(prev => prev.filter(r => !finalizedIds.has(r.id)));
             setSelectedIds(prev => {
                 const newSet = new Set(prev);
-                targetRows.forEach(r => newSet.delete(r.id));
+                finalizedIds.forEach(id => newSet.delete(id));
                 return newSet;
             });
+            setActiveReviewRow(null);
 
-            if (rows.length === 0) {
+            if (rows.length === 1 && finalizedIds.has(rows[0].id)) {
                 setFiles([]);
                 setBatchId(null);
-                setProcessingProgress(0);
-                setUploadProgress(0);
             }
 
+            if (failedCount > 0) {
+                const errors = results.filter(r => !r.ok).map(r => r.error).join('\n');
+                alert(`Concluído com avisos:\n${finalizedIds.size} guardados.\n${failedCount} falharam:\n${errors}`);
+            } else {
+                alert("Sucesso! Documentos guardados.");
+            }
         } catch (e) {
             alert("Erro ao finalizar: " + e.message);
         } finally {
@@ -312,10 +387,10 @@ export default function ProcessV2Tab({ project }) {
 
 
     const viewRowPdf = (row) => {
-        api.get(qp(`/api/doc/view?id=${row.id}`, project), { responseType: 'blob' })
+        api.get(`/api/corev2/docs/${row.id}/view?project=${project}`, { responseType: 'blob' })
             .then(res => {
                 const url = URL.createObjectURL(res.data);
-                setViewPdfUrl(url);
+                setActiveReviewRow({ ...row, pdfUrl: url });
             })
             .catch(e => alert("Erro ao abrir PDF: " + e.message));
     };
@@ -349,7 +424,7 @@ export default function ProcessV2Tab({ project }) {
     const handleTeach = async (row) => {
         try {
             // 1. Get File
-            const res = await api.get(qp(`/api/doc/view?id=${row.id}`, project), { responseType: 'blob' });
+            const res = await api.get(`/api/corev2/docs/${row.id}/view?project=${project}`, { responseType: 'blob' });
             const file = new File([res.data], "document.pdf", { type: 'application/pdf' });
 
             // 2. Resolve Profile
@@ -418,17 +493,48 @@ export default function ProcessV2Tab({ project }) {
                 </div>, document.body
             )}
 
-            {/* Modal: PDF Viewer */}
-            {viewPdfUrl && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
-                    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col relative">
-                        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-[var(--surface)] rounded-t-xl">
-                            <h3 className="font-bold text-lg flex items-center gap-2"><IconEye /> {t('process.modal.view_title')}</h3>
-                            <button onClick={() => setViewPdfUrl(null)} className="btn text-xl p-0 w-8 h-8 flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 rounded-full transition-all">✕</button>
-                        </div>
-                        <iframe src={viewPdfUrl} className="flex-1 w-full bg-gray-100 dark:bg-gray-800 rounded-b-xl" />
-                    </div>
-                </div>, document.body
+            {/* Modal: Specialized Viewer Overlay */}
+            {activeReviewRow && (
+                (() => {
+                    const SpecializedViewer = getViewer(activeReviewRow);
+                    if (SpecializedViewer) {
+                        return (
+                            <SpecializedViewer
+                                doc={activeReviewRow}
+                                onClose={() => setActiveReviewRow(null)}
+                                updateRow={updateRow}
+                                onFinalize={() => finalizeRow(activeReviewRow)}
+                                mode="staging"
+                                t={t}
+                            />
+                        );
+                    }
+                    return (
+                        <SplitScreenOverlay
+                            title={`Validação Nicolazzi (${activeReviewRow.docType?.toUpperCase() || 'DOC'}): ${activeReviewRow.docNumber || '---'}`}
+                            pdfUrl={activeReviewRow.pdfUrl}
+                            onClose={() => setActiveReviewRow(null)}
+                            onReprocess={() => handleReprocess(activeReviewRow.id)}
+                        >
+                            <div className="flex flex-col items-center justify-center h-full p-12 text-center opacity-50 italic">
+                                <span>No specialized viewer mapping found for this document type.</span>
+                            </div>
+                        </SplitScreenOverlay>
+                    );
+                })()
+            )}
+
+            {/* Modal: Conflict Resolution (Phase 8) */}
+            {conflictState && createPortal(
+                <ConflictModal
+                    conflict={conflictState}
+                    onCancel={() => setConflictState(null)}
+                    onConfirm={async (force) => {
+                        const payload = conflictState.payload;
+                        setConflictState(null);
+                        await performFinalize(payload, force);
+                    }}
+                />, document.body
             )}
 
             {/* Modal: Teaching (Profile Editor) */}
@@ -639,4 +745,85 @@ function Row({ index, row, updateRow, deleteRow, viewRowPdf, showAdditional, t, 
             </td>
         </tr>
     )
+}
+
+function ConflictModal({ conflict, onCancel, onConfirm }) {
+    const existing = conflict.existing[0]; // Simplified for now
+    const pending = conflict.pending || conflict; // Support both old and new backend responses
+
+    return (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl max-w-2xl w-full mx-4 overflow-hidden flex flex-col gap-6">
+                <div>
+                    <h2 className="text-xl font-bold text-[var(--err)] flex items-center gap-2">
+                        ⚠️ Conflito de Documento
+                    </h2>
+                    <p className="opacity-70 mt-1">Este documento já existe no arquivo definitivo. Por favor compare as versões.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Existing Version */}
+                    <div className="bg-[var(--bg-base)] p-5 rounded-xl border border-[var(--border)] relative overflow-hidden">
+                        <div className="text-[10px] uppercase opacity-30 font-bold absolute top-2 right-3">Arquivo Final</div>
+                        <div className="text-xs uppercase opacity-50 font-bold mb-3 border-b border-[var(--border)] pb-2">Versão no Sistema</div>
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] opacity-50 uppercase">Fornecedor / Entidade</span>
+                                <span className="text-sm font-bold truncate" title={existing.supplier}>{existing.supplier || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] opacity-50 uppercase">Número / Data</span>
+                                <span className="text-sm font-bold">{existing.docNumber} <span className="opacity-50">|</span> {existing.date || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] opacity-50 uppercase">Cliente / Ref</span>
+                                <span className="text-sm font-bold truncate" title={existing.customer}>{existing.customer || 'N/A'}</span>
+                            </div>
+                            <div className="bg-black/20 p-2 rounded mt-2">
+                                <span className="text-[10px] opacity-50 uppercase block">Total</span>
+                                <span className="text-xl font-mono text-white">€{parseFloat(existing.total || 0).toFixed(2)}</span>
+                            </div>
+                            <span className="text-[10px] opacity-40 mt-1">Gravado em: {new Date(existing.created_at).toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    {/* Pending Version */}
+                    <div className="bg-blue-500/10 p-5 rounded-xl border border-blue-500/30 relative overflow-hidden">
+                        <div className="text-[10px] uppercase text-blue-400 font-bold absolute top-2 right-3 italic">Documento Atual</div>
+                        <div className="text-xs uppercase text-blue-400 font-bold mb-3 border-b border-blue-500/20 pb-2">Sua Versão (Edição)</div>
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] opacity-50 uppercase">Fornecedor / Entidade</span>
+                                <span className="text-sm font-bold text-blue-300 truncate" title={pending.supplier}>{pending.supplier || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] opacity-50 uppercase">Número / Data</span>
+                                <span className="text-sm font-bold text-blue-300">{pending.docNumber} <span className="opacity-50">|</span> {pending.date || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] opacity-50 uppercase">Cliente / Ref</span>
+                                <span className="text-sm font-bold text-blue-300 truncate" title={pending.customer}>{pending.customer || 'N/A'}</span>
+                            </div>
+                            <div className="bg-blue-500/20 p-2 rounded mt-2">
+                                <span className="text-[10px] opacity-50 uppercase block">Total</span>
+                                <span className="text-xl font-mono text-blue-400">€{parseFloat(pending.total || 0).toFixed(2)}</span>
+                            </div>
+                            <span className="text-[10px] opacity-40 mt-1">Status: Pendente de Validação</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20 text-xs italic">
+                    <span>ℹ️ Se confirmar, a versão antiga será guardada num backup por 15 dias.</span>
+                </div>
+
+                <div className="flex gap-3 justify-end mt-4">
+                    <button className="btn px-6 border-none bg-gray-500/20 hover:bg-gray-500/40" onClick={onCancel}>Manter Arquivado</button>
+                    <button className="btn primary px-6 bg-[var(--err)] hover:bg-red-600 border-none shadow-lg shadow-red-900/20" onClick={() => onConfirm(true)}>
+                        Substituir e Backup
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }
