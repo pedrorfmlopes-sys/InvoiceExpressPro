@@ -28,7 +28,7 @@ exports.up = function (knex) {
         })
         .createTable('document_extraction_meta', function (table) {
             table.increments('id');
-            table.uuid('doc_id').references('id').inTable('documents').onDelete('CASCADE').unique(); // One meta per doc
+            table.string('doc_id').references('id').inTable('documents').onDelete('CASCADE').unique(); // One meta per doc
             table.uuid('profile_id').references('id').inTable('reading_profiles').onDelete('SET NULL');
             table.float('confidence');
             table.timestamp('updated_at').defaultTo(knex.fn.now());
