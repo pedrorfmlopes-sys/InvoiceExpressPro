@@ -93,11 +93,31 @@ app.use('/api/templates', require('./routes/templatesRoutes')); // Not modulariz
 // app.use('/api/audit', require('./routes/auditRoutes')); // Handled by module
 
 // 5. SPA Fallback (Public) - For any other route, serve index.html
+const fs = require('fs'); // Ensure fs is required if not globally available, or rely on variable already present?
+// app.js has path required. We need fs.
+// Let's modify the imports too or just use require inside if safer, or assume logic.
+// app.js doesn't show fs import in preview.
+// Better: Return simple message if error occurs in sendFile callback.
+
 app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'API endpoint not found' });
     }
-    res.sendFile(path.join(PATHS.CLIENT_DIST, 'index.html'));
+
+    // Robust SPA Fallback
+    const indexHtml = path.join(PATHS.CLIENT_DIST, 'index.html');
+    res.sendFile(indexHtml, (err) => {
+        if (err) {
+            // If client build is missing (e.g. backend-only deploy), don't crash.
+            if (!res.headersSent) {
+                res.status(200).send(`
+                    <h1>Invoice Studio Backend</h1>
+                    <p>API is running.</p>
+                    <p>Frontend should be accessed via its own URL.</p>
+                `);
+            }
+        }
+    });
 });
 
 module.exports = app;
