@@ -17,6 +17,7 @@ RUN mkdir -p uploads audit_results server/src/data
 
 # Copy source code
 COPY server ./server
+COPY scripts ./scripts
 
 
 # Expose API Port
