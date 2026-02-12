@@ -13,7 +13,7 @@ RUN npm install
 # Copy source code
 WORKDIR /app
 # Create data directories at ROOT (where constants.js expects them)
-RUN mkdir -p /app/data /app/uploads /app/audit_results
+RUN mkdir -p /app/data /app/uploads /app/audit_results && chmod -R 777 /app/data /app/uploads /app/audit_results
 
 # Copy source code
 COPY server ./server
