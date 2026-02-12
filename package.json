@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "start": "npm run db:migrate && node server/src/index.js",
+    "start": "npm run db:migrate && npm run db:seed:smoke && node server/src/index.js",
     "start:full": "npm run build:client && node server/src/index.js",
     "dev": "npm exec -- concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm exec -- nodemon server/server.js",
