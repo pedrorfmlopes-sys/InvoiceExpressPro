@@ -1,0 +1,33 @@
+services:
+  # ---------------------------------------------------------------------------
+  # BACKEND (Node.js API)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: invoice-studio-backend
+    env: docker
+    dockerfilePath: ./Dockerfile.server
+    plan: free # or starter if you need persistence
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CLIENT_URL
+        value: https://invoice-studio-frontend.onrender.com # You will need to update this after frontend deploy
+      - key: MONGO_URI
+        sync: false # User will need to provide this (e.g. MongoDB Atlas)
+    disk:
+      name: invoice-data
+      mountPath: /app/server/src/data
+      sizeGB: 1
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND (React / Vite)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: invoice-studio-frontend
+    env: docker
+    dockerfilePath: ./Dockerfile.client
+    plan: free
+    envVars:
+      - key: VITE_API_URL
+        value: https://invoice-studio-backend.onrender.com # Update after backend deploy
+
