@@ -634,3 +634,92 @@ body {
   pointer-events: none;
   animation: slideUp 0.15s ease-out;
 }
+
+/* Remove number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+@media print {
+
+  /* RESET AND HIDING */
+  body>div:not(#root) {
+    display: none !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* PRINT CONTAINER VISIBILITY */
+  .proposal-print-container,
+  .proposal-print-container * {
+    visibility: visible;
+  }
+
+  .proposal-print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+    display: block !important;
+    /* Override flex */
+    overflow: visible !important;
+  }
+
+  /* LAYOUT & PAGINATION */
+  @page {
+    size: A4;
+    margin: 15mm 10mm 15mm 10mm;
+    /* Top Right Bottom Left */
+  }
+
+  /* Force Table Header Repetition */
+  thead {
+    display: table-header-group;
+  }
+
+  /* Avoid cutting rows in half */
+  tr,
+  td,
+  th {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Footer / Totals Protection */
+  .avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* FIXED FOOTER ON EVERY PAGE */
+  /* Check if ProposalPrint uses a footer element. We can position it fixed bottom. */
+  footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20mm;
+    /* Reserve space */
+    background: white;
+    border-top: 1px solid #ddd;
+    padding-top: 2mm;
+  }
+
+  /* Add padding to bottom of content so it doesn't run into fixed footer */
+  /* We can use table footer or body padding */
+  .print-content-body {
+    margin-bottom: 25mm;
+  }
+}

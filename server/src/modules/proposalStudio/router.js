@@ -11,4 +11,8 @@ router.get('/:id', (req, res) => controller.getProposal(req, res));
 router.put('/:id', (req, res) => controller.updateProposal(req, res));
 router.delete('/:id', (req, res) => controller.deleteProposal(req, res));
 
+// Exports
+router.get('/:id/pdf', (req, res) => controller.exportPdf(req, res));
+router.get('/:id/excel', (req, res) => controller.exportExcel(req, res));
+
 module.exports = router;

@@ -1,4 +1,5 @@
 const CustomerService = require('./CustomerService');
+const SmartLookupService = require('./SmartLookupService');
 
 class CustomerController {
     async search(req, res) {
@@ -27,6 +28,37 @@ class CustomerController {
             // Explicit update from UI
             const customer = await CustomerService.upsertFromExtraction(req.project, req.body, true);
             res.json(customer);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async list(req, res) {
+        try {
+            const { page, limit, q } = req.query;
+            const result = await CustomerService.list(req.project, { page, limit, q });
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async delete(req, res) {
+        try {
+            const { id } = req.params;
+            await CustomerService.delete(req.project, id);
+            res.json({ ok: true });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async lookup(req, res) {
+        try {
+            const { q } = req.query;
+            const result = await SmartLookupService.lookup(q);
+            if (!result) return res.status(404).json({ error: 'Nenhum resultado encontrado' });
+            res.json(result);
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../../api/apiClient';
 
+import { FiBriefcase, FiUsers, FiBarChart2, FiDatabase } from 'react-icons/fi';
+
 function NavGroup({ title, expanded, onToggle, children }) {
     return (
         <div className="flex flex-col gap-1 mb-2">
@@ -32,7 +34,7 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
     }, []);
 
     // Grouping
-    const primaryTabsRaw = tabs.filter(t => !['health', 'config', 'labels', 'assets', 'extraction'].includes(t.id));
+    const primaryTabsRaw = tabs.filter(t => !['health', 'config', 'labels', 'assets', 'extraction', 'proposals', 'customers', 'reports', 'corev2'].includes(t.id)); // Exclude manually placed items
     const systemTabs = tabs.filter(t => ['health', 'config', 'labels', 'assets', 'extraction'].includes(t.id));
 
     // Sort Primary Tabs
@@ -96,6 +98,30 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
         )
     };
 
+    // Manual Sidebar Item for custom links not in TABS array or handled differently
+    const SidebarItem = ({ icon, label, active, onClick }) => (
+        <button
+            onClick={onClick}
+            className={`
+                group w-full flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl transition-all duration-200 text-sm font-medium relative overflow-hidden max-w-[calc(100%-16px)]
+                ${active
+                    ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] shadow-sm ring-1 ring-[var(--accent-primary)]/20'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-main)]'}
+            `}
+        >
+            {active && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[var(--accent-primary)] rounded-r-full" />
+            )}
+
+            <span className="text-lg opacity-80 group-hover:opacity-100">{icon}</span>
+            <span className={active ? 'font-semibold' : ''}>{label}</span>
+
+            {active && (
+                <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] shadow-[0_0_8px_var(--accent-primary)]" />
+            )}
+        </button>
+    );
+
     return (
         <aside className="shell-sidebar flex flex-col h-full bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] w-[260px] shrink-0 z-50">
             {/* Header / Brand */}
@@ -124,6 +150,30 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
                     expanded={groupsState.menu}
                     onToggle={() => toggleGroup('menu')}
                 >
+                    <SidebarItem
+                        icon={<FiBriefcase />}
+                        label="Estúdio Propostas"
+                        active={activeTab === 'proposals'}
+                        onClick={() => onTabChange('proposals')}
+                    />
+                    <SidebarItem
+                        icon={<FiUsers />}
+                        label="Clientes"
+                        active={activeTab === 'customers'}
+                        onClick={() => onTabChange('customers')}
+                    />
+                    <SidebarItem
+                        icon={<FiBarChart2 />}
+                        label="Reports V2"
+                        active={activeTab === 'reports'}
+                        onClick={() => onTabChange('reports')}
+                    />
+                    <SidebarItem
+                        icon={<FiDatabase />}
+                        label="Core V2"
+                        active={activeTab === 'corev2'}
+                        onClick={() => onTabChange('corev2')}
+                    />
                     {primaryTabs.map(tab => <NavItem key={tab.id} tab={tab} />)}
                 </NavGroup>
 

@@ -23,6 +23,7 @@ import LabelsManagerTab from './tabs/LabelsManagerTab' // New Labels Manager
 import AssetsTab from './tabs/AssetsTab' // New Assets Module
 import ExtractionProfilesTab from './tabs/ExtractionProfilesTab' // New Extraction Module
 import ProposalsTab from './tabs/ProposalsTab' // Phase 34
+import CustomersTab from './tabs/CustomersTab' // Phase 36 (User Request)
 import ProposalEditor from './components/proposals/ProposalEditor'; // Phase 33
 
 import Login from './components/Login'
@@ -179,6 +180,7 @@ export default function App() {
     { id: 'process_v2', label: t('sidebar.process'), Component: ProcessV2Tab }, // Process V2
     { id: 'reports_v2', label: 'Reports V2', Component: ReportsTab },
     { id: 'proposals', label: 'Estúdio Propostas', Component: ProposalsTab },
+    { id: 'customers', label: 'Clientes', Component: CustomersTab },
     { id: 'corev2', label: 'Core V2', Component: CoreV2Tab },
     { id: 'transactions', label: 'Transactions', Component: TransactionsTab },
     { id: 'config', label: t('sidebar.config'), Component: ConfigTab },

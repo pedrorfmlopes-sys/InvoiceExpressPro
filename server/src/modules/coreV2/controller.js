@@ -43,6 +43,7 @@ function extractRegex(text) {
     let docNumber = '';
     let supplier = '';
     let customer = '';
+    let vat = ''; // Added
     let references = [];
     let needsOcr = false;
     let confidence = 0.5;
@@ -63,9 +64,18 @@ function extractRegex(text) {
             } catch { }
         }
 
-        // Customer
-        const cusMatch = text.match(/(?:Cliente|Destinat[áa]rio|Exmo|Bill To|Spett\.le)\s*[:.]?\s*([A-Za-z0-9 .&-]{3,50})/i);
+        // Customer (Improved Regex with Unicode support)
+        const cusMatch = text.match(/(?:Cliente|Destinat[áa]rio|Exmo|Bill To|Spett\.le)\s*[:.]?\s*([A-Za-z0-9\u00C0-\u00FF .&-]{3,50})/i);
         if (cusMatch) customer = cusMatch[1].trim();
+
+        // VAT / NIF Extraction (New)
+        // Look for common labels + 9-12 digits (optional country code)
+        // e.g. NIF: 123456789, VAT: PT123456789, P.IVA 001122
+        const vatMatch = text.match(/(?:NIF|N\.I\.F\.|Contribuinte|VAT|IVA|P\.IVA|Vat Number)\s*[:.]?\s*((?:[A-Z]{2})?\s*\d{9,12})/i);
+        if (vatMatch) {
+            // we attach this to the global scope or return object
+            // but `extractRegex` variables are local. let's add `vat` var above.
+        }
 
         // References
         const refPatterns = [
@@ -100,7 +110,24 @@ function extractRegex(text) {
             }
         }
     }
-    return { docType, docNumber, date, total, supplier, customer, references, needsOcr, confidence };
+    // Logic for VAT assignment from match (since variables are local in this scope)
+    // 1. Try Standard "Label: Value" (e.g. NIF: 123456789)
+    let vatMatch = text.match(/(?:NIF|N\.I\.F\.|Contribuinte|VAT|IVA|P\.IVA|Vat Number)\s*[:.]?\s*((?:[A-Z]{2})?\s*\d{9,12})/i);
+    if (vatMatch) vat = vatMatch[1].replace(/\s/g, '').toUpperCase();
+
+    // 2. Try "Value [newline] Label" (Reverse layout often found in PDF text streams)
+    if (!vat) {
+        vatMatch = text.match(/(\d{9,12})\s*\n\s*(?:Vat|NIF|IVA)/i);
+        if (vatMatch) vat = vatMatch[1].replace(/\s/g, '').toUpperCase();
+    }
+
+    // 3. Try "Label [newline] Value"
+    if (!vat) {
+        vatMatch = text.match(/(?:Vat|NIF|IVA)\s*\n\s*(\d{9,12})/i);
+        if (vatMatch) vat = vatMatch[1].replace(/\s/g, '').toUpperCase();
+    }
+
+    return { docType, docNumber, date, total, supplier, customer, vat, references, needsOcr, confidence };
 }
 
 // --- Controller Methods ---

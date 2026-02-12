@@ -83,6 +83,37 @@ class CustomerService {
         if (!normalized) return null;
         return await knex('customers').where({ project, vat: normalized }).first();
     }
+
+    async list(project, { page = 1, limit = 50, q } = {}) {
+        const db = knex('customers');
+        let query = db.where(function () {
+            this.where('project', project).orWhere('project', 'default');
+        });
+
+        if (q) {
+            const normalizedQuery = q.toString().toUpperCase().trim();
+            query = query.where(function () {
+                this.where(knex.raw('UPPER(name)'), 'like', `%${normalizedQuery}%`)
+                    .orWhere(knex.raw('UPPER(vat)'), 'like', `%${normalizedQuery}%`);
+            });
+        }
+
+        // Count
+        const countQuery = query.clone().clearSelect().count('* as count').first();
+        const totalParams = await countQuery;
+        const total = parseInt(totalParams.count || totalParams['count(*)'] || 0, 10);
+
+        // Rows
+        const rows = await query.orderBy('updated_at', 'desc')
+            .limit(limit)
+            .offset((page - 1) * limit);
+
+        return { rows, total, page, limit };
+    }
+
+    async delete(project, id) {
+        return await knex('customers').where({ project, id }).delete();
+    }
 }
 
 module.exports = new CustomerService();

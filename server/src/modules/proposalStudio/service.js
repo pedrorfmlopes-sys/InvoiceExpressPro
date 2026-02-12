@@ -1,6 +1,8 @@
 const knex = require('../../db/knex');
 const { v4: uuidv4 } = require('uuid');
 const SatelliteStorage = require('../../storage/SatelliteStorage');
+const ProposalExporter = require('./ProposalExporter');
+const path = require('path');
 
 class ProposalStudioService {
     /**
@@ -77,15 +79,13 @@ class ProposalStudioService {
     }
 
     async getProposals(project) {
-        // Since we don't have a project col in custom_proposals yet (I missed it in migration), 
-        // we'll filter by original_doc_id joined with documents.
-        // Actually, I should have added project to custom_proposals. I'll add it in a followup if needed.
-        // For now, let's assume we fetch all and filter in JS or join.
-
-        return await knex('custom_proposals')
-            .leftJoin('documents', 'custom_proposals.original_doc_id', 'documents.id')
-            .where('documents.project', project)
-            .select('custom_proposals.*');
+        const q = knex('custom_proposals').orderBy('updated_at', 'desc');
+        if (project) {
+            q.where(function () {
+                this.where('project_ref', project).orWhereNull('project_ref');
+            });
+        }
+        return await q;
     }
 
     async getProposal(id) {
@@ -150,7 +150,22 @@ class ProposalStudioService {
 
     async deleteProposal(id) {
         await knex('proposal_lines').where({ proposal_id: id }).delete();
-        await knex('custom_proposals').where({ id }).delete();
+        await knex('custom_proposals').where({ id: id }).delete();
+    }
+
+    async generatePdf(id) {
+        const proposal = await this.getProposal(id);
+        if (!proposal) throw new Error('Proposta não encontrada');
+
+        const logoPath = path.join(process.cwd(), 'config', 'logo.png');
+        return await ProposalExporter.generatePdf(proposal, logoPath);
+    }
+
+    async generateExcel(id) {
+        const proposal = await this.getProposal(id);
+        if (!proposal) throw new Error('Proposta não encontrada');
+
+        return await ProposalExporter.generateExcel(proposal);
     }
 }
 

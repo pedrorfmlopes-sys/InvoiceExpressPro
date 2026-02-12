@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import api from '../../api/apiClient';
 import { qp } from '../../shared/ui';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import ProposalPdf from './ProposalPdf';
+
+const WARRANTY_TEMPLATES = {
+    'nicolazzi': "Garantia Nicolazzi: 6 anos a contar da data de compra do primeiro adquirente. Acabamento cromado: 6 anos; outros acabamentos: 2 anos. Cartuchos e vedantes (Viton): 2 anos. A garantia cobre defeitos de fabrico (reparação/substituição de peças), excluindo desgaste normal, calcário, limpeza/instalação inadequadas e custos de desmontagem/remontagem."
+};
 
 const ProposalEditor = ({ proposalId, onClose }) => {
     const [proposal, setProposal] = useState(null);
@@ -10,12 +16,29 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     const [saving, setSaving] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
     const [showResults, setShowResults] = useState(false);
-    const [searching, setSearching] = useState(false); // New
-    const [activeSearchField, setActiveSearchField] = useState(null); // 'name' or 'vat'
+    const [searching, setSearching] = useState(false);
+    const [activeSearchField, setActiveSearchField] = useState(null);
 
-    useEffect(() => {
-        loadData();
-    }, [proposalId]);
+    useEffect(() => { loadData(); }, [proposalId]);
+
+    const handleExport = async (format) => {
+        if (format !== 'excel') return;
+        try {
+            setSaving(true);
+            const res = await api.get(`/api/proposals/${proposalId}/${format}`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `proposta_${proposalId}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (e) {
+            alert("Erro ao exportar: " + e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -101,10 +124,8 @@ const ProposalEditor = ({ proposalId, onClose }) => {
         }
         try {
             setSearching(true);
-            setShowResults(true); // Show dropdown immediately to provide feedback
+            setShowResults(true);
             const projectParam = proposal?.project_ref || 'default';
-
-            // Cleaner params handling with Axios
             const res = await api.get('/api/crm/search', {
                 params: {
                     project: projectParam,
@@ -155,7 +176,8 @@ const ProposalEditor = ({ proposalId, onClose }) => {
 
     const calculateTotals = () => {
         if (!proposal?.lines) return { net: 0, vat: 0, gross: 0 };
-        return proposal.lines.reduce((acc, l) => {
+
+        const linesTotal = proposal.lines.reduce((acc, l) => {
             const qty = parseFloat(l.quantity || 0);
             const price = parseFloat(l.unit_price_commercial || 0);
             const desc = parseFloat(l.discount_commercial_percent || 0);
@@ -164,9 +186,30 @@ const ProposalEditor = ({ proposalId, onClose }) => {
 
             acc.net += lineNet;
             acc.vat += vat;
-            acc.gross += (lineNet + vat);
             return acc;
-        }, { net: 0, vat: 0, gross: 0 });
+        }, { net: 0, vat: 0 });
+
+        // Global Values from Metadata
+        const shipping = parseFloat(proposal.metadata?.shipping_cost || 0);
+        const globalDiscPercent = parseFloat(proposal.metadata?.global_discount || 0);
+
+        // Calculate Discount Value
+        // (Net + Shipping) * (Percent / 100)
+        const discountValue = (linesTotal.net + shipping) * (globalDiscPercent / 100);
+
+        const taxBase = linesTotal.net + shipping - discountValue;
+        const totalVat = taxBase * 0.23; // Force 23% for preview
+        const gross = taxBase + totalVat;
+
+        return {
+            net: linesTotal.net,
+            shipping,
+            globalDiscPercent, // Used for display
+            discountValue,     // Calculated amount
+            taxBase,
+            vat: totalVat,
+            gross
+        };
     };
 
     if (loading) return (
@@ -226,10 +269,23 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                             />
                         </div>
                         <div className="w-px h-10 bg-white/10 mx-2"></div>
-                        <button className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all text-xs font-bold border border-white/10">
-                            📄 PDF
-                        </button>
-                        <button className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all text-xs font-bold border border-white/10">
+
+                        {proposal && (
+                            <PDFDownloadLink
+                                document={<ProposalPdf proposal={proposal} />}
+                                fileName={`proposta_${proposal.name?.replace(/[^a-z0-9]/gi, '_') || proposalId}.pdf`}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all text-xs font-bold border border-white/10 flex items-center gap-2"
+                            >
+                                {({ blob, url, loading, error }) =>
+                                    loading ? '⏳ A processar PDF...' : '📄 Baixar PDF'
+                                }
+                            </PDFDownloadLink>
+                        )}
+                        <button
+                            onClick={() => handleExport('excel')}
+                            disabled={saving}
+                            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all text-xs font-bold border border-white/10 disabled:opacity-50"
+                        >
                             📊 Excel
                         </button>
                         <button
@@ -270,7 +326,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                         updateHeader('client_ref', e.target.value);
                                         searchCRM(e.target.value);
                                     }}
-                                    onBlur={() => setTimeout(() => setShowResults(false), 300)} // Increased timeout
+                                    onBlur={() => setTimeout(() => setShowResults(false), 300)}
                                     onFocus={() => {
                                         setActiveSearchField('name');
                                         if (proposal.client_ref?.length >= 1) setShowResults(true);
@@ -281,7 +337,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                     type="button"
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        setActiveSearchField('name'); // Ensure field is active for dropdown positioning
+                                        setActiveSearchField('name');
                                         searchCRM(proposal.client_ref);
                                     }}
                                     className="absolute left-0 bottom-2 text-amber-500/30 hover:text-amber-500 transition-colors z-10"
@@ -370,6 +426,15 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                     onChange={e => updateMetadata('client_email', e.target.value)}
                                 />
                             </div>
+                            <div className="flex-1">
+                                <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Condições Pagamento</label>
+                                <input
+                                    className="w-full bg-white/5 px-3 py-2 rounded text-xs text-amber-500/80 outline-none border border-white/5 focus:border-amber-500/50"
+                                    value={proposal.metadata?.payment_conditions || 'Pronto Pagamento'}
+                                    onChange={e => updateMetadata('payment_conditions', e.target.value)}
+                                    placeholder="Ex: 50% Adjudicação..."
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -452,6 +517,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                             <input
                                                 className="w-full bg-transparent text-center outline-none text-gray-400 focus:text-white"
                                                 type="number"
+                                                onWheel={(e) => e.target.blur()}
                                                 value={line.quantity}
                                                 onChange={e => updateLine(idx, 'quantity', e.target.value)}
                                             />
@@ -461,6 +527,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                 className="w-full bg-transparent text-right outline-none text-gray-400 focus:text-white font-mono"
                                                 type="number"
                                                 step="0.01"
+                                                onWheel={(e) => e.target.blur()}
                                                 value={line.unit_price_commercial}
                                                 onChange={e => updateLine(idx, 'unit_price_commercial', e.target.value)}
                                             />
@@ -469,6 +536,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                             <input
                                                 className="w-full bg-transparent text-center outline-none text-gray-400 focus:text-white"
                                                 type="number"
+                                                onWheel={(e) => e.target.blur()}
                                                 value={line.discount_commercial_percent}
                                                 onChange={e => updateLine(idx, 'discount_commercial_percent', e.target.value)}
                                             />
@@ -517,18 +585,80 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                 </div>
 
                 {/* Footer Totals */}
-                <div className="h-24 bg-white/5 border-t border-white/10 flex items-center justify-end px-12 gap-12">
-                    <div className="text-right">
-                        <div className="text-[10px] text-gray-500 uppercase">Subtotal</div>
-                        <div className="text-xl text-gray-300 font-mono">{totals.net.toFixed(2)} €</div>
+                <div className="h-32 bg-white/5 border-t border-white/10 flex items-center justify-between px-12 gap-12 shrink-0">
+
+                    {/* Observations & Warranty */}
+                    <div className="flex-1 h-full py-4 flex flex-col gap-2">
+                        <div className="flex-1 flex flex-col">
+                            <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Observações / Termos</label>
+                            <textarea
+                                className="w-full bg-transparent text-xs text-gray-400 outline-none resize-none border-r border-white/10 pr-4"
+                                value={proposal.metadata?.observations || ''}
+                                onChange={e => updateMetadata('observations', e.target.value)}
+                                placeholder="Para confirmação da encomenda, este documento deve ser devolvido assinado..."
+                            />
+                        </div>
+                        <div className="flex-1 flex flex-col border-t border-white/5 pt-2">
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Garantia / Marca</label>
+                                <select
+                                    className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none"
+                                    onChange={(e) => {
+                                        const tpl = WARRANTY_TEMPLATES[e.target.value];
+                                        if (tpl) updateMetadata('warranty_text', tpl);
+                                    }}
+                                >
+                                    <option value="">-- Carregar Predefinição --</option>
+                                    <option value="nicolazzi">Nicolazzi (6 Anos)</option>
+                                </select>
+                            </div>
+                            <textarea
+                                className="w-full bg-transparent text-[10px] text-gray-500 outline-none resize-none border-r border-white/10 pr-4 leading-tight"
+                                value={proposal.metadata?.warranty_text || ''}
+                                onChange={e => updateMetadata('warranty_text', e.target.value)}
+                                placeholder="Selecione uma predefinição ou escreva o texto da garantia aqui..."
+                            />
+                        </div>
                     </div>
-                    <div className="text-right">
-                        <div className="text-[10px] text-gray-500 uppercase">IVA (23%)</div>
-                        <div className="text-xl text-gray-300 font-mono">{totals.vat.toFixed(2)} €</div>
-                    </div>
-                    <div className="text-right bg-amber-500/10 px-6 py-2 rounded-xl border border-amber-500/20">
-                        <div className="text-[10px] text-amber-500 font-bold uppercase">Total Final</div>
-                        <div className="text-3xl text-white font-black font-mono">{totals.gross.toFixed(2)} €</div>
+
+                    {/* Totals Columns */}
+                    <div className="flex gap-8 items-end py-4">
+                        <div className="text-right space-y-2">
+                            <div>
+                                <div className="text-[10px] text-gray-500 uppercase">Soma Ilíquida</div>
+                                <div className="text-lg text-gray-300 font-mono">{totals.net.toFixed(2)} €</div>
+                            </div>
+                            <div>
+                                <div className="text-[10px] text-gray-500 uppercase">Portes Envio</div>
+                                <input
+                                    type="number"
+                                    className="bg-transparent text-right text-sm text-white font-mono outline-none border-b border-white/10 w-24 focus:border-amber-500"
+                                    value={proposal.metadata?.shipping_cost || 0}
+                                    onChange={e => updateMetadata('shipping_cost', e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="text-right space-y-2">
+                            <div>
+                                <div className="text-[10px] text-gray-500 uppercase">Desconto Extra (%)</div>
+                                <input
+                                    type="number"
+                                    className="bg-transparent text-right text-sm text-red-400 font-mono outline-none border-b border-white/10 w-24 focus:border-red-500"
+                                    value={proposal.metadata?.global_discount || 0}
+                                    onChange={e => updateMetadata('global_discount', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <div className="text-[10px] text-gray-500 uppercase">IVA (23%)</div>
+                                <div className="text-lg text-gray-300 font-mono">{totals.vat.toFixed(2)} €</div>
+                            </div>
+                        </div>
+
+                        <div className="text-right bg-amber-500/10 px-6 py-4 rounded-xl border border-amber-500/20 h-full flex flex-col justify-center">
+                            <div className="text-[10px] text-amber-500 font-bold uppercase mb-1">Total Final</div>
+                            <div className="text-3xl text-white font-black font-mono">{totals.gross.toFixed(2)} €</div>
+                        </div>
                     </div>
                 </div>
 
