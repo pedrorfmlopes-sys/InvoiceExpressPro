@@ -1,17 +1,17 @@
-FROM node:18-alpine
-
+# Build Stage
+FROM node:18-alpine as builder
 WORKDIR /app
-
-# Install dependencies
+COPY package*.json ./
 COPY client/package*.json ./client/
 WORKDIR /app/client
 RUN npm install
-
-# Copy source code
 COPY client ./
+RUN npm run build
 
-# Expose Vite Port
+# Serve Stage
+FROM node:18-alpine
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=builder /app/client/dist ./dist
 EXPOSE 5173
-
-# Start Vite (Host 0.0.0.0 is needed for Docker networking)
-CMD ["npm", "run", "dev", "--", "--host"]
+CMD ["serve", "-s", "dist", "-l", "5173"]
