@@ -24,5 +24,6 @@ COPY scripts ./scripts
 EXPOSE 3000
 
 # Start Server
-WORKDIR /app/server
+# Start Server from ROOT (where package.json scripts expect to run)
+WORKDIR /app
 CMD ["npm", "start"]
