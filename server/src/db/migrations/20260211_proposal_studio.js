@@ -13,7 +13,7 @@ exports.up = function (knex) {
             table.string('status').defaultTo('draft'); // draft, sent, accepted, rejected
             table.json('branding_config'); // { logo, colors, footer_text }
             table.json('metadata'); // Any extra fields
-            table.uuid('original_doc_id').references('id').inTable('documents').onDelete('SET NULL');
+            table.string('original_doc_id').references('id').inTable('documents').onDelete('SET NULL');
             table.timestamps(true, true);
         })
         .createTable('proposal_lines', table => {
