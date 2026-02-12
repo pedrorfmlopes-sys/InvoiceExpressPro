@@ -12,10 +12,10 @@ services:
         value: 10000
       - key: CLIENT_URL
         value: https://invoice-studio-frontend.onrender.com # You will need to update this after frontend deploy
-      - key: MONGO_URI
-        sync: false # User will need to provide this (e.g. MongoDB Atlas)
-      - key: MONGO_URI
-        sync: false # User will need to provide this (e.g. MongoDB Atlas)
+      - key: DB_CLIENT
+        value: pg
+      - key: DATABASE_URL
+        sync: false # User will need to provide this (e.g. Supabase, Render Postgres)
     # disk: discontinued for free tier. Upgrade to Starter to enable persistence.
 
   # ---------------------------------------------------------------------------
