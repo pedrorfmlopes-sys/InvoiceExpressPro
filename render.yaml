@@ -14,10 +14,9 @@ services:
         value: https://invoice-studio-frontend.onrender.com # You will need to update this after frontend deploy
       - key: MONGO_URI
         sync: false # User will need to provide this (e.g. MongoDB Atlas)
-    disk:
-      name: invoice-data
-      mountPath: /app/server/src/data
-      sizeGB: 1
+      - key: MONGO_URI
+        sync: false # User will need to provide this (e.g. MongoDB Atlas)
+    # disk: discontinued for free tier. Upgrade to Starter to enable persistence.
 
   # ---------------------------------------------------------------------------
   # FRONTEND (React / Vite)
