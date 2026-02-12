@@ -6,6 +6,9 @@ COPY client/package*.json ./client/
 WORKDIR /app/client
 RUN npm install
 COPY client ./
+# Capture build-time env vars
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Serve Stage

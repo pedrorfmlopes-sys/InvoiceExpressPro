@@ -24,7 +24,7 @@ const processQueue = (error, token = null) => {
 };
 
 const api = axios.create({
-    baseURL: '', // Relative to current origin
+    baseURL: import.meta.env.VITE_API_URL || '', // Use Env Var or fallback to relative
     withCredentials: true // Send cookies
 });
 
