@@ -1,6 +1,6 @@
-// Imports likely need GlassCard if not already imported or available globally? 
-// No, GlassCard is in components/ui. I need to import it.
-import { GlassCard } from '../ui/GlassCard'; // Assuming path relative to layout/Topbar.jsx is ../ui/GlassCard
+import React from 'react';
+import api from '../../api/apiClient';
+import { GlassCard } from '../ui/GlassCard';
 
 export function Topbar({
     user,
