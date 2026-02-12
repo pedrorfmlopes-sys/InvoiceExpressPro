@@ -1,0 +1,17 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY client/package*.json ./client/
+WORKDIR /app/client
+RUN npm install
+
+# Copy source code
+COPY client ./
+
+# Expose Vite Port
+EXPOSE 5173
+
+# Start Vite (Host 0.0.0.0 is needed for Docker networking)
+CMD ["npm", "run", "dev", "--", "--host"]

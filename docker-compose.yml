@@ -1,18 +1,56 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16
-    container_name: is-postgres
-    restart: always
-    environment:
-      POSTGRES_USER: invoicestudio
-      POSTGRES_PASSWORD: mysecretpassword
-      POSTGRES_DB: invoicestudio
+  # ---------------------------------------------------------------------------
+  # BACKEND (Node.js API)
+  # ---------------------------------------------------------------------------
+  server:
+    build: 
+      context: .
+      dockerfile: Dockerfile.server
     ports:
-      - "5432:5432"
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://mongo:27017/invoicestudio
+      - CLIENT_URL=http://localhost:5173 
+      # Change localhost to your domain in production
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PERSISTENCE: Map host folders to container folders
+      # This ensures files uploaded/generated survive container restarts
+      - ./server/src/data:/app/server/src/data
+      - ./uploads:/app/uploads
+      - ./audit_results:/app/audit_results
+      - ./audit_json_results_poppler:/app/audit_json_results_poppler
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND (Vite / React)
+  # ---------------------------------------------------------------------------
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "5173:5173"
+    environment:
+      # In production, this might need Nginx, but for simple VPS usage:
+      - VITE_API_URL=http://localhost:3000
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # DATABASE (MongoDB)
+  # ---------------------------------------------------------------------------
+  mongo:
+    image: mongo:5
+    ports:
+      - "27017:27017" # Optional: Close this port in production for security
+    volumes:
+      # DATA PERSISTENCE: Actual DB files live here on the host
+      - mongo_data:/data/db
+    restart: unless-stopped
 
 volumes:
-  pgdata:
+  mongo_data:

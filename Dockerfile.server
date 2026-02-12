@@ -1,0 +1,24 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy root package files if any (monorepo style) or just server
+COPY package*.json ./
+COPY server/package*.json ./server/
+
+# Install server dependencies
+WORKDIR /app/server
+RUN npm install
+
+# Copy source code
+WORKDIR /app
+COPY server ./server
+COPY uploads ./uploads
+COPY audit_results ./audit_results
+
+# Expose API Port
+EXPOSE 3000
+
+# Start Server
+WORKDIR /app/server
+CMD ["npm", "start"]
