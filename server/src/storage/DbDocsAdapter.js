@@ -287,7 +287,7 @@ class DbDocsAdapter {
     }
 
     async cleanupExpiredBackups() {
-        const now = Date.now();
+        const now = new Date();
         const deleted = await knex('document_backups').where('expires_at', '<', now).delete();
         if (deleted > 0) {
             console.log(`[Backups] Cleaned up ${deleted} expired backups.`);
