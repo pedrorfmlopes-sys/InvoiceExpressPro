@@ -12,9 +12,12 @@ RUN npm install
 
 # Copy source code
 WORKDIR /app
+# Create data directories (instead of copying, as they might be ignored by git)
+RUN mkdir -p uploads audit_results server/src/data
+
+# Copy source code
 COPY server ./server
-COPY uploads ./uploads
-COPY audit_results ./audit_results
+
 
 # Expose API Port
 EXPOSE 3000
