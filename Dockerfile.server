@@ -12,8 +12,8 @@ RUN npm install
 
 # Copy source code
 WORKDIR /app
-# Create data directories (instead of copying, as they might be ignored by git)
-RUN mkdir -p uploads audit_results server/src/data
+# Create data directories at ROOT (where constants.js expects them)
+RUN mkdir -p /app/data /app/uploads /app/audit_results
 
 # Copy source code
 COPY server ./server
