@@ -14,34 +14,6 @@ const ExtractionService = require('../extraction/service');
 const MasterEngine = require('../../engine/engine');
 const CustomerService = require('../crm/CustomerService'); // Added for CRM integration
 
-// ... inside extract loop ...
-// Save to DB
-await Adapter.saveDocument(project, row);
-
-// --- CRM INTEGRATION ---
-// Capture customer data immediately
-if (extracted.confidence > 0.6) {
-    try {
-        await CustomerService.upsertFromExtraction(project, row);
-        console.log(`[Extract] Auto-captured customer: ${row.customer}`);
-    } catch (crmErr) {
-        console.error("[Extract] Failed to capture customer:", crmErr.message);
-    }
-}
-// -----------------------
-
-// ... inside reprocess ...
-// 5. Save back to DB
-await Adapter.saveDocument(project, updatedDoc);
-
-// --- CRM INTEGRATION ---
-try {
-    await CustomerService.upsertFromExtraction(project, updatedDoc, true); // Explicit update on reprocess
-} catch (crmErr) {
-    console.error(`[Reprocess] Failed to update CRM for doc ${id}:`, crmErr.message);
-}
-// -----------------------
-
 // Multer config
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -309,6 +281,18 @@ exports.extract = async (req, res) => {
                     }
                 }
 
+                // --- CRM INTEGRATION ---
+                // Capture customer data immediately
+                if (extracted.confidence > 0.6) {
+                    try {
+                        await CustomerService.upsertFromExtraction(project, row);
+                        console.log(`[Extract] Auto-captured customer: ${row.customer}`);
+                    } catch (crmErr) {
+                        console.error("[Extract] Failed to capture customer:", crmErr.message);
+                    }
+                }
+                // -----------------------
+
                 done++;
                 await knex('extraction_batches').where({ id: batchId }).update({
                     done_files: done,
@@ -420,6 +404,14 @@ exports.reprocess = async (req, res) => {
 
         // 5. Save back to DB
         await Adapter.saveDocument(project, updatedDoc);
+
+        // --- CRM INTEGRATION ---
+        try {
+            await CustomerService.upsertFromExtraction(project, updatedDoc, true); // Explicit update on reprocess
+        } catch (crmErr) {
+            console.error(`[Reprocess] Failed to update CRM for doc ${id}:`, crmErr.message);
+        }
+        // -----------------------
 
         console.log(`[Reprocess] Success for doc ${id}`);
         res.json(updatedDoc);
