@@ -13,6 +13,7 @@ const Adapter = require('../../storage/getDocsAdapter');
 const ExtractionService = require('../extraction/service');
 const MasterEngine = require('../../engine/engine');
 const CustomerService = require('../crm/CustomerService'); // Added for CRM integration
+const knex = require('../../db/knex'); // Added for batch tracking
 
 // Multer config
 const storage = multer.diskStorage({
