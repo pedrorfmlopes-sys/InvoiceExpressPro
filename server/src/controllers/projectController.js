@@ -8,12 +8,18 @@ exports.listProjects = (req, res) => {
 };
 
 exports.createProject = (req, res) => {
+    console.log('[ProjectController] createProject request received:', req.body);
     const { name } = req.body || {};
-    if (!name) return res.status(400).json({ error: 'name required' });
+    if (!name) {
+        console.warn('[ProjectController] Name missing in body');
+        return res.status(400).json({ error: 'name required' });
+    }
     try {
         const safe = ProjectService.createProject(name);
+        console.log('[ProjectController] Project created:', safe);
         res.json({ ok: true, name: safe });
     } catch (e) {
+        console.error('[ProjectController] Creation failed:', e.message);
         res.status(500).json({ error: e.message });
     }
 };

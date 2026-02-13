@@ -94,13 +94,26 @@ class ProposalStudioService {
 
         const lines = await knex('proposal_lines').where({ proposal_id: id }).orderBy('sort_order', 'asc');
 
+        const safeParse = (val) => {
+            if (!val) return null;
+            if (typeof val === 'string') {
+                try {
+                    return JSON.parse(val);
+                } catch (e) {
+                    console.warn('[ProposalService] Failed to parse JSON:', val);
+                    return null;
+                }
+            }
+            return val; // Already an object
+        };
+
         return {
             ...proposal,
-            branding_config: proposal.branding_config ? JSON.parse(proposal.branding_config) : null,
-            metadata: proposal.metadata ? JSON.parse(proposal.metadata) : null,
+            branding_config: safeParse(proposal.branding_config),
+            metadata: safeParse(proposal.metadata),
             lines: lines.map(l => ({
                 ...l,
-                extra_attributes: l.extra_attributes ? JSON.parse(l.extra_attributes) : null
+                extra_attributes: safeParse(l.extra_attributes)
             }))
         };
     }
