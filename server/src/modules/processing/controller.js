@@ -24,9 +24,29 @@ const storage = multer.diskStorage({
         cb(null, Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname));
     }
 });
-const upload = multer({ storage });
+// Wrapped Middleware to catch Multer errors and prevent 502 crashes
+exports.uploadMiddleware = (req, res, next) => {
+    // Ensure dir exists (Redundant safety)
+    try {
+        if (!fs.existsSync(PATHS.UPLOADS)) fs.mkdirSync(PATHS.UPLOADS, { recursive: true });
+    } catch (e) {
+        console.error('[Multer] Setup Error:', e);
+        return res.status(500).json({ error: 'Upload directory inaccessible: ' + e.message });
+    }
 
-exports.uploadMiddleware = upload.array('files');
+    const upload = multer({ storage }).array('files');
+
+    upload(req, res, (err) => {
+        if (err) {
+            console.error('[Multer] Upload Error:', err);
+            if (err instanceof multer.MulterError) {
+                return res.status(400).json({ error: `Upload Error: ${err.message} (${err.code})` });
+            }
+            return res.status(500).json({ error: 'Internal Upload Error: ' + err.message });
+        }
+        next();
+    });
+};
 
 // Progress MAP removed in favor of extraction_batches table
 
