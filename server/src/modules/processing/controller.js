@@ -89,254 +89,268 @@ function extractRegex(text) {
 }
 
 exports.extract = async (req, res) => {
-    // Standardized req.project
-    const project = req.project;
-    const batchId = req.query.batchId || uuidv4();
-    const ctx = ProjectService.getContext(project);
+    try {
+        // Standardized req.project
+        const project = req.project;
+        const batchId = req.query.batchId || uuidv4();
+        const ctx = ProjectService.getContext(project);
 
-    // Get Secrets for AI
-    const secrets = await ConfigService.getSecrets(project);
-    // Allow Client override (Legacy V1 parity)
-    if (req.headers['x-openai-key']) {
-        secrets.openaiApiKey = req.headers['x-openai-key'];
-    }
-    const hasKey = !!secrets.openaiApiKey;
+        console.log(`[Extract] Starting Batch ${batchId} for Project ${project}`);
 
-    // Init progress in DB
-    await knex('extraction_batches').insert({
-        id: batchId,
-        project,
-        total_files: req.files.length,
-        done_files: 0,
-        error_files: 0,
-        status: 'processing',
-        created_at: new Date(),
-        updated_at: new Date()
-    });
-
-    res.json({ batchId, count: req.files.length, project, aiRequested: hasKey });
-
-    // Async processing
-    (async () => {
-        let done = 0;
-        let errors = 0;
-        for (const f of req.files) {
-            try {
-                const buf = fs.readFileSync(f.path);
-                const parsed = await pdf(buf);
-                const text = (parsed.text || '').trim();
-
-                let extracted = {};
-                let extractionMethod = 'regex';
-                let profileMatch = null;
-
-                // --- 0. Learning Module (Phase A) ---
-                try {
-                    const matchResult = await ExtractionService.matchProfile(buf);
-                    if (matchResult.profile) {
-                        console.log(`[Extract] Profile Matched: ${matchResult.profile.name} (${matchResult.confidence})`);
-                        profileMatch = matchResult;
-
-                        // Phase B: Extract
-                        const extractionResult = await ExtractionService.extractWithProfile(buf, matchResult.profile.id);
-                        if (extractionResult.extracted && Object.keys(extractionResult.extracted).length > 0) {
-                            extracted = {
-                                ...extracted,
-                                ...extractionResult.extracted,
-                                confidence: 0.95, // High confidence for profile
-                                needsOcr: false,
-                                _profile: { id: matchResult.profile.id, name: matchResult.profile.name }
-                            };
-                            extractionMethod = 'profile';
-                        }
-                    }
-                } catch (profileErr) {
-                    console.error("[Extract] Profile Logic Error:", profileErr);
-                }
-
-                // --- Master Engine (Phase C) ---
-                // If profile didn't extract LINES (weak profile), OR didn't match, use the Master Engine
-                // This ensures we don't get stuck with a "Date-Only" profile when the Engine could find 50 lines.
-                // FORCE: Always try Engine for Nicolazzi/Ritmonio (V2 Migration Candidates)
-                const isV2Candidate = /NICOLAZZI|Ritmonio/i.test(text);
-                const profileMissedLines = extractionMethod === 'profile' && (!extracted.lines || extracted.lines.length === 0);
-
-                if (extractionMethod !== 'profile' || profileMissedLines || isV2Candidate) {
-                    try {
-                        const engineResult = await MasterEngine.process(text, buf);
-
-                        // Smart Merge: Prefer Engine lines if Profile has none
-                        // If we are here because profileMissedLines is true, matches will be merged.
-                        const newExtracted = {
-                            ...extracted,
-                            ...engineResult,
-                            // Priority: if engine found lines, use them. If not, keep what we had (empty).
-                            lines: (engineResult.lines && engineResult.lines.length > 0) ? engineResult.lines : (extracted.lines || [])
-                        };
-
-                        extracted = newExtracted;
-
-                        // Update Method tracking only if Engine actually contributed useful data (lines)
-                        if (engineResult.lines && engineResult.lines.length > 0) {
-                            extractionMethod = engineResult.docTypeSource || 'engine_override';
-                        } else if (extractionMethod !== 'profile') {
-                            extractionMethod = engineResult.docTypeSource || 'engine';
-                        }
-
-                        if (profileMissedLines && extracted.lines && extracted.lines.length > 0) {
-                            console.log("[Extract] Engine rescued Profile: Found lines where Profile found none.");
-                        }
-
-                    } catch (engineErr) {
-                        console.error("[Extract] Master Engine Error:", engineErr);
-                        // Fallback only if we really have nothing yet
-                        if (extractionMethod !== 'profile') {
-                            extracted = { ...extracted, ...extractRegex(text) };
-                            extractionMethod = 'fallback_regex';
-                        }
-                    }
-                }
-
-                // --- Quality Gate: Validate docNumber ---
-                if (extracted.docNumber) {
-                    const dn = String(extracted.docNumber).trim();
-                    const invalid = dn.length < 3
-                        || /^\d{1,2}$/.test(dn) // "1", "99" often wrong
-                        || ['N/A', 'unknown', '-', 'null', 'undefined'].includes(dn.toLowerCase())
-                        || dn.toLowerCase().includes('iban'); // Common hallucination
-
-                    if (invalid) {
-                        console.log(`[Extract] InvalidDocNumber detected: "${dn}". Clearing.`);
-                        extracted.docNumber = null;
-                    }
-                }
-
-                // --- Targeted Fallback: Try to find docNumber via Regex if missing ---
-                if (!extracted.docNumber && text.length > 50) {
-                    // 1. "12345/A" or "12345-A"
-                    let m = text.match(/\b(\d{1,6})\s*[\/-]\s*([A-Z0-9]{1,4})\b/);
-                    if (m) extracted.docNumber = `${m[1]}/${m[2]}`;
-                    else {
-                        // 2. "Fatura... AB1234"
-                        m = text.match(/(?:Fatura|Recibo|FT|FR|NC|ND|Guia)\s*(?:n\.?|nº|number|num)?\s*[:#.]?\s*([A-Z0-9\/-]{3,})/i);
-                        if (m) extracted.docNumber = m[1].replace(/\s+/g, '');
-                        else {
-                            // 3. Serial pattern: "0000123/A"
-                            m = text.match(/\b0{2,}\d{1,6}\/[A-Z]\b/);
-                            if (m) extracted.docNumber = m[0];
-                        }
-                    }
-                    if (extracted.docNumber) console.log(`[Extract] Recovered docNumber via Regex: ${extracted.docNumber}`);
-                }
-
-                // --- Scenario 3: AI Reprompt (Confident but missing docNumber) ---
-                if (!extracted.docNumber && extractionMethod === 'ai' && extracted.confidence >= 0.7 && hasKey) {
-                    try {
-                        console.log("[Extract] Reprompting AI for docNumber...");
-                        const openai = new OpenAI({ apiKey: secrets.openaiApiKey });
-                        const completion = await openai.chat.completions.create({
-                            model: "gpt-3.5-turbo-1106",
-                            messages: [
-                                { role: "system", content: 'Find the Invoice Number (docNumber). Return JSON: { "docNumber": "string" or null }.' },
-                                { role: "user", content: `Text:\n${text.substring(0, 2000)}` }
-                            ],
-                            response_format: { type: "json_object" },
-                            temperature: 0
-                        });
-                        const raw = JSON.parse(completion.choices[0].message.content);
-                        if (raw.docNumber && raw.docNumber.length > 2) {
-                            extracted.docNumber = raw.docNumber;
-                            console.log(`[Extract] Reprompt success: ${extracted.docNumber}`);
-                        }
-                    } catch (e) { console.log("[Extract] Reprompt failed", e.message); }
-                }
-
-                // Fallback / Regex ONLY if other methods failed (AI, Engine, Profile)
-                if (extractionMethod === 'regex' || extractionMethod === 'fallback_regex') {
-                    extracted = extractRegex(text);
-                }
-
-                const stagingName = Date.now() + '_' + path.basename(f.originalname);
-                const stagingPath = path.join(ctx.dirs.staging, stagingName);
-                fs.copyFileSync(f.path, stagingPath);
-
-                // Flatten complex objects for DB/List View
-                const flatData = {
-                    total: extracted.total || (extracted.totals ? extracted.totals.total : 0),
-                    date: extracted.date || (extracted.dates ? extracted.dates.issued : null),
-                    supplier: (extracted.entities && extracted.entities.supplier && extracted.entities.supplier.name)
-                        ? extracted.entities.supplier.name
-                        : (extracted.supplier || ''),
-                    customer: (extracted.entities && extracted.entities.customer && extracted.entities.customer.name)
-                        ? extracted.entities.customer.name
-                        : (extracted.customer || '')
-                };
-
-                const row = {
-                    id: uuidv4(),
-                    project,
-                    batchId,
-                    ...extracted,
-                    ...flatData, // Overwrite with flattened versions for top-level columns
-                    rawJson: extracted, // Store the full object for viewers
-                    extractionMethod,
-                    status: 'staging',
-                    filePath: stagingPath,
-                    createdAt: new Date().toISOString()
-                };
-
-                // Save to DB
-                await Adapter.saveDocument(project, row);
-
-                // Save Extraction Meta (if profiled)
-                if (profileMatch && profileMatch.profile) {
-                    try {
-                        await knex('document_extraction_meta').insert({
-                            doc_id: row.id,
-                            profile_id: profileMatch.profile.id,
-                            confidence: 0.95
-                        }).onConflict('doc_id').merge();
-                    } catch (metaErr) {
-                        console.error("Failed to save extraction meta:", metaErr);
-                    }
-                }
-
-                // --- CRM INTEGRATION ---
-                // Capture customer data immediately
-                if (extracted.confidence > 0.6) {
-                    try {
-                        await CustomerService.upsertFromExtraction(project, row);
-                        console.log(`[Extract] Auto-captured customer: ${row.customer}`);
-                    } catch (crmErr) {
-                        console.error("[Extract] Failed to capture customer:", crmErr.message);
-                    }
-                }
-                // -----------------------
-
-                done++;
-                await knex('extraction_batches').where({ id: batchId }).update({
-                    done_files: done,
-                    updated_at: new Date()
-                });
-
-            } catch (e) {
-                console.error(e);
-                errors++;
-                await knex('extraction_batches').where({ id: batchId }).update({
-                    error_files: errors,
-                    updated_at: new Date()
-                });
-            } finally {
-                try { fs.unlinkSync(f.path) } catch { }
-            }
+        // Get Secrets for AI
+        const secrets = await ConfigService.getSecrets(project);
+        // Allow Client override (Legacy V1 parity)
+        if (req.headers['x-openai-key']) {
+            secrets.openaiApiKey = req.headers['x-openai-key'];
         }
+        const hasKey = !!secrets.openaiApiKey;
 
-        // Finalize Batch Status
-        await knex('extraction_batches').where({ id: batchId }).update({
-            status: 'finished',
+        // Init progress in DB
+        await knex('extraction_batches').insert({
+            id: batchId,
+            project,
+            total_files: req.files.length,
+            done_files: 0,
+            error_files: 0,
+            status: 'processing',
+            created_at: new Date(),
             updated_at: new Date()
         });
-    })();
+
+        res.json({ batchId, count: req.files.length, project, aiRequested: hasKey });
+
+        // Async processing (Fire & Forget, handled by internal try/catch)
+        (async () => {
+            let done = 0;
+            let errors = 0;
+            for (const f of req.files) {
+                try {
+                    const buf = fs.readFileSync(f.path);
+                    const parsed = await pdf(buf);
+                    const text = (parsed.text || '').trim();
+
+                    let extracted = {};
+                    let extractionMethod = 'regex';
+                    let profileMatch = null;
+
+                    // --- 0. Learning Module (Phase A) ---
+                    try {
+                        const matchResult = await ExtractionService.matchProfile(buf);
+                        if (matchResult.profile) {
+                            console.log(`[Extract] Profile Matched: ${matchResult.profile.name} (${matchResult.confidence})`);
+                            profileMatch = matchResult;
+
+                            // Phase B: Extract
+                            const extractionResult = await ExtractionService.extractWithProfile(buf, matchResult.profile.id);
+                            if (extractionResult.extracted && Object.keys(extractionResult.extracted).length > 0) {
+                                extracted = {
+                                    ...extracted,
+                                    ...extractionResult.extracted,
+                                    confidence: 0.95, // High confidence for profile
+                                    needsOcr: false,
+                                    _profile: { id: matchResult.profile.id, name: matchResult.profile.name }
+                                };
+                                extractionMethod = 'profile';
+                            }
+                        }
+                    } catch (profileErr) {
+                        console.error("[Extract] Profile Logic Error:", profileErr);
+                    }
+
+                    // --- Master Engine (Phase C) ---
+                    // If profile didn't extract LINES (weak profile), OR didn't match, use the Master Engine
+                    // This ensures we don't get stuck with a "Date-Only" profile when the Engine could find 50 lines.
+                    // FORCE: Always try Engine for Nicolazzi/Ritmonio (V2 Migration Candidates)
+                    const isV2Candidate = /NICOLAZZI|Ritmonio/i.test(text);
+                    const profileMissedLines = extractionMethod === 'profile' && (!extracted.lines || extracted.lines.length === 0);
+
+                    if (extractionMethod !== 'profile' || profileMissedLines || isV2Candidate) {
+                        try {
+                            const engineResult = await MasterEngine.process(text, buf);
+
+                            // Smart Merge: Prefer Engine lines if Profile has none
+                            // If we are here because profileMissedLines is true, matches will be merged.
+                            const newExtracted = {
+                                ...extracted,
+                                ...engineResult,
+                                // Priority: if engine found lines, use them. If not, keep what we had (empty).
+                                lines: (engineResult.lines && engineResult.lines.length > 0) ? engineResult.lines : (extracted.lines || [])
+                            };
+
+                            extracted = newExtracted;
+
+                            // Update Method tracking only if Engine actually contributed useful data (lines)
+                            if (engineResult.lines && engineResult.lines.length > 0) {
+                                extractionMethod = engineResult.docTypeSource || 'engine_override';
+                            } else if (extractionMethod !== 'profile') {
+                                extractionMethod = engineResult.docTypeSource || 'engine';
+                            }
+
+                            if (profileMissedLines && extracted.lines && extracted.lines.length > 0) {
+                                console.log("[Extract] Engine rescued Profile: Found lines where Profile found none.");
+                            }
+
+                        } catch (engineErr) {
+                            console.error("[Extract] Master Engine Error:", engineErr);
+                            // Fallback only if we really have nothing yet
+                            if (extractionMethod !== 'profile') {
+                                extracted = { ...extracted, ...extractRegex(text) };
+                                extractionMethod = 'fallback_regex';
+                            }
+                        }
+                    }
+
+                    // --- Quality Gate: Validate docNumber ---
+                    if (extracted.docNumber) {
+                        const dn = String(extracted.docNumber).trim();
+                        const invalid = dn.length < 3
+                            || /^\d{1,2}$/.test(dn) // "1", "99" often wrong
+                            || ['N/A', 'unknown', '-', 'null', 'undefined'].includes(dn.toLowerCase())
+                            || dn.toLowerCase().includes('iban'); // Common hallucination
+
+                        if (invalid) {
+                            console.log(`[Extract] InvalidDocNumber detected: "${dn}". Clearing.`);
+                            extracted.docNumber = null;
+                        }
+                    }
+
+                    // --- Targeted Fallback: Try to find docNumber via Regex if missing ---
+                    if (!extracted.docNumber && text.length > 50) {
+                        // 1. "12345/A" or "12345-A"
+                        let m = text.match(/\b(\d{1,6})\s*[\/-]\s*([A-Z0-9]{1,4})\b/);
+                        if (m) extracted.docNumber = `${m[1]}/${m[2]}`;
+                        else {
+                            // 2. "Fatura... AB1234"
+                            m = text.match(/(?:Fatura|Recibo|FT|FR|NC|ND|Guia)\s*(?:n\.?|nº|number|num)?\s*[:#.]?\s*([A-Z0-9\/-]{3,})/i);
+                            if (m) extracted.docNumber = m[1].replace(/\s+/g, '');
+                            else {
+                                // 3. Serial pattern: "0000123/A"
+                                m = text.match(/\b0{2,}\d{1,6}\/[A-Z]\b/);
+                                if (m) extracted.docNumber = m[0];
+                            }
+                        }
+                        if (extracted.docNumber) console.log(`[Extract] Recovered docNumber via Regex: ${extracted.docNumber}`);
+                    }
+
+                    // --- Scenario 3: AI Reprompt (Confident but missing docNumber) ---
+                    if (!extracted.docNumber && extractionMethod === 'ai' && extracted.confidence >= 0.7 && hasKey) {
+                        try {
+                            console.log("[Extract] Reprompting AI for docNumber...");
+                            const openai = new OpenAI({ apiKey: secrets.openaiApiKey });
+                            const completion = await openai.chat.completions.create({
+                                model: "gpt-3.5-turbo-1106",
+                                messages: [
+                                    { role: "system", content: 'Find the Invoice Number (docNumber). Return JSON: { "docNumber": "string" or null }.' },
+                                    { role: "user", content: `Text:\n${text.substring(0, 2000)}` }
+                                ],
+                                response_format: { type: "json_object" },
+                                temperature: 0
+                            });
+                            const raw = JSON.parse(completion.choices[0].message.content);
+                            if (raw.docNumber && raw.docNumber.length > 2) {
+                                extracted.docNumber = raw.docNumber;
+                                console.log(`[Extract] Reprompt success: ${extracted.docNumber}`);
+                            }
+                        } catch (e) { console.log("[Extract] Reprompt failed", e.message); }
+                    }
+
+                    // Fallback / Regex ONLY if other methods failed (AI, Engine, Profile)
+                    if (extractionMethod === 'regex' || extractionMethod === 'fallback_regex') {
+                        extracted = extractRegex(text);
+                    }
+
+                    const stagingName = Date.now() + '_' + path.basename(f.originalname);
+                    const stagingPath = path.join(ctx.dirs.staging, stagingName);
+
+                    // DIAGNOSTIC LOG: Confirm exact write location
+                    console.log(`[Extract] Saving file to: ${stagingPath}`);
+
+                    fs.copyFileSync(f.path, stagingPath);
+
+                    // Flatten complex objects for DB/List View
+                    const flatData = {
+                        total: extracted.total || (extracted.totals ? extracted.totals.total : 0),
+                        date: extracted.date || (extracted.dates ? extracted.dates.issued : null),
+                        supplier: (extracted.entities && extracted.entities.supplier && extracted.entities.supplier.name)
+                            ? extracted.entities.supplier.name
+                            : (extracted.supplier || ''),
+                        customer: (extracted.entities && extracted.entities.customer && extracted.entities.customer.name)
+                            ? extracted.entities.customer.name
+                            : (extracted.customer || '')
+                    };
+
+                    const row = {
+                        id: uuidv4(),
+                        project,
+                        batchId,
+                        ...extracted,
+                        ...flatData, // Overwrite with flattened versions for top-level columns
+                        rawJson: extracted, // Store the full object for viewers
+                        extractionMethod,
+                        status: 'staging',
+                        filePath: stagingPath,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    // Save to DB
+                    await Adapter.saveDocument(project, row);
+
+                    // Save Extraction Meta (if profiled)
+                    if (profileMatch && profileMatch.profile) {
+                        try {
+                            await knex('document_extraction_meta').insert({
+                                doc_id: row.id,
+                                profile_id: profileMatch.profile.id,
+                                confidence: 0.95
+                            }).onConflict('doc_id').merge();
+                        } catch (metaErr) {
+                            console.error("Failed to save extraction meta:", metaErr);
+                        }
+                    }
+
+                    // --- CRM INTEGRATION ---
+                    // Capture customer data immediately
+                    if (extracted.confidence > 0.6) {
+                        try {
+                            await CustomerService.upsertFromExtraction(project, row);
+                            console.log(`[Extract] Auto-captured customer: ${row.customer}`);
+                        } catch (crmErr) {
+                            console.error("[Extract] Failed to capture customer:", crmErr.message);
+                        }
+                    }
+                    // -----------------------
+
+                    done++;
+                    await knex('extraction_batches').where({ id: batchId }).update({
+                        done_files: done,
+                        updated_at: new Date()
+                    });
+
+                } catch (e) {
+                    console.error(e);
+                    errors++;
+                    await knex('extraction_batches').where({ id: batchId }).update({
+                        error_files: errors,
+                        updated_at: new Date()
+                    });
+                } finally {
+                    try { fs.unlinkSync(f.path) } catch { }
+                }
+            }
+
+            // Finalize Batch Status
+            await knex('extraction_batches').where({ id: batchId }).update({
+                status: 'finished',
+                updated_at: new Date()
+            });
+        })();
+
+    } catch (e) {
+        console.error('[Extract] Controller Initialization Error:', e);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to initialize extraction: ' + e.message });
+        }
+    }
 };
 
 exports.getProgress = async (req, res) => {

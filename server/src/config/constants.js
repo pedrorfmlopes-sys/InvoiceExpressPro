@@ -14,7 +14,7 @@ module.exports = {
         ROOT: DATA_ROOT,
         PROJECTS: path.join(DATA_ROOT, 'projects'),
         CONFIG: path.join(DATA_ROOT, 'config'),
-        UPLOADS: path.join(PROJECT_ROOT, 'uploads'), // Assuming uploads is at root as seen in tree
+        UPLOADS: path.join(DATA_ROOT, 'uploads'), // MOVED TO PERSISTENT DATA DISK
         CLIENT_DIST: path.resolve(PROJECT_ROOT, 'client/dist'),
         EXTRACTORS_DIR: path.join(DATA_ROOT, 'extractors'),
     },

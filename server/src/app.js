@@ -24,6 +24,30 @@ app.use(cookieParser());
 app.use('/', express.static(PATHS.CLIENT_DIST));
 
 
+
+// --- BOOT CHECK: STORAGE PERMISSIONS ---
+// Fail fast if we cannot write to the persistent disk
+try {
+    const fs = require('fs');
+    if (!fs.existsSync(PATHS.ROOT)) {
+        console.log('[Boot] Creating Data Root:', PATHS.ROOT);
+        fs.mkdirSync(PATHS.ROOT, { recursive: true });
+    }
+    if (!fs.existsSync(PATHS.UPLOADS)) {
+        console.log('[Boot] Creating Uploads Dir:', PATHS.UPLOADS);
+        fs.mkdirSync(PATHS.UPLOADS, { recursive: true });
+    }
+    // Test Write
+    const testFile = path.join(PATHS.UPLOADS, 'boot_check.txt');
+    fs.writeFileSync(testFile, 'OK');
+    fs.unlinkSync(testFile);
+    console.log('[Boot] Storage Check: PASS (Write Access Confirmed)');
+} catch (e) {
+    console.error('[Boot] CRITICAL STORAGE ERROR:', e.message);
+    console.error('The application normally requires /app/data to be writable.');
+    // We don't exit process here to allow the "Health API" to maybe still work, but it's risky.
+}
+
 // 2. Auth Context (loads user if token present, doesn't block)
 app.use(attachContext);
 
