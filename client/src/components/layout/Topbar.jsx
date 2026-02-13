@@ -53,7 +53,7 @@ export function Topbar({
         <>
             {/* Modal Overlay */}
             {showNewModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <GlassCard className="w-full max-w-sm p-6 shadow-2xl border border-[var(--border)] bg-[var(--bg-card)]">
                         <h3 className="text-lg font-bold mb-4">Novo Projeto</h3>
 
