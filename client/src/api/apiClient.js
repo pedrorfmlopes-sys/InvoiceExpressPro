@@ -28,6 +28,9 @@ const api = axios.create({
     withCredentials: true // Send cookies
 });
 
+console.log('[API] Initialized with baseURL:', api.defaults.baseURL);
+console.log('[API] VITE_API_URL explicitly:', import.meta.env.VITE_API_URL);
+
 // Request Interceptor: Attach Token & Anti-Cache Headers
 api.interceptors.request.use(config => {
     const token = localStorage.getItem('token');
@@ -40,7 +43,10 @@ api.interceptors.request.use(config => {
     config.headers['Expires'] = '0';
 
     return config;
-}, error => Promise.reject(error));
+}, error => {
+    console.error('[API] Request Error:', error);
+    return Promise.reject(error);
+});
 
 // ... (refresh logic) ...
 
