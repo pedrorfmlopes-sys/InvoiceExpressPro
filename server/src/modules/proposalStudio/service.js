@@ -30,7 +30,7 @@ class ProposalStudioService {
             name: `Proposta: ${doc.docNumber || 'Sem Número'} - ${doc.customer || 'Consumidor Final'}`,
             brand_id: doc.supplier && /NICOLAZZI/i.test(doc.supplier) ? 'nicolazzi' : 'other',
             client_ref: doc.customer || sourceData.customer,
-            project_ref: doc.project_ref || sourceData.customerRef,
+            project_ref: project || doc.project || sourceData.customerRef, // Fix: Priority to system Project ID
             status: 'draft',
             original_doc_id: docId,
             metadata: JSON.stringify({

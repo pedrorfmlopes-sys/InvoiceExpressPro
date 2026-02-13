@@ -12,7 +12,35 @@ const ConfigService = require('../../services/ConfigService');
 const Adapter = require('../../storage/getDocsAdapter');
 const ExtractionService = require('../extraction/service');
 const MasterEngine = require('../../engine/engine');
-const knex = require('../../db/knex'); // For meta insert
+const CustomerService = require('../crm/CustomerService'); // Added for CRM integration
+
+// ... inside extract loop ...
+// Save to DB
+await Adapter.saveDocument(project, row);
+
+// --- CRM INTEGRATION ---
+// Capture customer data immediately
+if (extracted.confidence > 0.6) {
+    try {
+        await CustomerService.upsertFromExtraction(project, row);
+        console.log(`[Extract] Auto-captured customer: ${row.customer}`);
+    } catch (crmErr) {
+        console.error("[Extract] Failed to capture customer:", crmErr.message);
+    }
+}
+// -----------------------
+
+// ... inside reprocess ...
+// 5. Save back to DB
+await Adapter.saveDocument(project, updatedDoc);
+
+// --- CRM INTEGRATION ---
+try {
+    await CustomerService.upsertFromExtraction(project, updatedDoc, true); // Explicit update on reprocess
+} catch (crmErr) {
+    console.error(`[Reprocess] Failed to update CRM for doc ${id}:`, crmErr.message);
+}
+// -----------------------
 
 // Multer config
 const storage = multer.diskStorage({

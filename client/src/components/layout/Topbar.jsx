@@ -22,6 +22,7 @@ export function Topbar({
 
     const handleProjectChange = (e) => {
         const val = e.target.value;
+        console.log('[Topbar] Project changed:', val); // Debug
         if (val === '__NEW__') {
             setShowNewModal(true);
             setNewName('');
@@ -39,6 +40,7 @@ export function Topbar({
         setError(null);
 
         try {
+            console.log('[Topbar] Creating project:', newName);
             await api.post('/api/projects', { name: newName });
             // Refresh logic
             window.location.reload();
@@ -53,8 +55,8 @@ export function Topbar({
         <>
             {/* Modal Overlay */}
             {showNewModal && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <GlassCard className="w-full max-w-sm p-6 shadow-2xl border border-[var(--border)] bg-[var(--bg-card)]">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <GlassCard className="w-full max-w-sm p-6 shadow-2xl border border-[var(--border)] bg-[var(--surface)]">
                         <h3 className="text-lg font-bold mb-4">Novo Projeto</h3>
 
                         <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4">
