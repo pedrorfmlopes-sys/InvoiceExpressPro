@@ -75,7 +75,8 @@ async function attachContext(req, res, next) {
 function requireAuth(req, res, next) {
     if (AUTH_MODE === 'optional') return next();
 
-    // Whitelist public endpoints (if matched here)
+    // Whitelist public endpoints
+    if (req.method === 'OPTIONS') return next(); // Allow Preflight (redundant if cors handles it, but safe)
     if (req.path === '/health' || req.originalUrl.includes('/health')) return next();
 
     // Dev Bypass for V2 Extraction Smoke Tests

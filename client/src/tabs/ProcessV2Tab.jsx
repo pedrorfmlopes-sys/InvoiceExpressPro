@@ -555,7 +555,9 @@ export default function ProcessV2Tab({ project }) {
                 <div className="flex flex-col">
                     <h1 className="text-2xl font-bold">{t('process.title')}</h1>
                     <div className="text-sm opacity-50">{t('sidebar.workspace')}: {project}</div>
+                    {project === 'default' && <div className="text-xs text-red-500 font-bold animate-pulse">⚠️ SYSTEM DEFAULT</div>}
                 </div>
+                {console.log('[ProcessV2Tab] Rendered with project:', project)}
             </div>
 
             {/* 2. Upload Area */}
