@@ -133,8 +133,14 @@ export default function App() {
       try {
         const pRes = await api.get('/api/projects');
         const list = pRes.data.projects || [];
+        console.log('[App] Loaded projects:', list);
         setProjects(list);
-        if (list.length && !list.includes(project)) setProject(list[0]);
+        if (list.length && !list.includes(project)) {
+          console.log('[App] Auto-switching project from', project, 'to', list[0]);
+          setProject(list[0]);
+        } else {
+          console.log('[App] Keeping project:', project);
+        }
       } catch (pErr) {
         console.warn('[App] Failed to load projects (non-fatal):', pErr);
         setProjects([]);
