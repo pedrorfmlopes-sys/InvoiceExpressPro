@@ -12,6 +12,12 @@ const { DEFAULTS } = require('./config/constants');
 const PORT = process.env.PORT || DEFAULTS.PORT;
 const HOST = process.env.HOST || DEFAULTS.HOST;
 
+// --- DEBUG DIAGNOSTIC ---
+console.log('[DIAGNOSTIC] Starting Server...');
+console.log(`[DIAGNOSTIC] ENV DB_CLIENT: ${process.env.DB_CLIENT ? `"${process.env.DB_CLIENT}"` : 'UNDEFINED'}`);
+console.log(`[DIAGNOSTIC] ENV DATABASE_URL: ${process.env.DATABASE_URL ? 'SET (Masked)' : 'UNDEFINED'}`);
+// ------------------------
+
 app.listen(PORT, HOST, () => {
     console.log(`[Invoice Studio] Server running on http://${HOST}:${PORT} (Phase 1 Logic)`);
 
