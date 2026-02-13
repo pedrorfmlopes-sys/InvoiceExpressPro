@@ -18,4 +18,4 @@ RUN npm install -g serve
 COPY --from=builder /app/client/dist ./dist
 EXPOSE 5173
 # Start usage of shell to allow variable expansion
-CMD ["/bin/sh", "-c", "serve -s dist -l ${PORT:-5173}"]
+CMD ["/bin/sh", "-c", "serve -s dist -l tcp://0.0.0.0:${PORT:-10000}"]
