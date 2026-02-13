@@ -26,8 +26,8 @@ class CustomerService {
         const vat = this.normalizeVat(data.vat || data.customerVat || data.contribuinte);
         if (!vat) return null;
 
-        // BUG FIX: effective-lookup should be scoped to PROJECT (otherwise 'default' customers block creation)
-        const existing = await knex('customers').where({ vat, project ).first();
+        // BUG FIX: effective-lookup should be scoped to PROJECT
+        const existing = await knex('customers').where({ vat, project }).first();
 
         const customerData = {
             name: data.name || data.customer || 'Consumidor Final',
