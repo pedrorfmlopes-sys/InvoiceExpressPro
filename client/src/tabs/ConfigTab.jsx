@@ -15,6 +15,28 @@ export default function ConfigTab({ project }) {
   const [items, setItems] = React.useState([])
   const [raw, setRaw] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [retentionDays, setRetentionDays] = React.useState(30)
+
+  async function loadSettings() {
+    try {
+      const s = await api.get(qp('/api/config/settings', project)).then(r => r.data)
+      if (s.backupRetentionDays) setRetentionDays(s.backupRetentionDays)
+    } catch { }
+  }
+
+  React.useEffect(() => { loadSettings() }, [project])
+
+  async function saveSettings() {
+    try {
+      setBusy(true)
+      await api.post(qp('/api/config/settings', project), { backupRetentionDays: parseInt(retentionDays) })
+      alert('Configurações guardadas ✓')
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function loadTypes() {
     try {
@@ -143,6 +165,34 @@ export default function ConfigTab({ project }) {
             <div className="row">
               <button className="btn" disabled={!logo || busy} onClick={uploadLogo}>{t('config.save')}</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Backup / History Config */}
+      <div className="glass-panel">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xl">🕰️</span>
+          <h3 className="font-bold text-lg">Histórico de Edição</h3>
+        </div>
+        <div className="flex flex-col gap-2 max-w-md">
+          <div className="label font-medium">Dias de Retenção de Rascunhos</div>
+          <div className="text-sm text-[var(--text-muted)] mb-2">
+            Os backups automáticos de rascunhos com mais de X dias serão eliminados automaticamente.
+          </div>
+          <div className="flex gap-4 items-center">
+            <input
+              type="number"
+              className="input w-32"
+              value={retentionDays}
+              onChange={e => setRetentionDays(e.target.value)}
+              min={1}
+              max={365}
+            />
+            <span className="text-sm">dias</span>
+            <button className="btn primary" onClick={saveSettings} disabled={busy}>
+              Guardar
+            </button>
           </div>
         </div>
       </div>

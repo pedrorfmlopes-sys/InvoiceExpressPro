@@ -187,11 +187,30 @@ function extractNicolazziTable(text) {
                     desc = columns.slice(s, priceColIdx - 1).join(" ");
                 }
 
+                // Remove Leading Position Number (Pos > 0)
+                let descPart = desc.replace(/\s+/g, ' ').trim();
+                descPart = descPart.replace(/^\d+[\s\.\-]+/, '').trim();
+
+                // Extract Article Code (Look for first word that looks like a code)
+                // Fix: Removed duplicate 'let pCode = null;' to solve TDZ ReferenceError
+                const words = descPart.split(/\s+/);
+                for (let j = 0; j < Math.min(words.length, 3); j++) {
+                    const w = words[j];
+                    if (w.length >= 4 && /\d/.test(w) && !w.includes(',')) {
+                        pCode = w;
+                        descPart = descPart.replace(w, '').trim();
+                        break;
+                    }
+                }
+
+                // Clean Description junk
+                descPart = descPart.replace(/^[\.\-\s]+/, '').replace(/\s{2,}/g, ' ').trim();
+
                 if (pCode) {
                     const lineObj = {
                         pos: posVal,
                         code: pCode,
-                        description: desc.replace(/\s+/g, ' ').trim(),
+                        description: descPart,
                         quantity: qVal,
                         unitPrice: parseMoneyEU(uStr),
                         total: parseMoneyEU(tStr),
@@ -226,8 +245,8 @@ function extractNicolazziTable(text) {
 
     // Capture VAT Number (High Priority for CRM)
     // Often follows "Vat Number" label, but can be on subsequent lines if IBAN/Shipping is in between
-    // We look for "Vat Number" and then the first 9-digit sequence within the next 500 characters
-    const vatSectionMatch = text.match(/Vat Number[\s\S]{1,500}?\b(\d{9})\b/i);
+    // We look for "Vat Number" and then the first 9-15 digit sequence within the next 500 characters
+    const vatSectionMatch = text.match(/Vat Number[\s\S]{1,500}?\b(\d{9,15})\b/i);
     if (vatSectionMatch) {
         extracted.entities.customer.vat = vatSectionMatch[1];
     }

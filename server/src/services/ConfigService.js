@@ -104,6 +104,19 @@ class ConfigService {
         fs.writeFileSync(p, buffer);
         return p;
     }
+
+    async getSettings(project) {
+        if (Adapter.getSettings) {
+            return await Adapter.getSettings(project);
+        }
+        return { backupRetentionDays: 30 };
+    }
+
+    async saveSettings(project, settings) {
+        if (Adapter.saveSettings) {
+            return await Adapter.saveSettings(project, settings);
+        }
+    }
 }
 
 module.exports = new ConfigService();

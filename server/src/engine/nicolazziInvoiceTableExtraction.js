@@ -84,8 +84,8 @@ function extractNicolazziInvoiceTable(text) {
     }
 
     // --- Entities Parsing (Spatial / Keyword) ---
-    const ptVatEx = text.match(/PT(\d{9})/);
-    if (ptVatEx) extracted.entities.customer.vat = "PT" + ptVatEx[1];
+    const ptVatEx = text.match(/PT(\d{9,15})/) || text.match(/Vat Number[\s\S]{1,500}?\b(\d{9,15})\b/i);
+    if (ptVatEx) extracted.entities.customer.vat = ptVatEx[1];
 
     let foundCustomer = false;
 

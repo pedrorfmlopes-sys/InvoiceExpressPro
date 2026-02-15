@@ -36,7 +36,8 @@
         },
         "alerts": {
             "incomplete": "Missing fields",
-            "low_conf": "Low confidence"
+            "low_conf": "Low confidence",
+            "saving": "Saving document(s)... Please wait and do not close the page."
         },
         "actions": {
             "finalize": "Finalize & Save",

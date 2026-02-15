@@ -25,7 +25,26 @@ class UniversalDocService {
     async updateDoc(project, id, patch, trx = null) {
         if (patch.supplier) patch.supplier = coercePartyToString(patch.supplier);
         if (patch.customer) patch.customer = coercePartyToString(patch.customer);
-        return await Adapter.updateDoc(project, id, patch, trx);
+
+        const updated = await Adapter.updateDoc(project, id, patch, trx);
+
+        // Phase 11: Proactive CRM Sync on manual update
+        const hasCustomerInfo = patch.customer ||
+            (patch.entities && patch.entities.customer) ||
+            (patch.rawJson && patch.rawJson.entities && patch.rawJson.entities.customer);
+
+        if (hasCustomerInfo) {
+            try {
+                // We use the full updated doc to ensure we have name + vat
+                const fullDoc = await Adapter.getDoc(project, id, trx);
+                await CustomerService.upsertFromExtraction(project, fullDoc, false, trx);
+                console.log(`[CRM] Proactive sync for doc ${id}${trx ? ' [TRX]' : ''}`);
+            } catch (crmErr) {
+                console.warn(`[CRM] Proactive sync failed for doc ${id}:`, crmErr.message);
+            }
+        }
+
+        return updated;
     }
 
     async deleteDoc(project, id, trx = null) {
@@ -120,7 +139,7 @@ class UniversalDocService {
 
             // Phase 36: Capture Customer Data (Non-destructive)
             try {
-                await CustomerService.upsertFromExtraction(project, doc, false);
+                await CustomerService.upsertFromExtraction(project, doc, false, innerTrx);
             } catch (e) {
                 console.error('[CRM] Failed to capture customer during finalization:', e.message);
             }

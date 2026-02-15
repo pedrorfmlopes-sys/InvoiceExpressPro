@@ -129,7 +129,7 @@ function extractFromText(text) {
             }
         }
     }
-    const ptVat = text.match(/\bPT\s*([0-9]{9})\b/);
+    const ptVat = text.match(/\bPT\s*([0-9]{9,15})\b/);
     if (ptVat) extracted.entities.customer.vat = 'PT' + ptVat[1];
 
     // --- Totals ---

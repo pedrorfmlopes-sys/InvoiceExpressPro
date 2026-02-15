@@ -1,0 +1,68 @@
+{
+  "docType": "proforma",
+  "docNumber": "25/01530",
+  "currency": "EUR",
+  "dates": {
+    "issued": "2025-07-17"
+  },
+  "entities": {
+    "customer": {
+      "name": "DVTKB, LDA",
+      "address": "RUA DA BAIXA 326-3D-DRT, MONTIJO 2870-231",
+      "vat": "515834807"
+    },
+    "supplier": {
+      "name": "NICOLAZZI s.p.a.",
+      "address": "Via Pietro Durio 119, 28010 ALZO DI PELLA (NO)"
+    },
+    "shipTo": {
+      "name": "QUINTA DA COMPORTA-WELLNESS BOUT",
+      "address": "RUA ALTO DO PINA, 2, CARVALHAL"
+    }
+  },
+  "totals": {
+    "subtotal": 1875,
+    "transport": 0,
+    "tax": 0,
+    "total": 1875
+  },
+  "lines": [
+    {
+      "pos": "1",
+      "code": "C7040/1",
+      "description": "CENTRALE GR.INCASSO S/CAPP.E MAN.",
+      "quantity": 10,
+      "unitPrice": 147,
+      "total": 735,
+      "discountText": "50"
+    },
+    {
+      "pos": "2",
+      "code": "C7041/1",
+      "description": "DEVIATORE VASCA 5 FORI",
+      "quantity": 10,
+      "unitPrice": 208,
+      "total": 1040,
+      "discountText": "50"
+    },
+    {
+      "pos": "3",
+      "code": "9997",
+      "description": "ARTICOLO SPECIALE DI ACQUISTO - GUARNIZIONE IN GOMMA PER ARTICOLO C7040/1A",
+      "quantity": 40,
+      "unitPrice": 5,
+      "total": 100,
+      "discountText": "50"
+    }
+  ],
+  "docRefs": {
+    "customerRef": "17/07"
+  },
+  "confidence": 0.99,
+  "needsReview": false,
+  "reviewReason": null,
+  "debug": {
+    "textLength": 1115,
+    "textSample": "NICOLAZZI s.p.a.\n030DI113\nDelivery Address\nSpett.le\nVia Pietro Durio 119\n28010 ALZO DI PELLA (NO)\ntel. (0322) 969.672 r.a.\nTelefax (0322) 969.532\nC.C.I.A.A. n. 84286-M. NO 001005\nPart. IVA e Cod. Fiscale: 00115930034\nIsc. Trib. Verbania Reg. Soc. n: 3398\nCapitale Sociale € 1.800.000,00 i.v.\nQUINTA DA COMPORTA-WELLNESS BOUTDVTKB, LDA\nRUA ALTO DO PINA, 2RUA DA BAIXA 326-3D-DRT\nCARVALHALMONTIJO2870-231\nPROFORMA INVOICE\nPortogallo\n25/01530\nNumber\n17/07/2025\nDate\nPag.\n1\nCASH\nPayment Condition\nNI41\nCodIVAShipping Date\n515834807\nVat Number\nOur Bank\nLISTO PARA CARGAR EN 4 SEMANAS \nDESDE APROBATION ESCRITA\nOur Ref.\n17/07\nyour ref.\n00351/918504499\nPhone\nRUI RIBEIRO\nFax\nPosArticleColDescriptionQuantityUnit ValueDiscountAmount\n1C7040/1\nCENTRALE GR.INCASSO S/CAPP.E MAN.\n10\n147,0050735,00\n2C7041/1\nDEVIATORE VASCA 5 FORI\n10\n208,00501.040,00\n39997\nARTICOLO SPECIALE DI ACQUISTO - GUARNIZIONE IN GOMMA PER ARTICOLO C7040/1A\n40\n5,0050100,00\n1.875,00\nGoods Value\n0,00\nTransport Charges\n1.875,00\nTOTAL AMOUNT"
+  }
+}

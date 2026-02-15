@@ -311,13 +311,15 @@ exports.extract = async (req, res) => {
 
                     // --- CRM INTEGRATION ---
                     // Capture customer data immediately
-                    // SMART CHECK: Accept if High Confidence (>0.6) OR if we have a STRICTLY VALID NIF (even if confidence is low)
-                    const hasValidNif = extracted.entities && extracted.entities.customer && extracted.entities.customer.vat && /^(PT)?\d{9}$/.test(extracted.entities.customer.vat.replace(/\s/g, ''));
+                    // SMART CHECK: Accept if High Confidence (>0.6) OR if we have a VALID NIF/VAT (9-15 digits)
+                    const rawCit = extracted.entities && extracted.entities.customer && extracted.entities.customer.vat;
+                    const cleanedCit = rawCit ? String(rawCit).replace(/\s/g, '') : '';
+                    const hasValidNif = cleanedCit.length >= 9 && cleanedCit.length <= 15;
 
                     if (extracted.confidence > 0.6 || hasValidNif) {
                         try {
                             await CustomerService.upsertFromExtraction(project, row);
-                            console.log(`[Extract] Auto-captured customer: ${row.customer}`);
+                            console.log(`[Extract] Auto-captured customer: ${row.customer} (${cleanedCit})`);
                         } catch (crmErr) {
                             console.error("[Extract] Failed to capture customer:", crmErr.message);
                         }

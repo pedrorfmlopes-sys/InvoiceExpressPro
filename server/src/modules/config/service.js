@@ -87,6 +87,15 @@ exports.saveUIPreferences = (project, prefs) => {
     return current;
 };
 
+// --- DB Settings (Project) ---
+exports.getSettings = (project) => {
+    return DbDocsAdapter.getSettings(project);
+};
+
+exports.saveSettings = (project, settings) => {
+    return DbDocsAdapter.saveSettings(project, settings);
+};
+
 // --- Cleanup (Dangerous) ---
 const DbDocsAdapter = require('../../storage/DbDocsAdapter');
 const ProjectService = require('../../services/ProjectService');

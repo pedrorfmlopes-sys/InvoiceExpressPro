@@ -83,6 +83,8 @@ export default function ProcessV2Tab({ project }) {
     // -- Selection State --
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [conflictState, setConflictState] = useState(null); // { conflicts, payload, results }
+    const [isFinalizing, setIsFinalizing] = useState(false);
+    const [finalizeProgress, setFinalizeProgress] = useState(0);
 
     // Load Doc Types
     const [availableTypes, setAvailableTypes] = useState([]);
@@ -160,6 +162,7 @@ export default function ProcessV2Tab({ project }) {
     }
 
     async function loadPendingDocs() {
+        console.log("[ProcessV2] loadPendingDocs called. Project:", project);
         setBusy(true);
         try {
             const res = await api.get(`/api/corev2/docs?project=${project}&status=staging&limit=200`);
@@ -331,9 +334,23 @@ export default function ProcessV2Tab({ project }) {
 
     const performFinalize = async (payload, force = false) => {
         setBusy(true);
+        setIsFinalizing(true);
+        setFinalizeProgress(10); // Start
         try {
             const finalPayload = { ...payload, force };
+
+            // Simular progresso enquanto a API processa
+            const progressInterval = setInterval(() => {
+                setFinalizeProgress(prev => (prev < 90 ? prev + 5 : prev));
+            }, 500);
+
+            // Pequeno atraso para garantir que o utilizador vê a mensagem (UX)
+            await new Promise(r => setTimeout(r, 800));
+
             const res = await api.post(qp('/api/corev2/docs/finalize-bulk', project), finalPayload);
+
+            clearInterval(progressInterval);
+            setFinalizeProgress(100);
 
             if (res.data.conflict) {
                 setConflictState({ ...res.data.conflicts[0], payload: finalPayload });
@@ -362,12 +379,14 @@ export default function ProcessV2Tab({ project }) {
                 const errors = results.filter(r => !r.ok).map(r => r.error).join('\n');
                 alert(`Concluído com avisos:\n${finalizedIds.size} guardados.\n${failedCount} falharam:\n${errors}`);
             } else {
-                alert("Sucesso! Documentos guardados.");
+                // alert("Sucesso! Documentos guardados.");
             }
         } catch (e) {
             alert("Erro ao finalizar: " + e.message);
         } finally {
             setBusy(false);
+            setIsFinalizing(false);
+            setFinalizeProgress(0);
         }
     };
 
@@ -466,6 +485,22 @@ export default function ProcessV2Tab({ project }) {
 
     return (
         <div className="flex flex-col gap-6 fade-in h-full overflow-y-auto pb-8 custom-scrollbar relative">
+            {/* Banner de Gravação (Visual Feedback) */}
+            {isFinalizing && createPortal(
+                <div className="fixed top-0 left-0 right-0 z-[10000] bg-[var(--accent-primary)]/95 backdrop-blur-md text-white p-4 shadow-2xl animate-in slide-in-from-top duration-300 flex flex-col gap-2 border-b border-white/20">
+                    <div className="flex items-center justify-center gap-3 font-bold text-lg">
+                        <span className="animate-spin">💾</span>
+                        <span>{t('process.alerts.saving') || 'Guardando documento(s)... Por favor, aguarde.'}</span>
+                    </div>
+                    <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden max-w-2xl mx-auto border border-white/10">
+                        <div
+                            className="h-full bg-white transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                            style={{ width: `${finalizeProgress}%` }}
+                        />
+                    </div>
+                </div>, document.body
+            )}
+
             {/* MARKER */}
             <div className="fixed top-2 right-2 opacity-50 text-[10px] pointer-events-none z-[9999]">PROCESSAR_V2_MARKER</div>
 

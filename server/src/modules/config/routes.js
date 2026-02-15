@@ -25,4 +25,8 @@ router.get('/ui', controller.getUI);
 router.put('/ui', controller.updateUI);
 router.post('/ui', controller.updateUI); // Alias
 
+// Settings (Retention, etc.)
+router.get('/settings', controller.getSettings);
+router.post('/settings', controller.saveSettings);
+
 module.exports = router;

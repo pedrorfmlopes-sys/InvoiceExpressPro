@@ -17,9 +17,38 @@ class ProjectService {
     }
 
     listProjects() {
-        return fs.readdirSync(PATHS.PROJECTS)
-            .filter(n => fs.statSync(path.join(PATHS.PROJECTS, n)).isDirectory())
-            .sort();
+        const root = PATHS.PROJECTS;
+        const results = [];
+
+        // Helper to check if a path is a "valid project dir" (has a docs.json or is intended)
+        const isProjectDir = (p) => {
+            try { return fs.statSync(p).isDirectory(); } catch { return false; }
+        };
+
+        // 1. Scan Level 1 (e.g. "default", "demo")
+        const level1 = fs.readdirSync(root).filter(n => isProjectDir(path.join(root, n)));
+
+        for (const l1 of level1) {
+            const p1 = path.join(root, l1);
+
+            // Check if level 1 Itself is a project (simple mode)
+            // But also scan inside for Org/Repo style
+            const level2 = fs.readdirSync(p1).filter(n => {
+                // Ignore standard internal folders to avoid noise
+                if (['staging', 'archive', 'templates', 'node_modules', '.git'].includes(n)) return false;
+                return isProjectDir(path.join(p1, n));
+            });
+
+            if (level2.length > 0 && !fs.existsSync(path.join(p1, 'docs.json'))) {
+                // It's likely an Org folder (container), not a project, so add children
+                level2.forEach(l2 => results.push(`${l1}/${l2}`));
+            } else {
+                // It's a simple project folder (or empty container which we treat as project for now)
+                results.push(l1);
+            }
+        }
+
+        return results.sort();
     }
 
     createProject(name) {

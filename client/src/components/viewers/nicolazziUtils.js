@@ -30,10 +30,24 @@ export const normalizeNicolazziData = (rawData) => {
 
     // 3. Normalize Totals (Ensure numeric safety)
     data.totals = data.totals || {};
-    data.totals.net = String(data.totals.net || data.totals.goods || '0.00');
+
+    // Fallback chain for subtotal
+    const rawNet = data.totals.net || data.totals.goods || data.totals.subtotal || 0;
+    let net = parseFloat(rawNet) || 0;
+
+    // If net is 0 but we have lines, try to sum them (Initial load fallback)
+    if (net === 0 && data.lines.length > 0) {
+        net = data.lines.reduce((acc, l) => acc + (parseFloat(l.total) || 0), 0);
+    }
+
+    data.totals.net = net.toFixed(2);
+    data.totals.goods = data.totals.net; // Sync both keys
     data.totals.vat = String(data.totals.vat || data.totals.tax || '0.00');
     data.totals.transport = String(data.totals.transport || '0.00');
-    data.totals.gross = String(data.totals.gross || data.totals.total || '0.00');
+
+    const vat = parseFloat(data.totals.vat) || 0;
+    const transport = parseFloat(data.totals.transport) || 0;
+    data.totals.gross = (net + vat + transport).toFixed(2);
 
     // 4. Normalize References (The Regression Fix)
     // Extractor might send docRefs as object or array

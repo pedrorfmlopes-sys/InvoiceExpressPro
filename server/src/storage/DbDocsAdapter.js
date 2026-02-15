@@ -1,6 +1,5 @@
 const knex = require('../db/knex');
 const { v4: uuidv4 } = require('uuid');
-const SatelliteStorage = require('./SatelliteStorage');
 
 class DbDocsAdapter {
     // --- Documents ---
@@ -62,10 +61,13 @@ class DbDocsAdapter {
 
     async getDoc(project, id, trx = null) {
         const db = trx || knex;
-        console.log(`[Adapter] getDoc searching for: project=${project}, id=${id}`);
-        const r = await db('documents').where({ project, id }).first();
+        const query = { id };
+        if (project && project !== 'all') query.project = project;
+
+        console.log(`[Adapter] getDoc searching for: id=${id} (project=${project || 'any'})`);
+        const r = await db('documents').where(query).first();
         if (!r) {
-            console.log(`[Adapter] getDoc NOT FOUND for: project=${project}, id=${id}`);
+            console.log(`[Adapter] getDoc NOT FOUND for: id=${id}`);
             return null;
         }
         const { rawJson: rawStr, ...row } = r;
@@ -78,20 +80,9 @@ class DbDocsAdapter {
 
         let docWithRaw = { ...raw, ...row };
 
-        // --- SMART MERGE (Phase 17/27) ---
-        // If specialized brand, merge latest from satellite
-        const satelliteTypes = ['nicolazzi_proformas', 'nicolazzi_invoices'];
-        for (const type of satelliteTypes) {
-            try {
-                const satData = await SatelliteStorage.getData(type, id);
-                if (satData) {
-                    // console.log(`[Adapter] Smart Merge: Found ${type} data for ${id}`);
-                    const { rawJson: satRaw, ...cleanSat } = satData;
-                    docWithRaw = { ...docWithRaw, ...cleanSat };
-                    break;
-                }
-            } catch (e) { /* ignore single sat load failure */ }
-        }
+        // --- STORAGE UNIFICATION (Phase 2): No more Satellite Merges ---
+        // The Main DB (documents table) is now the Single Source of Truth for both Staging and Final.
+        // We rely on 'rawJson' being up-to-date from the unified save logic.
 
         docWithRaw.rawJson = { ...raw }; // Restore for viewer
         return docWithRaw;
@@ -103,7 +94,7 @@ class DbDocsAdapter {
         // 1. CLEAN GATE: Strip any recursion/nesting attempts
         const { id, docType, docNumber, supplier, customer, date, dueDate, total, status, filePath, batchId,
             docTypeId, docTypeLabel, docTypeRaw, docTypeSource, docTypeConfidence, needsReviewDocType,
-            rawJson: skipJson, raw_data: skipRaw, ...rest } = doc;
+            rawJson, raw_data: skipRaw, ...rest } = doc;
 
         // Safe defaults
         const suppliersName = (supplier && typeof supplier === 'object') ? supplier.name : supplier;
@@ -132,32 +123,50 @@ class DbDocsAdapter {
             docTypeConfidence,
             needsReviewDocType,
 
-            rawJson: JSON.stringify({ ...rest, id, docType, docNumber, supplier: suppliersName, customer: customersName, date, dueDate, total, status, filePath, batchId, docTypeId, docTypeLabel, docTypeRaw, docTypeSource, docTypeConfidence, needsReviewDocType }), // Store clean flat version
+            rawJson: JSON.stringify({
+                ...rest,
+                ...(typeof rawJson === 'object' ? rawJson : {}),
+                id, docType, docNumber, supplier: suppliersName, customer: customersName, date, dueDate, total, status, filePath, batchId, docTypeId, docTypeLabel, docTypeRaw, docTypeSource, docTypeConfidence, needsReviewDocType
+            }), // Store clean flat version
             updated_at: new Date()
         };
 
         // Upsert Main DB
         const db = trx || knex;
         const exists = await db('documents').where({ id }).first();
+
         if (exists) {
+            // --- AUTO-BACKUP (Phase 2): Throttled ---
+            const reason = (exists.status === 'staging' || exists.status === 'extracted')
+                ? 'Rascunho Automático'
+                : 'Atualização de Documento';
+
+            try {
+                // Throttle: Only backup if last update was > 15 mins ago OR status changed
+                const lastUpdate = exists.updated_at ? new Date(exists.updated_at) : new Date(0);
+                const thirtyMins = 30 * 60 * 1000;
+                const statusChanged = exists.status !== status;
+                const shouldBackup = statusChanged || (new Date() - lastUpdate > thirtyMins);
+
+                if (shouldBackup) {
+                    let existingRaw = {};
+                    try { existingRaw = JSON.parse(exists.rawJson || '{}'); } catch (e) { }
+                    const fullSnapshot = { ...existingRaw, ...exists };
+                    await this.createBackup(project, id, fullSnapshot, reason, trx);
+                }
+            } catch (backupErr) {
+                console.warn(`[Adapter] Failed to create auto-backup for ${id}:`, backupErr);
+                // Non-blocking: proceed with save
+            }
+
             await db('documents').where({ id }).update(row);
         } else {
             row.created_at = new Date();
             await db('documents').insert(row);
         }
 
-        // --- WRITE-THROUGH CACHING (Phase 27) ---
-        // If it's a specialized document being V2 validated, we ALSO save to satellite
-        // This keeps the specialized viewer (Nicolazzi) in sync without a manual "consoldiate" event.
-        if (doc.supplier && /NICOLAZZI/i.test(suppliersName)) {
-            const satType = /PROFORMA/i.test(doc.docType || doc.docTypeLabel) ? 'nicolazzi_proformas' : 'nicolazzi_invoices';
-            try {
-                await SatelliteStorage.saveData(satType, id, { ...doc, id, project });
-                // console.log(`[Adapter] Write-Through: Saved to ${satType}`);
-            } catch (e) {
-                console.warn(`[Adapter] Write-Through failed for ${satType}:`, e.message);
-            }
-        }
+        // --- STORAGE UNIFICATION: Satellite Write-Through Removed ---
+        // We no longer write to SatelliteStorage. Main DB is the only persistence layer.
 
         return doc;
     }
@@ -251,10 +260,42 @@ class DbDocsAdapter {
     }
 
     // --- Backups ---
+    // --- Settings ---
+    async getSettings(project, trx = null) {
+        const db = trx || knex;
+        const row = await db('project_settings').where({ project }).first();
+        if (!row) return { backupRetentionDays: 30 };
+        return { backupRetentionDays: row.backup_retention_days || 30 };
+    }
+
+    async saveSettings(project, { backupRetentionDays }) {
+        const row = {
+            project,
+            backup_retention_days: backupRetentionDays,
+            updated_at: new Date()
+        };
+        const exists = await knex('project_settings').where({ project }).first();
+        if (exists) {
+            await knex('project_settings').where({ project }).update(row);
+        } else {
+            row.created_at = new Date();
+            await knex('project_settings').insert(row);
+        }
+    }
+
+    // --- Backups ---
     async createBackup(project, docId, data, reason = 'Automatic Backup', trx = null) {
         const id = uuidv4();
+
+        // Calculate expiration based on settings (or default 30)
+        let retention = 30;
+        try {
+            const settings = await this.getSettings(project, trx);
+            if (settings.backupRetentionDays) retention = settings.backupRetentionDays;
+        } catch (e) { }
+
         const expires_at = new Date();
-        expires_at.setDate(expires_at.getDate() + 15); // 15 days retention
+        expires_at.setDate(expires_at.getDate() + retention);
 
         const db = trx || knex;
         await db('document_backups').insert({
@@ -266,6 +307,12 @@ class DbDocsAdapter {
             created_at: new Date(),
             expires_at
         });
+
+        // Trigger Cleanup (Probabilistic or less frequent)
+        if (Math.random() < 0.05) { // 5% chance on save to cleanup, reducing DB pressure
+            this.cleanupExpiredBackups(project).catch(err => console.error("Backup cleanup error", err));
+        }
+
         return id;
     }
 
@@ -286,11 +333,20 @@ class DbDocsAdapter {
         await db('document_backups').where({ project, id: backupId }).delete();
     }
 
-    async cleanupExpiredBackups() {
+    async cleanupExpiredBackups(project) {
         const now = new Date();
-        const deleted = await knex('document_backups').where('expires_at', '<', now).delete();
+        const db = knex; // Use default connection outside request scope
+
+        let query = db('document_backups').where('expires_at', '<', now);
+
+        if (project) {
+            query = query.andWhere({ project });
+        }
+
+        const deleted = await query.delete();
+
         if (deleted > 0) {
-            console.log(`[Backups] Cleaned up ${deleted} expired backups.`);
+            // console.log(`[Backups] Cleaned up ${deleted} expired backups (Project: ${project || 'ALL'}).`);
         }
         return deleted;
     }

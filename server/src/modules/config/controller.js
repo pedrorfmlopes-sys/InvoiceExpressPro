@@ -139,3 +139,21 @@ exports.deleteProject = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+exports.getSettings = async (req, res) => {
+    try {
+        const s = await service.getSettings(req.project);
+        res.json(s);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.saveSettings = async (req, res) => {
+    try {
+        await service.saveSettings(req.project, req.body);
+        res.json({ status: 'ok' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};

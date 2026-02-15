@@ -37,7 +37,8 @@
         },
         "alerts": {
             "incomplete": "Campos em falta",
-            "low_conf": "Confiança baixa"
+            "low_conf": "Confiança baixa",
+            "saving": "Gravando documento(s)... Por favor, aguarde e não feche a página."
         },
         "actions": {
             "finalize": "Finalizar e Guardar",

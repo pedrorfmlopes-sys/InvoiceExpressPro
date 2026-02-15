@@ -1,162 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import api from '../../api/apiClient';
+import { FiSearch, FiCloud, FiX } from 'react-icons/fi';
 import { normalizeNicolazziData } from './nicolazziUtils';
 
 // Helper: Local fallback (redirects to shared)
 const normalizeData = (d) => normalizeNicolazziData(d);
 
-export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFinalize, onSwitch, mode = 'staging', t }) {
-    const [pdfUrl, setPdfUrl] = useState(null);
+export default function NicolazziProformaViewer({
+    doc, onClose, updateRow, onFinalize, onSwitch, mode = 'staging', t,
+    data, setData, pdfUrl, loading, isSaving, onSave
+}) {
     const [showPdf, setShowPdf] = useState(true);
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-
+    const [reprocessing, setReprocessing] = useState(false);
     const onCancel = onClose; // Maintain internal consistency
 
     // UI State
     const [filter, setFilter] = useState('');
 
-    // --- 1. Load Data (Parallel: PDF + Satellite + Fallback Main Doc) ---
-    useEffect(() => {
-        let isMounted = true;
+    // CRM Search State
+    const [isSearchingCRM, setIsSearchingCRM] = useState(false);
+    const [crmResults, setCrmResults] = useState(null);
+    const [isSyncingCRM, setIsSyncingCRM] = useState(false);
 
-        async function loadData() {
-            if (!doc || !doc.id) {
-                if (isMounted) setLoading(false);
-                return;
-            }
+    const handleReProcess = async () => {
+        if (!confirm("Tem a certeza? Isto irá apagar todas as edições manuais e reler o PDF original.")) return;
 
-            try {
-                if (isMounted) setLoading(true);
-                // Determine Source: Start with Prop
-                let initialSource = doc.rawJson || doc.raw_data;
-
-                // Fire requests in parallel
-                const pPdf = api.get(`/api/corev2/docs/${doc.id}/view?project=${doc.project || 'default'}`, { responseType: 'blob' });
-                const pSat = api.get(`/api/corev2/extraction-data/nicolazzi_proformas/${doc.id}`);
-
-                // NEW: Fetch Fresh Main Doc Metadata as Backup (in case Prop is stale/truncated)
-                const pMainDoc = api.get(`/api/corev2/docs/${doc.id}/json?project=${doc.project || 'default'}`);
-
-                const [pdfRes, satRes, mainDocRes] = await Promise.allSettled([pPdf, pSat, pMainDoc]);
-
-                if (!isMounted) return;
-
-                // Handle PDF
-                if (pdfRes.status === 'fulfilled') {
-                    const url = URL.createObjectURL(pdfRes.value.data);
-                    setPdfUrl(url);
-                } else {
-                    console.error("[Viewer] Failed to load PDF:", pdfRes.reason);
-                    setPdfUrl(null);
-                }
-
-                // Handle Data Hierarchy
-                // 1. Satellite (Highest Priority in Staging - Edited content)
-                let finalData = null;
-
-                if (mode === 'staging') {
-                    if (satRes.status === 'fulfilled' && satRes.value.data && Object.keys(satRes.value.data).length > 0) {
-                        finalData = satRes.value.data;
-                        console.log("[Viewer] Loaded from Satellite");
-                    }
-                }
-
-                // 2. Main Doc (Medium Priority - Initial Extraction or Archive State)
-                if (!finalData && (mainDocRes.status === 'fulfilled' && mainDocRes.value.data)) {
-                    const row = mainDocRes.value.data;
-                    const raw = (row.rawJson && typeof row.rawJson === 'object') ? row.rawJson : (row.rawJson ? JSON.parse(row.rawJson) : {});
-                    finalData = { ...row, ...raw };
-                    console.log("[Viewer] Loaded from Main Doc (Parsed)");
-                }
-
-                // 3. Prop Fallback (Lowest Priority - List view data)
-                if (!finalData && (doc.rawJson || doc.raw_data || doc.lines || doc.total)) {
-                    const rawStr = doc.rawJson;
-                    const raw = (rawStr && typeof rawStr === 'object') ? rawStr : (typeof rawStr === 'string' ? JSON.parse(rawStr) : {});
-                    finalData = { ...doc, ...raw };
-                    console.log("[Viewer] Loaded from Prop Fallback (Fixed)");
-                }
-
-                // EXTRA SAFETY (Phase 17): If lines are missing but exist in another key, migrate them
-                if (finalData && !finalData.lines && finalData.items) finalData.lines = finalData.items;
-
-                // Normalize and Set
-                if (finalData) {
-                    const norm = normalizeData(finalData);
-                    setData(norm);
-                } else {
-                    console.warn("[Viewer] No data found from any source.");
-                    setData(normalizeData({})); // Empty state
-                }
-
-            } catch (err) {
-                console.error("Load Error", err);
-                if (isMounted) setData(normalizeData({}));
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        }
-
-        loadData();
-
-        // Cleanup Blob URL and isMounted flag
-        return () => {
-            isMounted = false;
-            if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-        };
-    }, [doc, mode]);
-
-    const handleDataChange = async (newData) => {
-        setData(newData);
         try {
-            setIsSaving(true);
-            if (mode === 'staging') {
-                await api.post(`/api/corev2/extraction-data/nicolazzi_proformas/${doc.id}`, newData);
-            } else {
-                // Archive Mode: Direct PATCH to Main DB
-                await api.patch(`/api/corev2/docs/${doc.id}?project=${doc.project || 'default'}`, {
-                    rawJson: newData,
-                    docNumber: newData.docNumber,
-                    date: newData.date,
-                    total: newData.total,
-                    supplier: newData.entities?.supplier,
-                    customer: newData.entities?.customer
-                });
-            }
-
-            // --- SYNC WITH BACKGROUND LIST ---
-            if (updateRow) {
-                if (newData.total !== doc.total) updateRow(doc.id, 'total', newData.total);
-                if (newData.docNumber !== doc.docNumber) updateRow(doc.id, 'docNumber', newData.docNumber);
-                if (newData.date !== doc.date) updateRow(doc.id, 'date', newData.date);
-            }
-
+            setReprocessing(true);
+            const res = await api.post(`/api/corev2/docs/${doc.id}/reprocess?project=${doc.project || 'default'}`);
+            const freshDoc = res.data;
+            const freshData = freshDoc.rawJson || {};
+            setData(normalizeNicolazziData(freshData));
+            alert("Releitura efetuada com sucesso!");
         } catch (err) {
-            console.error("Failed to save data", err);
+            console.error(err);
+            alert("Erro ao reprocessar: " + (err.response?.data?.error || err.message));
         } finally {
-            setIsSaving(false);
+            setReprocessing(false);
         }
+    };
+
+    const updateEntity = (entity, field, value) => {
+        const newEntities = { ...data.entities, [entity]: { ...data.entities[entity], [field]: value } };
+        setData({ ...data, entities: newEntities });
+    };
+
+    // --- CRM Handlers ---
+    const handleCRMSearch = async () => {
+        const q = data.entities?.customer?.name || data.entities?.customer?.vat || '';
+        if (!q) return alert("Introduza um nome ou NIF para pesquisar.");
+
+        try {
+            setIsSearchingCRM(true);
+            const res = await api.get(`/api/crm/search?q=${q}&project=${doc.project || 'default'}`);
+            setCrmResults(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSearchingCRM(false);
+        }
+    };
+
+    const handleCRMSync = async () => {
+        const customer = data.entities?.customer;
+        if (!customer?.name || !customer?.vat) return alert("Nome e NIF são obrigatórios para sincronizar com o CRM.");
+
+        try {
+            setIsSyncingCRM(true);
+            await api.post(`/api/crm/upsert?project=${doc.project || 'default'}`, customer);
+            alert("Cliente sincronizado com sucesso no CRM!");
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao sincronizar: " + (err.response?.data?.error || err.message));
+        } finally {
+            setIsSyncingCRM(false);
+        }
+    };
+
+    const applyCRMCustomer = (crm) => {
+        const entities = { ...(data.entities || {}) };
+        entities.customer = {
+            ...entities.customer,
+            name: crm.name,
+            vat: crm.vat,
+            address: crm.address,
+            email: crm.email,
+            phone: crm.phone
+        };
+        setData({ ...data, entities });
+        setCrmResults(null);
     };
 
     const saveDraft = async () => {
         if (!data) return;
-        await handleDataChange(data);
-        alert("Rascunho guardado com sucesso!");
+        const ok = await onSave(data);
+        if (ok) alert("Rascunho guardado com sucesso!");
     };
 
     const handleLineChange = (idx, field, value) => {
         const newLines = [...(data?.lines || [])];
         const line = { ...newLines[idx], [field]: value };
 
-        // Auto-Calc Line Total
         if (['quantity', 'unitPrice', 'discountPercent'].includes(field)) {
             const qty = parseFloat(line.quantity) || 0;
             const price = parseFloat(line.unitPrice) || 0;
             const discText = String(line.discountPercent || '0');
-            // Handle Nicolazzi 50+5 style or simple float
             let disc = 0;
             if (discText.includes('+')) {
                 const parts = discText.split('+').map(p => parseFloat(p) || 0);
@@ -171,10 +120,9 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
 
         newLines[idx] = line;
 
-        // Auto-Calc Global Totals
         const net = newLines.reduce((acc, l) => acc + (parseFloat(l.total) || 0), 0);
-        const transport = parseFloat(data?.totals?.transport || 0);
-        const vat = parseFloat(data?.totals?.tax || data?.totals?.vat || 0);
+        const transport = parseFloat(data?.totals?.transport || 0) || 0;
+        const vat = parseFloat(data?.totals?.tax || data?.totals?.vat || 0) || 0;
 
         const totals = {
             ...(data?.totals || {}),
@@ -184,27 +132,23 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
             gross: (net + transport + vat).toFixed(2)
         };
 
-        handleDataChange({ ...data, lines: newLines, totals, total: totals.gross });
+        setData({ ...data, lines: newLines, totals, total: totals.gross });
     };
 
     const handleTotalChange = (field, value) => {
         const newTotals = { ...(data?.totals || {}), [field]: value };
-
-        // If changing transport or tax, recalculate gross
         if (field === 'transport' || field === 'tax' || field === 'vat') {
-            const net = parseFloat(newTotals.net || 0);
-            const transport = parseFloat(newTotals.transport || 0);
-            const vat = parseFloat(newTotals.tax || newTotals.vat || 0);
+            const net = parseFloat(newTotals.net || newTotals.goods || newTotals.subtotal || 0) || 0;
+            const transport = parseFloat(newTotals.transport || 0) || 0;
+            const vat = parseFloat(newTotals.tax || newTotals.vat || 0) || 0;
             newTotals.total = (net + transport + vat).toFixed(2);
             newTotals.gross = newTotals.total;
         }
-
-        handleDataChange({ ...data, totals: newTotals, total: newTotals.gross });
+        setData({ ...data, totals: newTotals, total: newTotals.gross });
     };
 
     const internalUpdateRow = (id, field, value) => {
-        // Direct field update (docNumber, date, etc)
-        handleDataChange({ ...data, [field]: value });
+        setData({ ...data, [field]: value });
     };
 
     if (!doc) return null;
@@ -228,11 +172,19 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                                 {isSaving && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded animate-pulse">A gravar...</span>}
                             </h3>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-blue-400 uppercase tracking-tighter bg-blue-500/10 px-1.5 rounded">{data?.project || doc.project || 'Sem Projeto'}</span>
+                                <span className="text-xs font-bold text-blue-400 uppercase tracking-tighter bg-blue-500/10 px-1.5 rounded">{data?.projectLabel || doc.project || 'Sem Projeto'}</span>
                                 <span className="text-[10px] opacity-40">|</span>
                                 <span className="text-xs opacity-50">Nicolazzi Proforma | Extrator V2</span>
                             </div>
                         </div>
+                        <button
+                            type="button"
+                            onClick={handleReProcess}
+                            disabled={reprocessing}
+                            className="btn text-xs px-3 py-1 rounded-lg border border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all flex items-center gap-2"
+                        >
+                            <span>{reprocessing ? '⚙️' : '🔄'}</span> Refazer Releitura
+                        </button>
                         <button
                             type="button"
                             onClick={onSwitch}
@@ -244,7 +196,6 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                     <button onClick={onCancel} className="btn text-xl p-0 w-8 h-8 flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 rounded-full transition-all">✕</button>
                 </div>
 
-                {/* Split Screen Container */}
                 <div className="flex-1 flex flex-col overflow-hidden relative">
                     {loading && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
@@ -255,7 +206,6 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                         </div>
                     )}
 
-                    {/* PDF Section - Authenticated Blob */}
                     {showPdf && (
                         <div className="h-[30%] border-b border-[var(--border)] bg-gray-100 dark:bg-gray-800 relative transition-all duration-300">
                             {pdfUrl ? (
@@ -268,7 +218,7 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                         </div>
                     )}
 
-                    {/* Meta Header Bar (Single Line) */}
+                    {/* Meta Bar */}
                     <div className="bg-[var(--surface)] p-2 px-4 flex gap-6 border-b border-[var(--border)] shadow-sm items-center flex-wrap">
                         <div className="flex items-center gap-2">
                             <label className="text-[10px] uppercase font-bold opacity-40">Nº Doc</label>
@@ -282,18 +232,16 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                             <label className="text-[10px] uppercase font-bold opacity-40">Data</label>
                             <input
                                 className="bg-transparent border-b border-[var(--border)] focus:border-blue-500 px-1 py-0.5 font-mono outline-none w-24"
-                                value={data?.date || ''} // Use data.date, not doc.date (prop is stale)
+                                value={data?.date || ''}
                                 onChange={(e) => internalUpdateRow(doc.id, 'date', e.target.value)}
                             />
                         </div>
                         <div className="flex-1 flex items-center gap-3 border-l border-[var(--border)] pl-6">
-                            <label className="text-[10px] uppercase font-bold opacity-40 whitespace-nowrap">Ref. Cliente (Your Ref)</label>
+                            <label className="text-[10px] uppercase font-bold opacity-40 whitespace-nowrap">Ref. Cliente</label>
                             <input
                                 className="bg-transparent border-b border-[var(--border)] focus:border-blue-500 px-1 py-0.5 font-mono outline-none w-full"
                                 value={data?.customerRef || ''}
-                                onChange={(e) => {
-                                    handleDataChange({ ...data, customerRef: e.target.value });
-                                }}
+                                onChange={(e) => setData({ ...data, customerRef: e.target.value })}
                             />
                         </div>
                         <div className="flex items-center gap-3 border-l border-[var(--border)] pl-6">
@@ -309,7 +257,106 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                         </div>
                     </div>
 
-                    {/* Bottom Section: Scrollable Items */}
+                    {/* Entities Section */}
+                    <div className="bg-[var(--surface)] p-3 px-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-[var(--border)]">
+                        <div className="border border-[var(--border)] rounded p-2 bg-[var(--card)]/50 relative group hover:border-blue-500/30 transition-all">
+                            <label className="absolute -top-2 left-2 bg-[var(--surface)] px-1 text-[9px] text-gray-500 font-bold uppercase tracking-wider">Fornecedor / Supplier</label>
+                            <input
+                                className="w-full bg-transparent border-none outline-none font-bold text-[var(--text-main)] text-sm mb-1"
+                                value={data?.entities?.supplier?.name || ''}
+                                onChange={(e) => updateEntity('supplier', 'name', e.target.value)}
+                            />
+                            <textarea
+                                className="w-full bg-transparent border-none outline-none text-[10px] text-[var(--text-muted)] h-10 resize-none leading-tight"
+                                value={data?.entities?.supplier?.address || ''}
+                                onChange={(e) => updateEntity('supplier', 'address', e.target.value)}
+                            />
+                        </div>
+
+                        <div className="border border-[var(--border)] rounded p-2 bg-[var(--card)]/50 relative group hover:border-blue-500/50 transition-all">
+                            <label className="absolute -top-2 left-2 bg-[var(--surface)] px-1 text-[9px] text-blue-500 font-bold uppercase tracking-wider flex items-center gap-2">
+                                Cliente / Bill To
+                                <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleCRMSearch(); }}
+                                        title="Pesquisar no CRM"
+                                        className="hover:text-blue-400 text-blue-500/60 transition-colors"
+                                    >
+                                        <FiSearch size={10} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleCRMSync(); }}
+                                        title="Sincronizar com CRM"
+                                        className="hover:text-green-400 text-green-500/60 transition-colors"
+                                    >
+                                        <FiCloud size={10} />
+                                    </button>
+                                </div>
+                            </label>
+
+                            <div className="relative">
+                                <input
+                                    className="w-full bg-transparent border-none outline-none font-bold text-blue-400 text-sm mb-1 placeholder-white/5"
+                                    value={data?.entities?.customer?.name || ''}
+                                    onChange={(e) => updateEntity('customer', 'name', e.target.value)}
+                                    placeholder="Nome do Cliente"
+                                />
+
+                                {crmResults && (
+                                    <div className="absolute top-full left-0 w-full bg-[var(--surface)] border border-blue-500/30 rounded-lg shadow-2xl z-[6000] mt-1 overflow-hidden animate-in fade-in zoom-in duration-200">
+                                        <div className="p-2 border-b border-[var(--border)] flex justify-between items-center bg-blue-500/5">
+                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Resultados CRM</span>
+                                            <button onClick={() => setCrmResults(null)} className="text-gray-500 hover:text-white transition-colors">
+                                                <FiX size={12} />
+                                            </button>
+                                        </div>
+                                        <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                            {crmResults.length === 0 ? (
+                                                <div className="p-4 text-center text-gray-500 italic text-[10px]">Nenhum cliente encontrado.</div>
+                                            ) : (
+                                                crmResults.map(crm => (
+                                                    <div
+                                                        key={crm.id}
+                                                        onClick={() => applyCRMCustomer(crm)}
+                                                        className="p-2 hover:bg-blue-500/10 cursor-pointer border-b border-[var(--border)] last:border-none transition-colors"
+                                                    >
+                                                        <div className="font-bold text-blue-100 flex justify-between gap-2 overflow-hidden">
+                                                            <span className="truncate">{crm.name}</span>
+                                                            <span className="text-[9px] text-gray-500 shrink-0 font-mono">{crm.vat}</span>
+                                                        </div>
+                                                        <div className="text-[9px] text-gray-500 truncate mt-0.5 opacity-60">{crm.address}</div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <textarea
+                                className="w-full bg-transparent border-none outline-none text-[10px] text-[var(--text-muted)] h-10 resize-none leading-tight"
+                                value={data?.entities?.customer?.address || ''}
+                                onChange={(e) => updateEntity('customer', 'address', e.target.value)}
+                                placeholder="Morada Fiscal..."
+                            />
+                        </div>
+
+                        <div className="border border-[var(--border)] rounded p-2 bg-[var(--card)]/50 relative group hover:border-green-500/50 transition-all">
+                            <label className="absolute -top-2 left-2 bg-[var(--surface)] px-1 text-[9px] text-green-500 font-bold uppercase tracking-wider">Entrega / Ship To</label>
+                            <input
+                                className="w-full bg-transparent border-none outline-none font-bold text-green-400 text-sm mb-1"
+                                value={data?.entities?.shipTo?.name || ''}
+                                onChange={(e) => updateEntity('shipTo', 'name', e.target.value)}
+                                placeholder="Nome do Destinatário"
+                            />
+                            <textarea
+                                className="w-full bg-transparent border-none outline-none text-[10px] text-[var(--text-muted)] h-16 resize-none leading-tight"
+                                value={data?.entities?.shipTo?.address || data?.entities?.customer?.address || ''}
+                                onChange={(e) => updateEntity('shipTo', 'address', e.target.value)}
+                                placeholder="Morada de Entrega..."
+                            />
+                        </div>
+                    </div>
+
                     <div className="flex-1 overflow-y-auto p-4 bg-[var(--bg-base)] custom-scrollbar min-h-0">
                         <div className="mb-4">
                             <div className="flex justify-between items-center mb-3">
@@ -388,7 +435,6 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                                 </table>
                             </div>
 
-                            {/* Summary Totals Section */}
                             {!loading && data?.totals && (
                                 <div className="mt-4 flex justify-end">
                                     <div className="w-full max-w-xs space-y-2 border border-[var(--border)] rounded-lg p-4 bg-[var(--surface)] text-[11px]">
@@ -443,36 +489,13 @@ export default function NicolazziProformaViewer({ doc, onClose, updateRow, onFin
                                 </div>
                             )}
                         </div>
-
-                        {/* Extra Metadata Recap */}
-                        {!loading && data && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 opacity-75 grayscale hover:grayscale-0 hover:opacity-100 transition-all">
-                                <div className="p-3 border border-[var(--border)] rounded-lg bg-[var(--card)] text-[10px]">
-                                    <span className="font-bold uppercase opacity-50 block mb-1">📦 Entrega</span>
-                                    {data?.entities?.shipTo?.address || data?.entities?.customer?.address || 'N/A'}
-                                </div>
-                                <div className="p-3 border border-[var(--border)] rounded-lg bg-[var(--card)] text-[10px] flex justify-between items-center font-mono">
-                                    <span className="font-bold uppercase opacity-50 block">Modo de Extração</span>
-                                    {mode === 'staging' ? 'Staging (Satellite)' : 'Archive (Direct)'}
-                                </div>
-                            </div>
-                        )}
-
-                        {!loading && !data && (
-                            <div className="flex flex-col items-center justify-center p-12 bg-yellow-500/5 border border-yellow-500/20 rounded-xl text-center">
-                                <span className="text-3xl mb-4">⚠️</span>
-                                <h5 className="font-bold text-yellow-600 dark:text-yellow-500">Dados não carregados</h5>
-                                <p className="text-xs opacity-60 mt-2">Não foi possível recuperar os dados da extração.</p>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Footer */}
                 <div className="p-3 border-t border-[var(--border)] bg-[var(--surface)] flex justify-between items-center">
                     <div className="text-[10px] opacity-40 italic flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                        O modo de edição direta grava alterações instantaneamente.
+                        <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                        As alterações são guardadas ao clicar em Guardar Rascunho.
                     </div>
                     <div className="flex gap-2">
                         <button className="btn text-xs px-4" onClick={onCancel}>Fechar</button>

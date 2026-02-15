@@ -1,40 +1,57 @@
 {
   "docType": "proforma",
-  "docNumber": null,
+  "docNumber": "26/00085",
   "currency": "EUR",
   "dates": {
-    "issued": null,
-    "due": null
+    "issued": "2026-01-16"
   },
   "entities": {
     "customer": {
-      "name": "Via Pietro Durio 119",
-      "vat": null,
-      "address": "28010 ALZO DI PELLA (NO), tel. (0322) 969.672 r.a., Telefax (0322) 969.532, C.C.I.A.A. n. 84286-M. NO 001005, Part. IVA e Cod. Fiscale: 00115930034, Isc. Trib. Verbania Reg. Soc. n: 3398, Capitale Sociale € 1.800.000,00 i.v., SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA, RUA DA INDUSTRIA 2891, TROFA4785-627"
+      "name": "SANIMAIA MAT.CONSTR.DECOR.UNIP.LDA",
+      "address": "RUA DA INDUSTRIA 2891, TROFA 4785-627",
+      "vat": "502952113"
     },
     "supplier": {
       "name": "NICOLAZZI s.p.a.",
-      "vat": "IT00115930034",
-      "address": "28010 ALZO (NO) - Via P. Durio, 119"
+      "address": "Via Pietro Durio 119, 28010 ALZO DI PELLA (NO)"
     },
-    "shipTo": null
+    "shipTo": {
+      "name": null,
+      "address": null
+    }
   },
   "totals": {
-    "goods": 0,
-    "transport": 0,
-    "packaging": null,
-    "discount": null,
     "subtotal": 0,
+    "transport": 0,
     "tax": 0,
     "total": 0
   },
-  "lines": [],
+  "lines": [
+    {
+      "pos": "1",
+      "code": "R7075",
+      "description": "CERAMIC DISC RIGHT HAND SCREW",
+      "quantity": 5,
+      "unitPrice": 0,
+      "total": 0,
+      "discountText": null
+    },
+    {
+      "pos": "2",
+      "code": "R7075SX",
+      "description": "CERAMIC DISC LEFT HAND SCREW",
+      "quantity": 1,
+      "unitPrice": 0,
+      "total": 0,
+      "discountText": null
+    }
+  ],
   "docRefs": {
-    "customerRef": "00351252409490"
+    "customerRef": "621/B"
   },
-  "confidence": 0.72,
+  "confidence": 0.9,
   "needsReview": true,
-  "reviewReason": "Missing Document Number, Missing Totals",
+  "reviewReason": "Missing Totals",
   "debug": {
     "textLength": 957,
     "textSample": "NICOLAZZI s.p.a.\n030SA180\nDelivery Address\nSpett.le\nVia Pietro Durio 119\n28010 ALZO DI PELLA (NO)\ntel. (0322) 969.672 r.a.\nTelefax (0322) 969.532\nC.C.I.A.A. n. 84286-M. NO 001005\nPart. IVA e Cod. Fiscale: 00115930034\nIsc. Trib. Verbania Reg. Soc. n: 3398\nCapitale Sociale € 1.800.000,00 i.v.\nSANIMAIA MAT.CONSTR.DECOR.UNIP.LDA\nRUA DA INDUSTRIA 2891\nTROFA4785-627\nPROFORMA INVOICE\nPortogallo\n26/00085\nNumber\n16/01/2026\nDate\nPag.\n1\n30 DAYS BANK TRANSFER\nPayment Condition\nNI41\nCodIVAShipping Date\n502952113\nVat Number\nOur Bank\nLISTO PARA CARGAR EN 1 SEMANA \nDESDE APROBATION ESCRITA \nOur Ref.\n621/B\nyour ref.\n00351252409490\nPhoneFax\nPosArticleColDescriptionQuantityUnit ValueDiscountAmount\n1R7075\nCERAMIC DISC RIGHT HAND SCREW\n5\n0,000,00\n2R7075SX\nCERAMIC DISC LEFT HAND SCREW\n1\n0,000,00\n0,00\nGoods Value\n0,00\nTransport Charges\n0,00\nTOTAL AMOUNT\nMod.025 Rev.00\nNP\nAgent\nEUR\nCurrency\nLE23\nPrice List\n0,00\nCash Discount\n0,00\nVolume\n0,00\nGross Weight\n... continua"

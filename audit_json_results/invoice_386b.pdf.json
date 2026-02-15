@@ -1,58 +1,50 @@
 {
   "docType": "invoice",
-  "docNumber": "331/93",
+  "docNumber": "000386/B",
   "currency": "EUR",
   "dates": {
-    "issued": null,
+    "issued": "2025-03-28",
     "due": null
   },
   "entities": {
+    "customer": {
+      "name": "LOJA DO BANHO - EQUIPAMIENTOS SA",
+      "vat": "PT502494638",
+      "address": "1700 184     LISBONA, 0 i.v., 124                                                                 PT502494638                                       0,00                1                 6,00                    4,90"
+    },
     "supplier": {
       "name": "NICOLAZZI s.p.a.",
       "vat": "IT00115930034",
       "address": "28010 ALZO (NO) - Via P. Durio, 119"
     },
-    "customer": {
-      "name": "RUA EUGENIO DE CASTRO RODRIGUES 2",
-      "vat": "PT502494638",
-      "address": null
-    }
+    "shipTo": null
   },
   "totals": {
-    "goods": null,
-    "transport": null,
+    "goods": 294.8,
+    "transport": 25,
     "packaging": null,
     "discount": null,
-    "subtotal": 6,
-    "tax": null,
-    "total": 6,
-    "discountMain": null,
-    "discountExtra": null
+    "subtotal": 294.8,
+    "tax": 0,
+    "total": 319.8
   },
   "lines": [
     {
-      "code": "124",
-      "description": "PT502494638 P.IVA Vostro Riferimento GOODS OF ITALIAN ORIGIN NEM W/CHARGES ON INVOICE 030LO041 000386/B 28/03/2025 Codice Cliente Banca di appoggio Numero/ Number Data/ Date Capitale Sociale € 1.800.000,00 i.v. Isc. Trib. Verbania Reg. Soc. n: 3398",
-      "quantity": 0,
-      "unitPrice": 1,
-      "total": 6,
-      "orderRef": null,
-      "taxCode": null,
-      "uom": null
+      "code": "3420OG75P",
+      "description": "SINGLE LEVER MIXER WITH EXTRACTABLE SHOWER PULLDOWN EL CAP.",
+      "quantity": 1,
+      "unitPrice": 294.8,
+      "total": 294.8,
+      "taxCode": "NI41",
+      "projectRef": "124"
     }
   ],
-  "docRefs": {
-    "deliveryNote": {
-      "number": "000770",
-      "date": "2025-03-28",
-      "rawLine": "DDT Nr. 000770 del 28/03/2025"
-    }
-  },
+  "projectRef": "124",
   "confidence": 0.99,
   "needsReview": false,
   "reviewReason": null,
   "debug": {
-    "extractor": "nicolazziInvoiceCoordsExtraction",
+    "extractor": "nicolazziInvoiceTableExtraction (V3.3 - State Machine + ProjectRef)",
     "textLength": 1551,
     "textSample": "NICOLAZZI s.p.a.\n28010 ALZO (NO) - Via P. Durio, 119\n  IT 00115930034\nLOJA DO BANHO - EQUIPAMIENTOS SA\ntel. (0322) 969.672 r.a.\nTelefax (0322) 969.532\nC.C.I.A.A. n. 84286-M. NO 001005\nPart. IVA e Cod. Fiscale:\nIsc. Trib. Verbania Reg. Soc. n: 3398\nCapitale Sociale € 1.800.000,00 i.v.\nRUA EUGENIO DE CASTRO RODRIGUES 2\n1700 184LISBONA\nPortogallo\n1\nFattura\nINVOICE\nPag.\nPrivacy information available on www.nicolazzi.it\n000386/B\nNumero/ Number\n28/03/2025\nData/ Date\n030LO041\nCodice Cliente\nBanca di appoggio\nPAYMENT IN ADVANCE AT ORDER\nCondizione pagamento /Payment\nNEM\nAgente\nW/CHARGES ON INVOICE\nPorto\nGOODS OF ITALIAN ORIGIN\nAnnotazioni\n25/00437\nriferimento/Shipping Marks\n124\nVostro Riferimento\nPT502494638\nP.IVA\n0,00\nVolume\n1\nColli / Cases\n6,00\nPeso lordo/ Gross W. Kg.\n4,90\nPeso Netto / Net W. Kg.\nArticoloCol.DescrizioneOrd. Ref.UMQuantitàDivisaValore unitarioSconti/AumentiIMPORTOIVA\nDDT Nr. 000770 del 28/03/2025\n3420OG75PSINGLE LEVER MIXER WITH EXTRACTABLE SHOWER 124NR1EUR294,80294,80NI41\nP"
   }

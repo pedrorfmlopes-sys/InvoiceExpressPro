@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { FiX, FiSave, FiSearch } from 'react-icons/fi';
 import api from '../../api/apiClient';
 
-export default function CustomerModal({ customer, onClose, onSave }) {
+export default function CustomerModal({ project, customer, onClose, onSave }) {
     const isEdit = !!customer;
     const [formData, setFormData] = useState({
         name: '',
@@ -70,7 +70,7 @@ export default function CustomerModal({ customer, onClose, onSave }) {
             const payload = { ...formData };
             // If editing, logic remains the same (upsert by VAT/Name heuristics or ID)
 
-            const res = await api.post('/api/crm/upsert', payload);
+            const res = await api.post(`/api/crm/upsert?project=${project}`, payload);
             onSave(res.data);
             onClose();
         } catch (err) {

@@ -13,6 +13,7 @@ const Adapter = require('../../storage/getDocsAdapter');
 const SatelliteStorage = require('../../storage/SatelliteStorage');
 const UniversalDocService = require('./UniversalDocService');
 const CustomerService = require('../crm/CustomerService');
+const knex = require('../../db/knex');
 
 // --- Helper: Regex Fallback ---
 function matchDocType(raw, definitions) {
@@ -69,12 +70,9 @@ function extractRegex(text) {
         if (cusMatch) customer = cusMatch[1].trim();
 
         // VAT / NIF Extraction (New)
-        // Look for common labels + 9-12 digits (optional country code)
-        // e.g. NIF: 123456789, VAT: PT123456789, P.IVA 001122
         const vatMatch = text.match(/(?:NIF|N\.I\.F\.|Contribuinte|VAT|IVA|P\.IVA|Vat Number)\s*[:.]?\s*((?:[A-Z]{2})?\s*\d{9,12})/i);
         if (vatMatch) {
-            // we attach this to the global scope or return object
-            // but `extractRegex` variables are local. let's add `vat` var above.
+            // vat assigned below
         }
 
         // References
@@ -88,8 +86,6 @@ function extractRegex(text) {
             const m = text.match(p.regex);
             if (m) {
                 const val = m[1].trim();
-                // VAT/NIF Heuristic Filter
-                // If it looks like a VAT (9 digits, starts with PT or no prefix), ignore it as PO
                 const isNif = /^(?:PT)?\d{9}$/.test(val) || text.toLowerCase().includes(`nif ${val}`) || text.toLowerCase().includes(`vat ${val}`);
 
                 if (!isNif) {
@@ -104,24 +100,20 @@ function extractRegex(text) {
         else {
             m = text.match(/(Fatura|Recibo|Proforma|FT|FR|NC|ND|Guia|Fattura|Invoice)\s*(?:n\.?|nº|number|num)?\s*[:#.]?\s*([A-Z0-9\/-]{3,})/i);
             if (m) {
-                // Instead of hardcoded 'Fatura', use the actually matched word
                 docType = m[1];
                 docNumber = m[2].replace(/\s+/g, '');
             }
         }
     }
-    // Logic for VAT assignment from match (since variables are local in this scope)
-    // 1. Try Standard "Label: Value" (e.g. NIF: 123456789)
+    // Logic for VAT assignment
     let vatMatch = text.match(/(?:NIF|N\.I\.F\.|Contribuinte|VAT|IVA|P\.IVA|Vat Number)\s*[:.]?\s*((?:[A-Z]{2})?\s*\d{9,12})/i);
     if (vatMatch) vat = vatMatch[1].replace(/\s/g, '').toUpperCase();
 
-    // 2. Try "Value [newline] Label" (Reverse layout often found in PDF text streams)
     if (!vat) {
         vatMatch = text.match(/(\d{9,12})\s*\n\s*(?:Vat|NIF|IVA)/i);
         if (vatMatch) vat = vatMatch[1].replace(/\s/g, '').toUpperCase();
     }
 
-    // 3. Try "Label [newline] Value"
     if (!vat) {
         vatMatch = text.match(/(?:Vat|NIF|IVA)\s*\n\s*(\d{9,12})/i);
         if (vatMatch) vat = vatMatch[1].replace(/\s/g, '').toUpperCase();
@@ -169,23 +161,18 @@ exports.upload = async (req, res) => {
 };
 
 exports.extract = async (req, res) => {
-    // Accepts { docIds: [] }
-    // Returns { ok: true, results: [...] }
     try {
         const project = req.project || 'default';
         const { docIds } = req.body;
         if (!Array.isArray(docIds)) return res.status(400).json({ error: 'docIds array required' });
 
-        // Load DocTypes for matching
         const definitions = await ConfigService.getDocTypes(project);
-
         const secrets = await ConfigService.getSecrets(project);
         const hasKey = !!secrets.openaiApiKey;
         const results = [];
 
         for (const id of docIds) {
             try {
-                // Get fresh doc
                 const doc = await Adapter.getDoc(project, id);
                 if (!doc) throw new Error('not found');
                 if (!fs.existsSync(doc.filePath)) throw new Error('file missing');
@@ -198,7 +185,6 @@ exports.extract = async (req, res) => {
                 let extractionMethod = 'regex';
                 let confidence = 0.5;
 
-                // AI Logic (Copied/Adapted from v1 but streamlined)
                 if (hasKey && text.length >= 200) {
                     try {
                         const openai = new OpenAI({ apiKey: secrets.openaiApiKey });
@@ -213,7 +199,6 @@ exports.extract = async (req, res) => {
                         });
                         const raw = JSON.parse(completion.choices[0].message.content);
 
-                        // Validation
                         if (raw.total > 0 || (raw.docNumber && raw.docNumber.length > 2)) {
                             extracted = {
                                 docTypeRaw: raw.docType || '',
@@ -239,33 +224,30 @@ exports.extract = async (req, res) => {
 
                 if (extractionMethod !== 'ai') {
                     extracted = extractRegex(text);
-                    extracted.docTypeRaw = extracted.docType; // Preserve regex guess as raw
+                    extracted.docTypeRaw = extracted.docType;
                 }
 
-                // Canonicalize DocType
                 const matched = matchDocType(extracted.docTypeRaw || extracted.docType, definitions);
                 let docTypeId = matched.id;
-                let docTypeLabel = matched.label; // Canonical PT label
+                let docTypeLabel = matched.label;
                 let needsReviewDocType = false;
 
                 if (!docTypeId) {
                     docTypeId = null;
-                    docTypeLabel = extracted.docTypeRaw || extracted.docType; // Keep raw as label if unknown
+                    docTypeLabel = extracted.docTypeRaw || extracted.docType;
                     needsReviewDocType = true;
                 }
 
-                // Quality Gate DocNumber
                 if (extracted.docNumber) {
                     const dn = String(extracted.docNumber).trim();
                     if (dn.length < 3 || /^\d{1,2}$/.test(dn) || ['null', 'undefined', 'N/A'].includes(dn)) {
-                        extracted.docNumber = null; // Reset garbage
+                        extracted.docNumber = null;
                     }
                 }
 
-                // V2.1 Quality Gate: Check Customer consistency
                 let needsReview = false;
                 if (!extracted.customer || extracted.customer.length < 3) needsReview = true;
-                if (extracted.supplier && extracted.customer && extracted.supplier === extracted.customer) needsReview = true; // Suspicious
+                if (extracted.supplier && extracted.customer && extracted.supplier === extracted.customer) needsReview = true;
 
                 const updates = {
                     ...extracted,
@@ -273,21 +255,17 @@ exports.extract = async (req, res) => {
                     extractionMethod,
                     confidence,
                     updatedAt: new Date().toISOString(),
-                    // Canonical Data
                     docTypeId,
                     docTypeLabel,
                     docTypeSource: extractionMethod,
                     docTypeConfidence: matched.confidence,
                     needsReviewDocType,
-                    // Consistency: Legacy field must match canonical
                     docType: docTypeLabel || docTypeRaw || '',
-                    // Add warning flag for UI
                     needsReview
                 };
 
                 const updated = await Adapter.updateDoc(project, id, updates);
 
-                // Phase 36: Capture Customer Data during EXTRACTION
                 try {
                     await CustomerService.upsertFromExtraction(project, updated, false);
                 } catch (e) {
@@ -329,7 +307,6 @@ exports.listDocs = async (req, res) => {
         const project = req.project || 'default';
         const { page = 1, limit = 50, q, status, docType, from, to } = req.query;
 
-        // Normalize
         const p = Math.max(1, parseInt(page, 10) || 1);
         const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
 
@@ -337,7 +314,7 @@ exports.listDocs = async (req, res) => {
             page: p, limit: l, q, status, docType, from, to
         });
 
-        res.json(result); // { rows, total, page, limit }
+        res.json(result);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -349,16 +326,17 @@ exports.updateDoc = async (req, res) => {
         const { id } = req.params;
         const patch = req.body;
 
-        // Consistency: if updating canonical, update legacy
         if (!patch.docType && (patch.docTypeLabel || patch.docTypeId)) {
             patch.docType = patch.docTypeLabel || patch.docTypeId;
         }
-        // Normalize needsReviewDocType
         if (patch.needsReviewDocType !== undefined) {
             patch.needsReviewDocType = !!patch.needsReviewDocType;
         }
 
-        const updated = await UniversalDocService.updateDoc(project, id, patch);
+        const updated = await knex.transaction(async (trx) => {
+            return await UniversalDocService.updateDoc(project, id, patch, trx);
+        });
+
         res.json({ ok: true, row: updated });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -405,7 +383,7 @@ exports.finalizeDoc = async (req, res) => {
         const { id, docType, docNumber, docTypeLabel, docTypeId, force, backupReason } = req.body;
 
         const effectiveType = docType || docTypeLabel || docTypeId;
-        if (!effectiveType) throw new Error('Type (fatura/proforma/etc) required');
+        if (!effectiveType) throw new Error('Type required');
         if (!docNumber) throw new Error('Number required');
 
         const result = await UniversalDocService.finalizeDoc(project, {
@@ -438,8 +416,6 @@ exports.finalizeBulk = async (req, res) => {
         if (!Array.isArray(items)) throw new Error('items[] required');
 
         const results = await UniversalDocService.finalizeBulk(project, items, { force, backupReason });
-
-        // Filter out items that had conflicts
         const conflicts = results.filter(r => r.conflict);
         const hasConflict = conflicts.length > 0;
 
@@ -454,8 +430,6 @@ exports.finalizeBulk = async (req, res) => {
     }
 };
 
-// --- Backups API ---
-
 exports.getBackupData = async (req, res) => {
     try {
         const project = req.project || 'default';
@@ -463,7 +437,6 @@ exports.getBackupData = async (req, res) => {
         const backup = await Adapter.getBackup(project, backupId);
         if (!backup) return res.status(404).json({ error: 'Backup not found' });
 
-        // Return cleaned snapshot
         const snapshot = JSON.parse(backup.data_snapshot);
         res.json({ snapshot });
     } catch (e) {
@@ -474,7 +447,7 @@ exports.getBackupData = async (req, res) => {
 exports.listBackups = async (req, res) => {
     try {
         const project = req.project || 'default';
-        const { id } = req.params; // docId
+        const { id } = req.params;
         const backups = await Adapter.getBackups(project, id);
         res.json({ ok: true, backups });
     } catch (e) {
@@ -495,13 +468,10 @@ exports.restoreBackup = async (req, res) => {
             const snapshot = JSON.parse(backup.data_snapshot);
             const { docNumber, docType, supplier } = snapshot;
 
-            // 1. Find the current active document that "holds the spot"
-            // (Same Business Key: Number, Type, Supplier)
             const currentActive = await trx('documents')
                 .where({ project, docNumber, docType, supplier })
                 .first();
 
-            // 2. Archive the current active state before replacing
             if (currentActive) {
                 const { rawJson, ...cleanCurrent } = currentActive;
                 await Adapter.createBackup(
@@ -513,28 +483,17 @@ exports.restoreBackup = async (req, res) => {
                 );
             }
 
-            // 3. Perform REPLACEMENT
             const { rawJson: skip, id: skipId, ...cleanSnapshot } = snapshot;
 
             if (currentActive) {
-                // Overwrite the existing row to maintain continuity
                 await trx('documents').where({ id: currentActive.id }).update(cleanSnapshot);
             } else {
-                // If no active version exists, recreate it
                 await Adapter.saveDocument(project, cleanSnapshot, trx);
             }
         });
 
         res.json({ ok: true });
     } catch (e) {
-        const fs = require('fs');
-        const path = require('path');
-        const logPath = path.join(process.cwd(), 'server_debug.log');
-        const timestamp = new Date().toISOString();
-        const logEntry = `[${timestamp}] RESTORE ERROR: ${e.message}\nStack: ${e.stack}\n\n`;
-        fs.appendFileSync(logPath, logEntry);
-
-        console.error(`[RestoreBackup] Error: ${e.message}`);
         res.status(500).json({ error: e.message });
     }
 };
@@ -569,22 +528,12 @@ exports.getLinkSuggestions = async (req, res) => {
         const all = await Adapter.getDocs(project);
         const candidates = [];
 
-        // Simple Heuristics
-        const debug = req.query.debug === '1';
-        const debugLog = [];
-
         for (const d of all) {
             if (d.id === id) continue;
             let score = 0;
             let reasons = [];
 
-            // 1. Reference Match
-            if (current.ref_json_parsed && current.ref_json_parsed.length) { // Assuming parsed or doing it now
-                // (Simplified for this snippet, reusing existing logic or checking text)
-            }
             if (current.references && current.references.length) {
-                // legacy array or new structure
-                // Use robust check
                 for (const ref of current.references) {
                     if (ref.value && d.docNumber && String(d.docNumber).includes(ref.value)) {
                         score += 50;
@@ -593,7 +542,6 @@ exports.getLinkSuggestions = async (req, res) => {
                 }
             }
 
-            // Also check if d.references matches current.docNumber
             if (current.docNumber && d.references && Array.isArray(d.references)) {
                 for (const ref of d.references) {
                     if (ref.value && String(current.docNumber).includes(ref.value)) {
@@ -603,36 +551,20 @@ exports.getLinkSuggestions = async (req, res) => {
                 }
             }
 
-            // 2. Exact Total
             if (d.total > 0 && current.total > 0 && Math.abs(d.total - current.total) < 0.01) {
                 score += 20;
                 reasons.push('Same Amount');
             }
-            // 3. Supplier/Customer Match
             if (d.supplier && current.supplier && d.supplier === current.supplier) {
                 score += 10;
                 reasons.push('Same Supplier');
             }
 
-            if (score > 0) {
-                candidates.push({ ...d, score, reasons });
-            } else if (debug) {
-                // debugLog.push({ id: d.id, num: d.docNumber, reasons: 'No match' }); 
-            }
+            if (score > 0) candidates.push({ ...d, score, reasons });
         }
 
-        // Sort by score
         candidates.sort((a, b) => b.score - a.score);
-
-        const response = { candidates: candidates.slice(0, 10) };
-        if (debug) {
-            response.debugMap = {
-                searchedCount: all.length,
-                currentDoc: { id: current.id, num: current.docNumber, total: current.total, supplier: current.supplier },
-                reason: candidates.length === 0 ? "No heuristic matches found (Ref / Total / Supplier)" : "Found"
-            };
-        }
-        res.json(response);
+        res.json({ candidates: candidates.slice(0, 10) });
 
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -643,8 +575,6 @@ exports.createLink = async (req, res) => {
     try {
         const project = req.project || 'default';
         const { fromId, toId, type } = req.body;
-        // In a real implementation we would insert into doc_links
-        // For fast V2, we will assume the table exists as migrated
         const knex = require('../../db/knex');
         await knex('doc_links').insert({
             id: uuidv4(),
@@ -668,13 +598,7 @@ exports.createDocType = async (req, res) => {
         const current = await ConfigService.getDocTypes(project);
         if (current.find(c => c.id === id)) throw new Error('DocType ID already exists');
 
-        current.push({
-            id,
-            labelPt,
-            synonyms: Array.isArray(synonyms) ? synonyms : [],
-            keywords: Array.isArray(keywords) ? keywords : []
-        });
-
+        current.push({ id, labelPt, synonyms: synonyms || [], keywords: keywords || [] });
         await ConfigService.saveDocTypes(project, current);
         res.json({ ok: true, type: transformDocType(current[current.length - 1]) });
     } catch (e) {
@@ -692,9 +616,7 @@ exports.updateDocType = async (req, res) => {
         const idx = current.findIndex(c => c.id === id);
         if (idx === -1) throw new Error('DocType not found');
 
-        // Merge updates
-        current[idx] = { ...current[idx], ...updates, id }; // Keep ID immutable ideally, but allow updates to other fields
-
+        current[idx] = { ...current[idx], ...updates, id };
         await ConfigService.saveDocTypes(project, current);
         res.json({ ok: true, type: transformDocType(current[idx]) });
     } catch (e) {
@@ -710,7 +632,6 @@ exports.deleteDocType = async (req, res) => {
         let current = await ConfigService.getDocTypes(project);
         const initialLen = current.length;
         current = current.filter(c => c.id !== id);
-
         if (current.length === initialLen) throw new Error('DocType not found');
 
         await ConfigService.saveDocTypes(project, current);
@@ -721,13 +642,7 @@ exports.deleteDocType = async (req, res) => {
 };
 
 function transformDocType(dt) {
-    // Helper to ensure frontend gets consistent shape
-    return {
-        id: dt.id,
-        labelPt: dt.labelPt,
-        synonyms: dt.synonyms || [],
-        keywords: dt.keywords || []
-    };
+    return { id: dt.id, labelPt: dt.labelPt, synonyms: dt.synonyms || [], keywords: dt.keywords || [] };
 }
 
 exports.exportXlsx = async (req, res) => {
@@ -735,57 +650,20 @@ exports.exportXlsx = async (req, res) => {
         const project = req.project || 'default';
         const { includeRaw } = req.query;
         const raw = await Adapter.getDocs(project);
-        const docs =
-            Array.isArray(raw) ? raw :
-                Array.isArray(raw?.rows) ? raw.rows :
-                    Array.isArray(raw?.items) ? raw.items :
-                        Array.isArray(raw?.docs) ? raw.docs :
-                            [];
-
-        if (
-            !Array.isArray(raw) &&
-            !Array.isArray(raw?.rows) &&
-            !Array.isArray(raw?.items) &&
-            !Array.isArray(raw?.docs)
-        ) {
-            console.warn('[v2 export.xlsx] Unexpected docs shape:', raw);
-        }
+        const docs = Array.isArray(raw) ? raw : (raw.rows || raw.items || raw.docs || []);
 
         const rows = docs.map(d => {
             const row = {
                 "ID": d.id,
                 "Project": d.project,
                 "Status": d.status,
-                "Tipo (Canonical)": d.docTypeLabel || d.docType,
-                "Tipo ID": d.docTypeId || '',
-                "Tipo (Raw)": d.docTypeRaw || '',
+                "Tipo": d.docTypeLabel || d.docType,
                 "Nº Documento": d.docNumber,
                 "Data": d.date,
-                "Vencimento": d.dueDate,
-                "Fornecedor": (d.supplier && typeof d.supplier === 'object') ? d.supplier.name : d.supplier,
-                "Cliente": (d.customer && typeof d.customer === 'object') ? d.customer.name : d.customer,
                 "Total": d.total,
-                "Moeda": d.currency || 'EUR',
-                "Confiança": d.confidence,
-                "Método Extração": d.extractionMethod,
-                "Rev. Tipologia": d.needsReviewDocType ? 'Sim' : '',
-                "Ficheiro": d.origName,
-                "Transaction ID": d.transactionId || '', // If linked
-                "Criado Em": d.created_at,
-                "Atualizado Em": d.updated_at
+                "Ficheiro": d.origName
             };
-
-            if (includeRaw === '1') {
-                row["JSON AI"] = d.rawJson ? JSON.stringify(d.rawJson).slice(0, 32000) : ''; // Limit for Excel
-                row["Referências JSON"] = d.references_json || (Array.isArray(d.references) ? JSON.stringify(d.references) : '');
-            } else {
-                // Simplified references for non-raw
-                row["Referências"] = Array.isArray(d.references) ? d.references.map(r => `${r.type}:${r.value}`).join(', ') : '';
-            }
-
-            // Optional file path if needed for audit, but maybe sensitive
-            // row["FilePath"] = d.filePath; 
-
+            if (includeRaw === '1') row["JSON AI"] = JSON.stringify(d.rawJson || {}).slice(0, 32000);
             return row;
         });
 
@@ -793,38 +671,38 @@ exports.exportXlsx = async (req, res) => {
         const ws = xlsx.utils.json_to_sheet(rows);
         xlsx.utils.book_append_sheet(wb, ws, "Core V2");
 
-        // Perf: Stream via Temp File
         const os = require('os');
-        const tmpPath = path.join(os.tmpdir(), `core-export-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.xlsx`);
-
+        const tmpPath = path.join(os.tmpdir(), `export-${Date.now()}.xlsx`);
         xlsx.writeFile(wb, tmpPath);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=core-v2-export-${Date.now()}.xlsx`);
-
+        res.setHeader('Content-Disposition', `attachment; filename=export.xlsx`);
         const stream = fs.createReadStream(tmpPath);
         stream.pipe(res);
-
-        // Cleanup
         const cleanup = () => { if (fs.existsSync(tmpPath)) fs.unlink(tmpPath, () => { }); };
-        stream.on('close', cleanup);
-        stream.on('error', cleanup);
         res.on('finish', cleanup);
     } catch (e) {
-        console.error('[v2 export.xlsx] error:', e);
         res.status(500).json({ error: e.message });
     }
 };
 
-// --- Satellite Data for Nicolazzi (Unified Storage) ---
-
 exports.getExtractionData = async (req, res) => {
     try {
         const { type, id } = req.params;
-        const data = await SatelliteStorage.getData(type, id);
+        // Force null for global search even if req.project exists (Phase 12)
+        const project = null;
+
+        // 1. PRIORITIZE Main DB (Single Source of Truth)
+        const fullDoc = await Adapter.getDoc(project, id);
+        if (fullDoc && fullDoc.rawJson) {
+            console.log(`[Storage] Serving unified data from Main DB for doc ${id}`);
+            return res.json(fullDoc.rawJson);
+        }
+
+        // 2. Fallback to Satellite
+        let data = await SatelliteStorage.getData(type, id);
         res.json(data || {});
     } catch (e) {
-        console.error(`[Satellite Read] Error for doc ${req.params.id}:`, e.message);
         res.status(500).json({ error: e.message });
     }
 };
@@ -833,7 +711,26 @@ exports.saveExtractionData = async (req, res) => {
     try {
         const { type, id } = req.params;
         const data = req.body;
+        const project = req.project || 'default';
+
+        // 1. Save to Satellite (Hifi Data - Legacy/Extra layer)
         await SatelliteStorage.saveData(type, id, data);
+
+        // 2. Sync Core Fields AND Hi-Fi Data to Main DB (Phase 12 Unified Persistence)
+        // Extract flat fields for columns, but keep full payload in rawJson
+        const patch = {
+            rawJson: data,
+            docNumber: data.docNumber,
+            date: data.date,
+            total: data.totals?.gross || data.total,
+            supplier: (typeof data.entities?.supplier === 'object') ? data.entities.supplier.name : data.entities?.supplier,
+            customer: (typeof data.entities?.customer === 'object') ? data.entities.customer.name : data.entities?.customer
+        };
+
+        await knex.transaction(async (trx) => {
+            await UniversalDocService.updateDoc(project, id, patch, trx);
+        });
+
         res.json({ ok: true });
     } catch (e) {
         console.error(`[Satellite Write] Error for doc ${req.params.id}:`, e.message);

@@ -7,7 +7,8 @@ const testFiles = [
     { type: 'proforma', path: 'C:/Users/pedro/OneDrive - DIVITEK/A-Divitek - Divitek/04 - OFFICINA NICOLAZZI/Faturas 2025/Proformas/015.pdf' },
     { type: 'proforma', path: 'C:/Users/pedro/OneDrive - DIVITEK/A-Divitek - Divitek/04 - OFFICINA NICOLAZZI/Faturas 2025/Proformas/085.pdf' },
     { type: 'invoice', path: 'C:/Users/pedro/OneDrive - DIVITEK/A-Divitek - Divitek/04 - OFFICINA NICOLAZZI/Faturas 2025/Processadas/386b.pdf' },
-    { type: 'invoice', path: 'C:/Users/pedro/OneDrive - DIVITEK/A-Divitek - Divitek/04 - OFFICINA NICOLAZZI/Faturas 2025/Processadas/430b.pdf' }
+    { type: 'proforma', path: 'C:/Users/pedro/OneDrive - DIVITEK/A-Divitek - Divitek/04 - OFFICINA NICOLAZZI/Faturas 2025/Processadas/430b.pdf' },
+    { type: 'proforma', path: 'C:/Users/pedro/OneDrive - DIVITEK/A-Divitek - Divitek/04 - OFFICINA NICOLAZZI/Propostas 2025/1530.pdf' }
 ];
 
 const outputDir = path.join(__dirname, '../audit_json_results');

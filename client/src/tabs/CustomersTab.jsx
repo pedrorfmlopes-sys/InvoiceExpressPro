@@ -26,7 +26,12 @@ export default function CustomersTab({ project }) {
         setLoading(true);
         try {
             const res = await api.get('/api/crm/list', {
-                params: { page, limit: 20, q: debouncedSearch }
+                params: {
+                    project, // Phase 13: Pass current project context
+                    page,
+                    limit: 20,
+                    q: debouncedSearch
+                }
             });
             setCustomers(res.data.rows || []);
             setTotal(res.data.total || 0);
@@ -35,7 +40,7 @@ export default function CustomersTab({ project }) {
         } finally {
             setLoading(false);
         }
-    }, [page, debouncedSearch]);
+    }, [project, page, debouncedSearch]);
 
     useEffect(() => {
         fetchCustomers();
@@ -55,7 +60,9 @@ export default function CustomersTab({ project }) {
     const handleDelete = async (id) => {
         if (!window.confirm('Tem a certeza que deseja apagar este cliente?')) return;
         try {
-            await api.delete(`/api/crm/${id}`);
+            await api.delete(`/api/crm/${id}`, {
+                params: { project } // Phase 13: Ensure deletion scope matches project
+            });
             fetchCustomers();
         } catch (err) {
             console.error('Failed to delete', err);
@@ -193,6 +200,7 @@ export default function CustomersTab({ project }) {
             {/* Modal */}
             {showModal && (
                 <CustomerModal
+                    project={project}
                     customer={editingCustomer}
                     onClose={() => setShowModal(false)}
                     onSave={handleSave}
