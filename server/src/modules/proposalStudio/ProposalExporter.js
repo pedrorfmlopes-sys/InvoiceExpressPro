@@ -157,18 +157,19 @@ class ProposalPdfEngine {
         this.currentPage.drawLine({ start: { x: this.margin, y: this.y }, end: { x: this.width - this.margin, y: this.y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
         this.y -= 15;
 
-        this.drawText('Projeto:', this.margin, 9, this.fontB);
-        this.drawText(proposal.project_ref || 'N/A', this.margin + 45, 9);
+        // this.drawText('Projeto:', this.margin, 9, this.fontB);
+        // this.drawText(proposal.project_ref || 'N/A', this.margin + 45, 9);
 
-        const metaX = 350;
-        this.currentPage.drawText('V/Ref.:', { x: metaX, y: this.y - 9, size: 8, font: this.fontB });
+        const metaX = this.margin; // Moved to left since Projeto is gone
+        this.currentPage.drawText('Ref. Proj.:', { x: metaX, y: this.y - 9, size: 8, font: this.fontB });
         this.currentPage.drawText(safeText(proposal.metadata?.our_ref || ''), { x: metaX, y: this.y - 18, size: 8, font: this.font });
 
-        this.currentPage.drawText('Validade:', { x: metaX + 80, y: this.y - 9, size: 8, font: this.fontB });
-        this.currentPage.drawText('15 dias', { x: metaX + 80, y: this.y - 18, size: 8, font: this.font });
+        const rightMetaX = 350;
+        this.currentPage.drawText('Validade:', { x: rightMetaX + 80, y: this.y - 9, size: 8, font: this.fontB });
+        this.currentPage.drawText('15 dias', { x: rightMetaX + 80, y: this.y - 18, size: 8, font: this.font });
 
-        this.currentPage.drawText('Data:', { x: metaX + 150, y: this.y - 9, size: 8, font: this.fontB });
-        this.currentPage.drawText(new Date(proposal.updated_at).toLocaleDateString('pt-PT'), { x: metaX + 150, y: this.y - 18, size: 8, font: this.font });
+        this.currentPage.drawText('Data:', { x: rightMetaX + 150, y: this.y - 9, size: 8, font: this.fontB });
+        this.currentPage.drawText(new Date(proposal.updated_at).toLocaleDateString('pt-PT'), { x: rightMetaX + 150, y: this.y - 18, size: 8, font: this.font });
 
         this.y -= 30;
     }

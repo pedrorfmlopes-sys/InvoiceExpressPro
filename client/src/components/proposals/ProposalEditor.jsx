@@ -5,8 +5,10 @@ import { qp } from '../../shared/ui';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import ProposalPdf from './ProposalPdf';
 
-const WARRANTY_TEMPLATES = {
-    'nicolazzi': "Garantia Nicolazzi: 6 anos a contar da data de compra do primeiro adquirente. Acabamento cromado: 6 anos; outros acabamentos: 2 anos. Cartuchos e vedantes (Viton): 2 anos. A garantia cobre defeitos de fabrico (reparação/substituição de peças), excluindo desgaste normal, calcário, limpeza/instalação inadequadas e custos de desmontagem/remontagem."
+const PRESET_CATEGORIES = {
+    WARRANTY: 'warranty',
+    OBSERVATIONS: 'observations',
+    PAYMENT: 'payment'
 };
 
 const ProposalEditor = ({ proposalId, onClose }) => {
@@ -18,6 +20,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     const [showResults, setShowResults] = useState(false);
     const [searching, setSearching] = useState(false);
     const [activeSearchField, setActiveSearchField] = useState(null);
+    const [presets, setPresets] = useState([]);
 
     useEffect(() => { loadData(); }, [proposalId]);
 
@@ -43,16 +46,40 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [pRes, projRes] = await Promise.all([
+            const [pRes, projRes, presetRes] = await Promise.all([
                 api.get(`/api/proposals/${proposalId}`),
-                api.get('/api/projects')
+                api.get('/api/projects'),
+                api.get(`/api/proposals/presets/list`)
             ]);
             setProposal(pRes.data);
             setProjects(projRes.data.projects || []);
+            setPresets(presetRes.data || []);
         } catch (e) {
             alert("Erro ao carregar dados: " + e.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSavePreset = async (category, content) => {
+        if (!content?.trim()) return;
+        const name = prompt("Nome para esta predefinição:");
+        if (!name) return;
+
+        try {
+            setSaving(true);
+            const res = await api.post('/api/proposals/presets', {
+                category,
+                content,
+                name,
+                is_global: false
+            });
+            setPresets(prev => [res.data, ...prev]);
+            alert("Predefinição guardada com sucesso!");
+        } catch (e) {
+            alert("Erro ao guardar predefinição: " + e.message);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -442,7 +469,30 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                 />
                             </div>
                             <div className="flex-1">
-                                <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Condições Pagamento</label>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Condições Pagamento</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleSavePreset(PRESET_CATEGORIES.PAYMENT, proposal.metadata?.payment_conditions)}
+                                            className="text-[8px] text-amber-500/60 hover:text-amber-500 font-bold uppercase transition-colors"
+                                        >
+                                            + Guardar
+                                        </button>
+                                        <select
+                                            className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none max-w-[80px]"
+                                            onChange={(e) => {
+                                                const p = presets.find(x => x.id === e.target.value);
+                                                if (p) updateMetadata('payment_conditions', p.content);
+                                            }}
+                                            value=""
+                                        >
+                                            <option value="">-- Ler --</option>
+                                            {presets.filter(x => x.category === PRESET_CATEGORIES.PAYMENT).map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
                                 <input
                                     className="w-full bg-white/5 px-3 py-2 rounded text-xs text-amber-500/80 outline-none border border-white/5 focus:border-amber-500/50"
                                     value={proposal.metadata?.payment_conditions || 'Pronto Pagamento'}
@@ -603,35 +653,71 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                 <div className="h-32 bg-white/5 border-t border-white/10 flex items-center justify-between px-12 gap-12 shrink-0">
 
                     {/* Observations & Warranty */}
-                    <div className="flex-1 h-full py-4 flex flex-col gap-2">
+                    <div className="flex-1 h-full py-4 flex flex-col gap-2 overflow-hidden">
                         <div className="flex-1 flex flex-col">
-                            <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Observações / Termos</label>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Observações / Termos</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleSavePreset(PRESET_CATEGORIES.OBSERVATIONS, proposal.metadata?.observations)}
+                                        className="text-[8px] text-amber-500/60 hover:text-amber-500 font-bold uppercase transition-colors"
+                                    >
+                                        + Guardar
+                                    </button>
+                                    <select
+                                        className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none max-w-[120px]"
+                                        onChange={(e) => {
+                                            const p = presets.find(x => x.id === e.target.value);
+                                            if (p) updateMetadata('observations', p.content);
+                                        }}
+                                        value=""
+                                    >
+                                        <option value="">-- Carregar --</option>
+                                        {presets.filter(x => x.category === PRESET_CATEGORIES.OBSERVATIONS).map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
                             <textarea
                                 className="w-full bg-transparent text-xs text-gray-400 outline-none resize-none border-r border-white/10 pr-4"
                                 value={proposal.metadata?.observations || ''}
                                 onChange={e => updateMetadata('observations', e.target.value)}
-                                placeholder="Para confirmação da encomenda, este documento deve ser devolvido assinado..."
+                                placeholder="Notas internas ou notas adicionais para o cliente..."
+                                rows={2}
                             />
                         </div>
                         <div className="flex-1 flex flex-col border-t border-white/5 pt-2">
                             <div className="flex justify-between items-center mb-1">
                                 <label className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Garantia / Marca</label>
-                                <select
-                                    className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none"
-                                    onChange={(e) => {
-                                        const tpl = WARRANTY_TEMPLATES[e.target.value];
-                                        if (tpl) updateMetadata('warranty_text', tpl);
-                                    }}
-                                >
-                                    <option value="">-- Carregar Predefinição --</option>
-                                    <option value="nicolazzi">Nicolazzi (6 Anos)</option>
-                                </select>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleSavePreset(PRESET_CATEGORIES.WARRANTY, proposal.metadata?.warranty_text)}
+                                        className="text-[8px] text-amber-500/60 hover:text-amber-500 font-bold uppercase transition-colors"
+                                    >
+                                        + Guardar
+                                    </button>
+                                    <select
+                                        className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none max-w-[120px]"
+                                        onChange={(e) => {
+                                            const p = presets.find(x => x.id === e.target.value);
+                                            if (p) updateMetadata('warranty_text', p.content);
+                                        }}
+                                        value=""
+                                    >
+                                        <option value="">-- Carregar --</option>
+                                        {presets.filter(x => x.category === PRESET_CATEGORIES.WARRANTY).map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <textarea
                                 className="w-full bg-transparent text-[10px] text-gray-500 outline-none resize-none border-r border-white/10 pr-4 leading-tight"
                                 value={proposal.metadata?.warranty_text || ''}
                                 onChange={e => updateMetadata('warranty_text', e.target.value)}
                                 placeholder="Selecione uma predefinição ou escreva o texto da garantia aqui..."
+                                rows={2}
                             />
                         </div>
                     </div>

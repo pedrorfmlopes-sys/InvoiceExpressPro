@@ -239,11 +239,7 @@ const ProposalPdf = ({ proposal }) => {
                 {/* Project Box */}
                 <View style={styles.projectBox} fixed>
                     <View style={{ flexDirection: 'row' }}>
-                        <Text style={{ fontWeight: 'bold', marginRight: 5 }}>Projeto:</Text>
-                        <Text>{proposal.project_ref || 'N/A'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row' }}>
-                        <Text style={{ fontWeight: 'bold', marginRight: 5 }}>V/Ref.:</Text>
+                        <Text style={{ fontWeight: 'bold', marginRight: 5 }}>Ref. Proj.:</Text>
                         <Text>{proposal.metadata?.our_ref || 'N/A'}</Text>
                     </View>
                 </View>

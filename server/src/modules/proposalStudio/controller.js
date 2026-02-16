@@ -1,4 +1,5 @@
 const service = require('./service');
+const presetService = require('./ProposalPresetService');
 
 class ProposalStudioController {
     async cloneToProposal(req, res) {
@@ -78,6 +79,39 @@ class ProposalStudioController {
             res.send(buffer);
         } catch (e) {
             console.error(e);
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    // --- PRESETS ---
+    async getPresets(req, res) {
+        try {
+            const project = req.project;
+            const { category } = req.query;
+            const presets = await presetService.getPresets(project, category);
+            res.json(presets);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async createPreset(req, res) {
+        try {
+            const project = req.project;
+            const preset = await presetService.createPreset(project, req.body);
+            res.json(preset);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async deletePreset(req, res) {
+        try {
+            const project = req.project;
+            const { id } = req.params;
+            await presetService.deletePreset(project, id);
+            res.json({ ok: true });
+        } catch (e) {
             res.status(500).json({ error: e.message });
         }
     }

@@ -39,6 +39,27 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
 
     const handleExport = async (id, format) => {
         try {
+            if (format === 'pdf') {
+                // High-Quality Client Side Generation (Unification)
+                const pRes = await api.get(`/api/proposals/${id}`);
+                const proposal = pRes.data;
+
+                // Dynamically import to keep bundle small if not used
+                const { pdf } = await import('@react-pdf/renderer');
+                const ProposalPdf = (await import('../components/proposals/ProposalPdf')).default;
+
+                const blob = await pdf(<ProposalPdf proposal={proposal} />).toBlob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `proposta_${proposal.name?.replace(/[^a-z0-9]/gi, '_') || id}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                return;
+            }
+
+            // Excel & fallback
             const res = await api.get(`/api/proposals/${id}/${format}`, { responseType: 'blob' });
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
@@ -142,8 +163,8 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                             </td>
                                             <td className="py-4 text-center">
                                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${p.status === 'sent'
-                                                        ? 'border-green-500/30 bg-green-500/10 text-green-500'
-                                                        : 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+                                                    ? 'border-green-500/30 bg-green-500/10 text-green-500'
+                                                    : 'border-amber-500/30 bg-amber-500/10 text-amber-500'
                                                     }`}>
                                                     {p.status === 'sent' ? 'Enviada' : 'Rascunho'}
                                                 </span>
