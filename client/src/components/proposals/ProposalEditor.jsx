@@ -21,6 +21,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     const [searching, setSearching] = useState(false);
     const [activeSearchField, setActiveSearchField] = useState(null);
     const [presets, setPresets] = useState([]);
+    const [showEntityModal, setShowEntityModal] = useState(false);
 
     useEffect(() => { loadData(); }, [proposalId]);
 
@@ -95,8 +96,24 @@ const ProposalEditor = ({ proposalId, onClose }) => {
         }
     };
 
-    const updateHeader = (field, value) => {
-        setProposal({ ...proposal, [field]: value });
+    const updateHeader = (field, val) => {
+        setProposal(prev => ({ ...prev, [field]: val }));
+    };
+
+    const updateStatus = async (newStatus) => {
+        try {
+            setSaving(true);
+            const res = await api.patch(`/api/proposals/${proposalId}`, { status: newStatus });
+            setProposal(res.data);
+            // If accepted, we might want to refresh project data or show a message
+            if (newStatus === 'accepted') {
+                alert("Proposta ACEITE! Outras propostas deste projeto foram encerradas automaticamente.");
+            }
+        } catch (e) {
+            alert("Erro ao atualizar estado: " + e.message);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const updateMetadata = (field, value) => {
@@ -168,13 +185,15 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     };
 
     const selectCustomer = (c) => {
+        const isShippingSame = proposal.metadata?.shipping_is_billing;
         setProposal({
             ...proposal,
             client_ref: c.name,
             metadata: {
                 ...proposal.metadata,
                 client_vat: c.vat,
-                delivery_address: c.address,
+                billing_address: c.address, // Fix: Update billing address
+                shipping_address: isShippingSame ? c.address : proposal.metadata?.shipping_address, // Sync if needed
                 client_email: c.email,
                 client_phone: c.phone
             }
@@ -284,16 +303,23 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                 <span className="text-[9px] text-amber-500 font-black uppercase tracking-widest">{proposal.brand_id}</span>
                                 <div className="h-3 w-px bg-white/10"></div>
                                 <div className="flex gap-2 items-center">
-                                    <span className="text-[9px] text-gray-500 uppercase tracking-widest">Projeto/Ref:</span>
+                                    <span className="text-[9px] text-gray-500 uppercase tracking-widest">Estado:</span>
                                     <select
-                                        className="bg-transparent text-[11px] text-gray-300 outline-none border-b border-transparent focus:border-amber-500"
-                                        value={proposal.project_ref}
-                                        onChange={e => updateHeader('project_ref', e.target.value)}
+                                        className={`bg-transparent text-[10px] font-bold uppercase tracking-tight outline-none border-b border-transparent focus:border-white/20 px-1 rounded
+                                            ${proposal.status === 'draft' ? 'text-gray-400' : ''}
+                                            ${proposal.status === 'sent' ? 'text-blue-400' : ''}
+                                            ${proposal.status === 'accepted' ? 'text-green-500' : ''}
+                                            ${proposal.status === 'rejected' ? 'text-red-500' : ''}
+                                            ${proposal.status === 'closed_other' ? 'text-orange-400' : ''}
+                                        `}
+                                        value={proposal.status}
+                                        onChange={e => updateStatus(e.target.value)}
                                     >
-                                        <option value={proposal.project_ref} className="bg-gray-900">{proposal.project_ref}</option>
-                                        {projects.filter(p => p !== proposal.project_ref).map(p => (
-                                            <option key={p} value={p} className="bg-gray-900">{p}</option>
-                                        ))}
+                                        <option value="draft" className="bg-gray-900 text-gray-400">Rascunho</option>
+                                        <option value="sent" className="bg-gray-900 text-blue-400">Enviada</option>
+                                        <option value="accepted" className="bg-gray-900 text-green-500">Aceite (Win)</option>
+                                        <option value="rejected" className="bg-gray-900 text-red-500">Perdida (Loss)</option>
+                                        <option value="closed_other" className="bg-gray-900 text-orange-400">Encerrada (Outro Canal)</option>
                                     </select>
                                 </div>
                             </div>
@@ -346,196 +372,78 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                     </div>
                 </div>
 
-                {/* Sub-Header: Client & Address */}
-                <div className="bg-white/[0.02] border-b border-white/10 p-8 flex gap-8 shrink-0 flex-wrap relative">
-                    <div className="flex-[1.5] flex flex-col gap-4">
-                        <div className="relative">
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-[9px] text-gray-500 uppercase tracking-widest block font-bold italic">Entidade Comercial</label>
-                                <button
-                                    onClick={saveToCrm}
-                                    className="text-[8px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20 transition-all font-bold uppercase"
-                                    title="Guardar estes dados permanentemente no CRM"
-                                >
-                                    Sincronizar CRM
-                                </button>
-                            </div>
-                            <div className="relative group/search">
-                                <input
-                                    className="w-full bg-transparent text-lg font-black text-amber-500 outline-none border-b border-white/5 focus:border-amber-500 transition-all pl-8"
-                                    value={proposal.client_ref}
-                                    onChange={e => {
-                                        updateHeader('client_ref', e.target.value);
-                                        searchCRM(e.target.value);
-                                    }}
-                                    onBlur={() => setTimeout(() => setShowResults(false), 300)}
-                                    onFocus={() => {
-                                        setActiveSearchField('name');
-                                        if (proposal.client_ref?.length >= 1) setShowResults(true);
-                                    }}
-                                    placeholder="Pesquise por Nome do Cliente..."
-                                />
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        setActiveSearchField('name');
-                                        searchCRM(proposal.client_ref);
-                                    }}
-                                    className="absolute left-0 bottom-2 text-amber-500/30 hover:text-amber-500 transition-colors z-10"
-                                    title="Pesquisar agora"
-                                >
-                                    {searching ? (
-                                        <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                                    ) : (
-                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                                    )}
-                                </button>
-                            </div>
-
-                            {/* CRM Search Results Dropdown */}
-                            {showResults && activeSearchField === 'name' && (
-                                <div className="absolute top-full left-0 w-full mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-50 max-h-64 overflow-auto backdrop-blur-xl">
-                                    {searching ? (
-                                        <div className="p-4 text-[10px] text-amber-500 italic text-center animate-pulse">A pesquisar clientes...</div>
-                                    ) : searchResults.length === 0 ? (
-                                        <div className="p-4 text-[10px] text-gray-500 italic text-center">Nenhum cliente encontrado...</div>
-                                    ) : (
-                                        searchResults.map(c => (
-                                            <div
-                                                key={c.id}
-                                                onClick={() => selectCustomer(c)}
-                                                className="p-4 hover:bg-amber-500/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors group"
-                                            >
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-sm font-bold text-white group-hover:text-amber-500">{c.name}</span>
-                                                    <span className="text-[10px] font-mono text-gray-500">{c.vat}</span>
-                                                </div>
-                                                <div className="text-[10px] text-gray-400 mt-1 truncate">{c.address}</div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )}
+                {/* Sub-Header: Focused on Project & Entity Trigger */}
+                <div className="bg-white/[0.02] border-b border-white/10 p-6 flex gap-6 shrink-0 items-center">
+                    <div className="flex-[2] flex flex-col gap-1">
+                        <label className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Cliente / Entidade</label>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl font-black text-amber-500 leading-none">{proposal.client_ref || 'Consumidor Final'}</span>
+                            <button
+                                onClick={() => setShowEntityModal(true)}
+                                className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded border border-amber-500/20 transition-all text-[10px] font-bold uppercase flex items-center gap-2"
+                            >
+                                📍 Dados e Entrega
+                            </button>
                         </div>
-                        <div className="flex gap-4">
-                            <div className="flex-1 relative">
-                                <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">NIF / VAT</label>
-                                <input
-                                    className="w-full bg-white/5 px-3 py-2 rounded text-xs text-gray-300 outline-none border border-white/5 focus:border-amber-500/50"
-                                    value={proposal.metadata?.client_vat || ''}
-                                    onChange={e => {
-                                        updateMetadata('client_vat', e.target.value);
-                                        searchCRM(e.target.value);
-                                    }}
-                                    onBlur={() => setTimeout(() => setShowResults(false), 300)}
-                                    onFocus={() => {
-                                        setActiveSearchField('vat');
-                                        if (proposal.metadata?.client_vat?.length >= 1) setShowResults(true);
-                                    }}
-                                />
-
-                                {/* CRM Search Results Dropdown for NIF */}
-                                {showResults && activeSearchField === 'vat' && (
-                                    <div className="absolute top-full left-0 w-full mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-50 max-h-64 overflow-auto backdrop-blur-xl">
-                                        {searching ? (
-                                            <div className="p-4 text-[10px] text-amber-500 italic text-center animate-pulse">A pesquisar clientes por NIF...</div>
-                                        ) : searchResults.length === 0 ? (
-                                            <div className="p-4 text-[10px] text-gray-500 italic text-center">Nenhum NIF encontrado...</div>
-                                        ) : (
-                                            searchResults.map(c => (
-                                                <div
-                                                    key={c.id}
-                                                    onClick={() => selectCustomer(c)}
-                                                    className="p-4 hover:bg-amber-500/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors group"
-                                                >
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-bold text-white group-hover:text-amber-500">{c.name}</span>
-                                                        <span className="text-[10px] font-mono text-gray-500">{c.vat}</span>
-                                                    </div>
-                                                    <div className="text-[10px] text-gray-400 mt-1 truncate">{c.address}</div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
+                        {proposal.metadata?.client_vat && (
+                            <div className="flex gap-3 text-[10px] text-gray-500 mt-1">
+                                <span>NIF: <span className="text-gray-300 font-mono">{proposal.metadata.client_vat}</span></span>
+                                <span>•</span>
+                                <span className="truncate max-w-sm">{proposal.metadata.billing_address}</span>
                             </div>
-                            <div className="flex-1">
-                                <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Contacto / Email</label>
-                                <input
-                                    className="w-full bg-white/5 px-3 py-2 rounded text-xs text-gray-300 outline-none border border-white/5 focus:border-amber-500/50"
-                                    value={proposal.metadata?.client_email || ''}
-                                    onChange={e => updateMetadata('client_email', e.target.value)}
-                                />
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Condições Pagamento</label>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleSavePreset(PRESET_CATEGORIES.PAYMENT, proposal.metadata?.payment_conditions)}
-                                            className="text-[8px] text-amber-500/60 hover:text-amber-500 font-bold uppercase transition-colors"
-                                        >
-                                            + Guardar
-                                        </button>
-                                        <select
-                                            className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none max-w-[80px]"
-                                            onChange={(e) => {
-                                                const p = presets.find(x => x.id === e.target.value);
-                                                if (p) updateMetadata('payment_conditions', p.content);
-                                            }}
-                                            value=""
-                                        >
-                                            <option value="">-- Ler --</option>
-                                            {presets.filter(x => x.category === PRESET_CATEGORIES.PAYMENT).map(p => (
-                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <input
-                                    className="w-full bg-white/5 px-3 py-2 rounded text-xs text-amber-500/80 outline-none border border-white/5 focus:border-amber-500/50"
-                                    value={proposal.metadata?.payment_conditions || 'Pronto Pagamento'}
-                                    onChange={e => updateMetadata('payment_conditions', e.target.value)}
-                                    placeholder="Ex: 50% Adjudicação..."
-                                />
-                            </div>
-                        </div>
+                        )}
                     </div>
 
-                    <div className="flex-[2]">
-                        <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Morada de Entrega / Notas Fiscais</label>
-                        <textarea
-                            rows="4"
-                            className="w-full bg-white/5 px-4 py-3 rounded text-sm text-gray-400 outline-none border border-white/5 focus:border-amber-500/50 resize-none h-full"
-                            value={proposal.metadata?.delivery_address || ''}
-                            onChange={e => updateMetadata('delivery_address', e.target.value)}
-                            placeholder="Introduza a morada completa para faturação e entrega..."
+                    <div className="flex-1 max-w-[300px]">
+                        <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Projeto (Cliente)</label>
+                        <input
+                            className="w-full bg-amber-500/5 px-3 py-2 rounded text-xs text-amber-200 outline-none border border-amber-500/20 focus:border-amber-500/50"
+                            placeholder="Ex: Nome do Projeto / Ref. Cliente"
+                            value={proposal.metadata?.client_project_name || ''}
+                            onChange={e => updateMetadata('client_project_name', e.target.value)}
                         />
                     </div>
 
-                    <div className="w-64 flex flex-col gap-4">
-                        <div>
-                            <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Nossa Ref / Orç.</label>
-                            <input
-                                className="w-full bg-white/5 px-3 py-2 rounded font-mono text-xs text-amber-500/80 outline-none border border-white/5 focus:border-amber-500/50"
-                                value={proposal.metadata?.our_ref || ''}
-                                onChange={e => updateMetadata('our_ref', e.target.value)}
-                            />
+                    <div className="flex-1 max-w-[200px]">
+                        <label className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1 font-bold">Nossa Ref / Orç.</label>
+                        <input
+                            className="w-full bg-white/5 px-3 py-2 rounded font-mono text-xs text-amber-500/80 outline-none border border-white/5 focus:border-amber-500/50"
+                            value={proposal.metadata?.our_ref || ''}
+                            onChange={e => updateMetadata('our_ref', e.target.value)}
+                        />
+                    </div>
+
+                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-2 flex items-center gap-6">
+                        <div className="flex flex-col">
+                            <span className="text-[8px] text-amber-500/50 uppercase font-bold">Linhas</span>
+                            <span className="text-sm text-white font-bold">{proposal.lines?.length || 0}</span>
                         </div>
-                        <div className="flex-1 bg-amber-500/5 border border-amber-500/20 rounded p-4 flex flex-col justify-center">
-                            <span className="text-[8px] text-amber-500/50 uppercase font-bold text-center block mb-2">Resumo da Proposta</span>
-                            <div className="flex justify-between text-[10px]">
-                                <span className="text-gray-500">Linhas</span>
-                                <span className="text-white font-bold">{proposal.lines?.length || 0}</span>
-                            </div>
-                            <div className="flex justify-between text-[10px]">
-                                <span className="text-gray-500">Total Bruto</span>
-                                <span className="text-white font-bold">{calculateTotals().gross.toFixed(2)} €</span>
-                            </div>
+                        <div className="w-px h-6 bg-amber-500/10"></div>
+                        <div className="flex flex-col">
+                            <span className="text-[8px] text-amber-500/50 uppercase font-bold">Total Bruto</span>
+                            <span className="text-sm text-white font-bold">{calculateTotals().gross.toFixed(2)} €</span>
                         </div>
                     </div>
                 </div>
+
+                {/* Entity & Delivery Modal */}
+                {showEntityModal && (
+                    <EntityDataModal
+                        proposal={proposal}
+                        onClose={() => setShowEntityModal(false)}
+                        updateHeader={updateHeader}
+                        updateMetadata={updateMetadata}
+                        searchCRM={searchCRM}
+                        searchResults={searchResults}
+                        searching={searching}
+                        selectCustomer={selectCustomer}
+                        saveToCrm={saveToCrm}
+                        activeSearchField={activeSearchField}
+                        setActiveSearchField={setActiveSearchField}
+                        showResults={showResults}
+                        setShowResults={setShowResults}
+                    />
+                )}
 
                 {/* Editor Content */}
                 <div className="flex-1 overflow-auto p-8">
@@ -763,6 +671,204 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                     </div>
                 </div>
 
+            </div>
+        </div>
+    );
+};
+
+const EntityDataModal = ({
+    proposal, onClose, updateHeader, updateMetadata,
+    searchCRM, searchResults, searching, selectCustomer, saveToCrm,
+    activeSearchField, setActiveSearchField, showResults, setShowResults
+}) => {
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[11000] p-4">
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-amber-500 rounded flex items-center justify-center text-black font-black">📍</div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Dados da Entidade e Entrega</h2>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-xl">✕</button>
+                </div>
+
+                <div className="p-8 overflow-auto flex flex-col gap-8">
+                    {/* Identification Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-white/[0.02] rounded-xl border border-white/5">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex justify-between items-center">
+                                <label className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Nome do Cliente / Entidade</label>
+                                <button
+                                    onClick={saveToCrm}
+                                    className="text-[9px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20 transition-all font-bold uppercase"
+                                >
+                                    Sincronizar CRM
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <input
+                                    className="w-full bg-white/5 px-4 py-3 rounded-lg text-lg font-black text-amber-500 outline-none border border-white/10 focus:border-amber-500 transition-all pl-10"
+                                    value={proposal.client_ref}
+                                    onChange={e => {
+                                        updateHeader('client_ref', e.target.value);
+                                        searchCRM(e.target.value);
+                                    }}
+                                    onFocus={() => {
+                                        setActiveSearchField('name');
+                                        if (proposal.client_ref?.length >= 1) setShowResults(true);
+                                    }}
+                                    placeholder="Nome comercial do cliente..."
+                                />
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500/40">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                </div>
+
+                                {showResults && activeSearchField === 'name' && (
+                                    <div className="absolute top-full left-0 w-full mt-2 bg-gray-900 border border-amber-500/30 rounded-xl shadow-2xl z-[12000] max-h-64 overflow-auto backdrop-blur-xl">
+                                        {searching ? (
+                                            <div className="p-4 text-xs text-amber-500 italic text-center animate-pulse">A pesquisar CRM...</div>
+                                        ) : searchResults.length === 0 ? (
+                                            <div className="p-4 text-xs text-gray-500 italic text-center">Nenhum resultado...</div>
+                                        ) : (
+                                            searchResults.map(c => (
+                                                <div
+                                                    key={c.id}
+                                                    onClick={() => {
+                                                        selectCustomer(c);
+                                                        setShowResults(false);
+                                                    }}
+                                                    className="p-4 hover:bg-amber-500/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors group"
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-bold text-white group-hover:text-amber-500">{c.name}</span>
+                                                        <span className="text-[10px] font-mono text-gray-500">{c.vat}</span>
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-400 mt-1 truncate">{c.address}</div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="relative">
+                                <label className="text-[10px] text-gray-500 uppercase tracking-widest font-bold block mb-1">NIF / VAT</label>
+                                <input
+                                    className="w-full bg-white/5 px-4 py-3 rounded-lg text-sm text-gray-200 outline-none border border-white/10 focus:border-amber-500 transition-all"
+                                    value={proposal.metadata?.client_vat || ''}
+                                    onChange={e => {
+                                        updateMetadata('client_vat', e.target.value);
+                                        setActiveSearchField('vat');
+                                        searchCRM(e.target.value);
+                                    }}
+                                    onFocus={() => {
+                                        setActiveSearchField('vat');
+                                        if (proposal.metadata?.client_vat?.length >= 1) setShowResults(true);
+                                    }}
+                                />
+                                {showResults && activeSearchField === 'vat' && (
+                                    <div className="absolute top-full left-0 w-full mt-2 bg-gray-900 border border-amber-500/30 rounded-xl shadow-2xl z-[12000] max-h-64 overflow-auto backdrop-blur-xl">
+                                        {searching ? (
+                                            <div className="p-4 text-xs text-amber-500 italic text-center animate-pulse">A procurar NIF...</div>
+                                        ) : searchResults.length === 0 ? (
+                                            <div className="p-4 text-xs text-gray-500 italic text-center">Não encontrado...</div>
+                                        ) : (
+                                            searchResults.map(c => (
+                                                <div key={c.id} onClick={() => { selectCustomer(c); setShowResults(false); }} className="p-4 hover:bg-amber-500/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors group">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-bold text-white group-hover:text-amber-500">{c.name}</span>
+                                                        <span className="text-[10px] font-mono text-gray-500">{c.vat}</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-gray-500 uppercase tracking-widest font-bold block mb-1">Email / Contacto</label>
+                                <input
+                                    className="w-full bg-white/5 px-4 py-3 rounded-lg text-sm text-gray-200 outline-none border border-white/10 focus:border-amber-500 transition-all font-mono"
+                                    value={proposal.metadata?.client_email || ''}
+                                    onChange={e => updateMetadata('client_email', e.target.value)}
+                                    placeholder="email@exemplo.com"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Addresses Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Billing Address */}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] text-blue-400 uppercase tracking-widest font-bold flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
+                                Morada de Faturação
+                            </label>
+                            <textarea
+                                rows="5"
+                                className="w-full bg-white/5 px-4 py-3 rounded-xl text-xs text-gray-300 outline-none border border-white/10 focus:border-blue-500 transition-all resize-none leading-relaxed"
+                                value={proposal.metadata?.billing_address || ''}
+                                onChange={e => {
+                                    updateMetadata('billing_address', e.target.value);
+                                    if (proposal.metadata?.shipping_is_billing) {
+                                        updateMetadata('shipping_address', e.target.value);
+                                    }
+                                }}
+                                placeholder="Morada fiscal completa..."
+                            />
+                        </div>
+
+                        {/* Shipping Address */}
+                        <div className="flex flex-col gap-2">
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] text-green-400 uppercase tracking-widest font-bold flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                                    Morada de Entrega / Descarga
+                                </label>
+                                <button
+                                    onClick={() => {
+                                        const newVal = !proposal.metadata?.shipping_is_billing;
+                                        updateMetadata('shipping_is_billing', newVal);
+                                        if (newVal) {
+                                            updateMetadata('shipping_address', proposal.metadata?.billing_address);
+                                        }
+                                    }}
+                                    className={`text-[9px] px-2 py-1 rounded border transition-all font-bold uppercase
+                                        ${proposal.metadata?.shipping_is_billing
+                                            ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                                            : 'bg-white/5 border-white/10 text-gray-500 hover:text-white'
+                                        }`}
+                                >
+                                    {proposal.metadata?.shipping_is_billing ? '✓ Igual à Faturação' : 'Mudar Morada'}
+                                </button>
+                            </div>
+                            <textarea
+                                rows="5"
+                                disabled={proposal.metadata?.shipping_is_billing}
+                                className={`w-full px-4 py-3 rounded-xl text-xs outline-none border transition-all resize-none leading-relaxed
+                                    ${proposal.metadata?.shipping_is_billing
+                                        ? 'bg-black/20 border-transparent text-gray-600 cursor-not-allowed italic'
+                                        : 'bg-white/5 border-white/10 text-gray-300 focus:border-green-500'
+                                    }`}
+                                value={proposal.metadata?.shipping_address || ''}
+                                onChange={e => updateMetadata('shipping_address', e.target.value)}
+                                placeholder="Local de descarga do material..."
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6 border-t border-white/10 bg-white/5 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-black rounded-xl transition-all font-black uppercase tracking-tight shadow-xl shadow-amber-500/10"
+                    >
+                        Concluído
+                    </button>
+                </div>
             </div>
         </div>
     );

@@ -32,8 +32,10 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [viewPdfUrl, setViewPdfUrl] = useState(null);
     const [viewDoc, setViewDoc] = useState(null); // New State for Enhanced Viewer
+    const [viewAuditDoc, setViewAuditDoc] = useState(null);
     const [viewLinksDoc, setViewLinksDoc] = useState(null); // Doc to show links for
     const [docLinksData, setDocLinksData] = useState([]); // Loaded links
+    const [viewProposalsDoc, setViewProposalsDoc] = useState(null);
     const [viewBackupsDoc, setViewBackupsDoc] = useState(null); // Doc to show backups for
     const [backupsData, setBackupsData] = useState([]); // Loaded backups
     const [previewBackupData, setPreviewBackupData] = useState(null); // Snapshot to show in preview modal (Phase 20)
@@ -43,7 +45,7 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
     // Initial order needs to match COLUMNS_DEF keys roughly
     const [columnOrder, setColumnOrder] = useState([
         'archived', 'docType', 'docNumber', 'date', 'supplier', 'customer', 'shipTo', 'total',
-        'sub_project_id', 'category_id', 'scope', 'links'
+        'associatedProposals', 'sub_project_id', 'category_id', 'scope', 'links'
     ]);
     const [visibleCols, setVisibleCols] = useState(new Set(columnOrder));
     const [colManagerOpen, setColManagerOpen] = useState(false);
@@ -292,6 +294,17 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
         }
     };
 
+    const handleCloneToProposal = async (doc) => {
+        if (!confirm(`Deseja criar uma nova proposta com base no documento ${doc.docNumber}?`)) return;
+        try {
+            const res = await api.post(qp('/api/proposals/clone', project), { docId: doc.id });
+            alert("Proposta criada com sucesso! A abrir editor...");
+            setEditingProposalId(res.data.proposalId);
+        } catch (e) {
+            alert("Erro ao criar proposta: " + (e.response?.data?.error || e.message));
+        }
+    };
+
 
     // Columns Def 
     const COLUMNS_DEF = [
@@ -319,6 +332,18 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
         {
             key: 'category_id', label: 'Category', width: 150,
             editable: true, type: 'lookup', options: categories
+        },
+        {
+            key: 'associatedProposals', label: 'Propostas', width: 90, type: 'custom', render: (r) => (
+                r.associatedProposals?.length > 0 ? (
+                    <button
+                        className="badge bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 hover:scale-110 transition-transform cursor-pointer px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1 border border-amber-500/20"
+                        onClick={(e) => { e.stopPropagation(); setViewProposalsDoc(r); }}
+                    >
+                        📄 {r.associatedProposals.length}
+                    </button>
+                ) : <span className="opacity-10">-</span>
+            )
         },
         {
             key: 'links', label: 'Links', width: 60, type: 'custom', render: (r) => (
@@ -607,28 +632,93 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
                 onLink={handleLinkConfirm}
             />}
 
-            {/* View Links Popover/Modal */}
+            {/* Links Popover */}
             {viewLinksDoc && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-transparent" onClick={() => setViewLinksDoc(null)}>
-                    <div className="bg-[var(--card)] border border-[var(--border)] shadow-xl p-4 rounded-xl min-w-[300px]" onClick={e => e.stopPropagation()}>
-                        <h4 className="font-bold mb-2">Linked Documents</h4>
-                        <div className="flex flex-col gap-2 max-h-[300px] overflow-auto">
-                            {docLinksData.map(l => (
-                                <div key={l.id} className="flex justify-between items-center p-2 bg-[var(--bg-base)] rounded text-sm group/link">
-                                    <div>
-                                        <div className="font-bold">{l.docNumber}</div>
-                                        <div className="text-xs opacity-70">{l.total} €</div>
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewLinksDoc(null)}></div>
+                    <GlassCard className="w-full max-w-lg p-6 relative z-10 border-[var(--accent-primary)]/30">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">🔗 Documentos Vinculados</h3>
+                            <button onClick={() => setViewLinksDoc(null)} className="opacity-50 hover:opacity-100 text-xl">✕</button>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {viewLinksDoc.references?.map((ref, idx) => (
+                                <div key={idx} className="bg-white/5 p-3 rounded-xl border border-white/10 flex justify-between items-center hover:bg-white/10 transition-colors">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-amber-500">{ref.groupType || 'Link'}</span>
+                                        <span className="text-sm font-mono">{ref.extDocId || ref.docNumber}</span>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button className="text-xs hover:underline text-blue-500" onClick={() => viewRowPdf(l)}>View</button>
-                                        <button className="text-xs hover:underline text-red-500 opacity-0 group-hover/link:opacity-100 transition-opacity" onClick={() => handleUnlink(l)} title="Unlink">Unlink</button>
-                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setViewLinksDoc(null);
+                                            // Assuming onView is a prop or function available in this scope
+                                            // If not, this might need adjustment based on how linked docs are viewed
+                                            // For now, let's assume viewRowPdf can handle it if ref.id is a doc ID
+                                            viewRowPdf(ref); // Changed from onView to viewRowPdf
+                                        }}
+                                        className="text-[10px] font-bold uppercase tracking-wider bg-white/10 px-3 py-1.5 rounded-lg hover:bg-amber-500 hover:text-black transition-all"
+                                    >
+                                        Abrir
+                                    </button>
                                 </div>
                             ))}
-                            {docLinksData.length === 0 && <span className="text-xs opacity-50">Loading or empty...</span>}
                         </div>
-                        <button className="btn mt-4 w-full" onClick={() => setViewLinksDoc(null)}>Close</button>
-                    </div>
+                    </GlassCard>
+                </div>
+            )}
+
+            {/* Proposals Popover (Phase 21) */}
+            {viewProposalsDoc && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewProposalsDoc(null)}></div>
+                    <GlassCard className="w-full max-w-md p-6 relative z-10 border-amber-500/30 bg-gray-950/90">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-black flex items-center gap-3">
+                                <span className="w-8 h-8 bg-amber-500 rounded flex items-center justify-center text-black text-xs font-black">PS</span>
+                                Propostas Associadas
+                            </h3>
+                            <button onClick={() => setViewProposalsDoc(null)} className="opacity-50 hover:opacity-100 text-xl">✕</button>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {viewProposalsDoc.associatedProposals?.map((p, idx) => (
+                                <div key={p.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center hover:bg-white/10 transition-colors group">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full 
+                                                ${p.status === 'accepted' ? 'bg-green-500' : ''}
+                                                ${p.status === 'sent' ? 'bg-blue-400' : ''}
+                                                ${p.status === 'rejected' ? 'bg-red-500' : ''}
+                                                ${p.status === 'closed_other' ? 'bg-orange-400' : ''}
+                                                ${(!p.status || p.status === 'draft') ? 'bg-gray-400' : ''}
+                                            `}></span>
+                                            <span className="text-sm font-bold group-hover:text-amber-500 transition-colors">{p.name}</span>
+                                        </div>
+                                        <span className="text-[10px] uppercase tracking-wider opacity-40 font-bold ml-4">
+                                            {p.status || 'Rascunho'}
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setViewProposalsDoc(null);
+                                            setEditingProposalId(p.id);
+                                        }}
+                                        className="text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 px-4 py-2 rounded-lg hover:bg-amber-500 hover:text-black transition-all border border-amber-500/20"
+                                    >
+                                        Editar
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => {
+                                setViewProposalsDoc(null);
+                                handleCloneToProposal(viewProposalsDoc);
+                            }}
+                            className="w-full mt-6 py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all"
+                        >
+                            + Criar Nova Proposta
+                        </button>
+                    </GlassCard>
                 </div>
             )}
 

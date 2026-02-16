@@ -80,26 +80,28 @@ class ExplorerService {
 
         const rows = await query;
 
+        // --- PHASE 21: Fetch associated proposals ---
+        const docIds = rows.map(r => r.id);
+        let proposalsMap = {};
+        if (docIds.length > 0) {
+            const allProposals = await knex('custom_proposals')
+                .whereIn('original_doc_id', docIds)
+                .select('id', 'name', 'status', 'original_doc_id');
+
+            allProposals.forEach(p => {
+                if (!proposalsMap[p.original_doc_id]) proposalsMap[p.original_doc_id] = [];
+                proposalsMap[p.original_doc_id].push(p);
+            });
+        }
+
         // Post-process rows to normalize linkCount
         const processed = rows.map(r => {
-            // linkRawCount is count of ALL entries in the group including self.
-            // If I am in a group of 1, I am basically unlinked (unless I am linked to myself? No).
-            // Wait, if I am NOT in doc_links, count is 0.
-            // If I am in doc_links (single entry), count is 1. (Valid group of 1? orphaned?)
-            // Real links imply >= 2.
-            // So displayed linkCount = max(0, linkRawCount - 1) ?
-            // Actually, if I created a link group with just 1 doc (waiting for another), it is technically in a group.
-            // But usually we link 2 docs.
-            // Let's send raw and let UI decide.
-            // Actually, the subquery `SELECT group_id FROM doc_links WHERE doc_id = documents.id` might return multiple groups?
-            // Schema says PK is (group_id, doc_id). A doc can be in multiple groups?
-            // "linkDocs" service implementation: upserts to a specific group.
-            // A doc *could* be in multiple groups theoretically.
-            // Let's assume 1 main group for now or simple count of ANY relation.
             const c = r.linkRawCount || 0;
-            // If c > 1, undoubtedly linked. If c=1, just me in a group. If c=0, no group.
-            // Let's treat count as "Number of OTHER docs connected".
-            return { ...r, linkCount: c > 0 ? c - 1 : 0 };
+            return {
+                ...r,
+                linkCount: c > 0 ? c - 1 : 0,
+                associatedProposals: proposalsMap[r.id] || []
+            };
         });
 
         return { rows: processed, nextCursor: offset + processed.length };

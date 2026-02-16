@@ -47,6 +47,16 @@ class ProposalStudioController {
         }
     }
 
+    async patchProposal(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.patchProposal(id, req.body);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
     async deleteProposal(req, res) {
         try {
             const { id } = req.params;

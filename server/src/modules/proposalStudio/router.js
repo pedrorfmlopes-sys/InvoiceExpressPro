@@ -9,6 +9,7 @@ router.post('/clone', (req, res) => controller.cloneToProposal(req, res));
 router.get('/', (req, res) => controller.getProposals(req, res));
 router.get('/:id', (req, res) => controller.getProposal(req, res));
 router.put('/:id', (req, res) => controller.updateProposal(req, res));
+router.patch('/:id', (req, res) => controller.patchProposal(req, res));
 router.delete('/:id', (req, res) => controller.deleteProposal(req, res));
 
 // Exports

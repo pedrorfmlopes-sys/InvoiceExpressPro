@@ -233,14 +233,35 @@ const ProposalPdf = ({ proposal }) => {
                             <Text style={styles.label}>Data:</Text>
                             <Text style={styles.value}>{new Date(proposal.updated_at).toLocaleDateString('pt-PT')}</Text>
                         </View>
+                        <View style={{ marginTop: 10, textAlign: 'right' }}>
+                            <Text style={{ fontSize: 7, color: '#666666', textTransform: 'uppercase', fontWeight: 'bold' }}>Morada Faturação:</Text>
+                            <Text style={{ fontSize: 8 }}>{proposal.metadata?.billing_address || proposal.client_ref}</Text>
+                        </View>
                     </View>
                 </View>
 
-                {/* Project Box */}
+                {/* Project & Shipping Box */}
                 <View style={styles.projectBox} fixed>
-                    <View style={{ flexDirection: 'row' }}>
-                        <Text style={{ fontWeight: 'bold', marginRight: 5 }}>Ref. Proj.:</Text>
-                        <Text>{proposal.metadata?.our_ref || 'N/A'}</Text>
+                    <View style={{ flex: 1, flexDirection: 'row', gap: 20 }}>
+                        <View style={{ flexDirection: 'row' }}>
+                            <Text style={{ fontWeight: 'bold', marginRight: 5 }}>Ref. Proj.:</Text>
+                            <Text>{proposal.metadata?.our_ref || 'N/A'}</Text>
+                        </View>
+                        {proposal.metadata?.client_project_name && (
+                            <View style={{ flexDirection: 'row' }}>
+                                <Text style={{ fontWeight: 'bold', marginRight: 5 }}>Projeto:</Text>
+                                <Text>{proposal.metadata.client_project_name}</Text>
+                            </View>
+                        )}
+                    </View>
+                    <View style={{ flex: 1, borderLeftWidth: 1, borderLeftColor: '#E5E7EB', paddingLeft: 10 }}>
+                        <Text style={{ fontSize: 7, color: '#666666', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: 2 }}>Morada de Entrega:</Text>
+                        <Text style={{ fontSize: 8 }}>
+                            {proposal.metadata?.shipping_is_billing
+                                ? 'Mesma que faturação'
+                                : (proposal.metadata?.shipping_address || 'N/A')
+                            }
+                        </Text>
                     </View>
                 </View>
 

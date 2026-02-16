@@ -2,6 +2,7 @@ const knex = require('../../db/knex');
 const { v4: uuidv4 } = require('uuid');
 const SatelliteStorage = require('../../storage/SatelliteStorage');
 const ProposalExporter = require('./ProposalExporter');
+const CustomerService = require('../crm/CustomerService');
 const path = require('path');
 
 class ProposalStudioService {
@@ -25,22 +26,47 @@ class ProposalStudioService {
 
         // 3. Create Proposal Header
         const proposalId = uuidv4();
+        // Extraction Mapping Logic (Handles V2/Satellite structure)
+        const entities = sourceData.entities || {};
+        const cust = entities.customer || {};
+        const ship = entities.shipping || entities.shipTo || {};
+
+        const vat = cust.vat || sourceData.customerVat || sourceData.vatNumber || doc.vatNumber;
+
+        // CRM Lookup for Billing Address
+        let billingAddress = cust.address || doc.address || sourceData.address || '';
+        if (vat) {
+            try {
+                const crmCustomer = await CustomerService.getByVat(project, vat);
+                if (crmCustomer && crmCustomer.address) {
+                    billingAddress = crmCustomer.address; // CRM data is the source of truth for billing
+                }
+            } catch (err) {
+                console.warn(`[ProposalStudio] CRM lookup failed for VAT ${vat}:`, err.message);
+            }
+        }
+
+        const deliveryAddress = ship.address || sourceData.deliveryAddress || sourceData.address || '';
+
         const proposal = {
             id: proposalId,
             name: `Proposta: ${doc.docNumber || 'Sem Número'} - ${doc.customer || 'Consumidor Final'}`,
             brand_id: doc.supplier && /NICOLAZZI/i.test(doc.supplier) ? 'nicolazzi' : 'other',
-            client_ref: doc.customer || sourceData.customer,
-            project_ref: project || doc.project || sourceData.customerRef, // Fix: Priority to system Project ID
+            client_ref: doc.customer || cust.name || sourceData.customer,
+            project_ref: project || doc.project || sourceData.customerRef,
             status: 'draft',
             original_doc_id: docId,
             metadata: JSON.stringify({
-                delivery_address: sourceData.deliveryAddress || sourceData.address,
-                doc_date: sourceData.senderDate || doc.docDate,
+                doc_date: sourceData.senderDate || doc.docDate || (sourceData.dates && sourceData.dates.issued),
                 doc_number: sourceData.docNumber || doc.docNumber,
-                our_ref: sourceData.ourRef,
-                client_vat: sourceData.customerVat || sourceData.vatNumber,
-                client_email: sourceData.customerEmail,
-                client_phone: sourceData.customerPhone,
+                our_ref: sourceData.ourRef || (sourceData.docRefs && sourceData.docRefs.customerRef),
+                client_project_name: sourceData.customerRef || sourceData.projectLabel || (sourceData.docRefs && sourceData.docRefs.customerRef) || '',
+                client_vat: vat,
+                client_email: cust.email || sourceData.customerEmail,
+                client_phone: cust.phone || sourceData.customerPhone,
+                billing_address: billingAddress,
+                shipping_address: deliveryAddress,
+                shipping_is_billing: !deliveryAddress || deliveryAddress === billingAddress,
                 notes: ''
             }),
             created_at: new Date(),
@@ -79,10 +105,14 @@ class ProposalStudioService {
     }
 
     async getProposals(project) {
-        const q = knex('custom_proposals').orderBy('updated_at', 'desc');
+        const q = knex('custom_proposals')
+            .leftJoin('documents', 'custom_proposals.original_doc_id', 'documents.id')
+            .select('custom_proposals.*', 'documents.docNumber as source_doc_number')
+            .orderBy('custom_proposals.updated_at', 'desc');
+
         if (project) {
             q.where(function () {
-                this.where('project_ref', project).orWhereNull('project_ref');
+                this.where('custom_proposals.project_ref', project).orWhereNull('custom_proposals.project_ref');
             });
         }
         return await q;
@@ -121,6 +151,10 @@ class ProposalStudioService {
     async updateProposal(id, data) {
         const { lines, ...header } = data;
 
+        if (header.status === 'accepted') {
+            await this.handleAcceptedStatus(id);
+        }
+
         if (Object.keys(header).length > 0) {
             await knex('custom_proposals').where({ id }).update({
                 ...header,
@@ -129,6 +163,7 @@ class ProposalStudioService {
                 updated_at: new Date()
             });
         }
+        // ... (lines update part)
 
         if (lines) {
             // Simple approach: delete and recreat lines or update one by one.
@@ -164,6 +199,34 @@ class ProposalStudioService {
     async deleteProposal(id) {
         await knex('proposal_lines').where({ proposal_id: id }).delete();
         await knex('custom_proposals').where({ id: id }).delete();
+    }
+
+    async patchProposal(id, data) {
+        if (data.status === 'accepted') {
+            await this.handleAcceptedStatus(id);
+        }
+
+        await knex('custom_proposals').where({ id }).update({
+            ...data,
+            updated_at: new Date()
+        });
+
+        return this.getProposal(id);
+    }
+
+    async handleAcceptedStatus(proposalId) {
+        const proposal = await knex('custom_proposals').where({ id: proposalId }).first();
+        if (!proposal || !proposal.project_ref) return;
+
+        // Mark siblings in the same project as 'closed_other'
+        await knex('custom_proposals')
+            .where({ project_ref: proposal.project_ref })
+            .whereNot({ id: proposalId })
+            .whereNot({ status: 'accepted' })
+            .update({
+                status: 'closed_other',
+                updated_at: new Date()
+            });
     }
 
     async generatePdf(id) {

@@ -34,6 +34,20 @@ class DbDocsAdapter {
         // Fetch Rows (Apply pagination to clone)
         const rows = await baseQuery.clone().orderBy('created_at', 'desc').limit(limit).offset((page - 1) * limit);
 
+        // --- PHASE 21: Fetch associated proposals ---
+        const docIds = rows.map(r => r.id);
+        let proposalsMap = {};
+        if (docIds.length > 0) {
+            const allProposals = await db('custom_proposals')
+                .whereIn('original_doc_id', docIds)
+                .select('id', 'name', 'status', 'original_doc_id');
+
+            allProposals.forEach(p => {
+                if (!proposalsMap[p.original_doc_id]) proposalsMap[p.original_doc_id] = [];
+                proposalsMap[p.original_doc_id].push(p);
+            });
+        }
+
         return {
             rows: rows.map(r => {
                 const { rawJson: rawStr, references_json, ...row } = r;
@@ -48,7 +62,12 @@ class DbDocsAdapter {
 
                 // RESTORE rawJson as object for Viewer compatibility
                 // but keep it clean from string/nesting
-                const docWithRaw = { ...raw, ...row, references: refs };
+                const docWithRaw = {
+                    ...raw,
+                    ...row,
+                    references: refs,
+                    associatedProposals: proposalsMap[r.id] || []
+                };
                 docWithRaw.rawJson = { ...raw };
 
                 return docWithRaw;
@@ -80,10 +99,16 @@ class DbDocsAdapter {
 
         let docWithRaw = { ...raw, ...row };
 
+        // --- PHASE 21: Fetch associated proposals ---
+        const associatedProposals = await db('custom_proposals')
+            .where({ original_doc_id: id })
+            .select('id', 'name', 'status');
+
         // --- STORAGE UNIFICATION (Phase 2): No more Satellite Merges ---
         // The Main DB (documents table) is now the Single Source of Truth for both Staging and Final.
         // We rely on 'rawJson' being up-to-date from the unified save logic.
 
+        docWithRaw.associatedProposals = associatedProposals || [];
         docWithRaw.rawJson = { ...raw }; // Restore for viewer
         return docWithRaw;
     }

@@ -160,9 +160,14 @@ class ProposalPdfEngine {
         // this.drawText('Projeto:', this.margin, 9, this.fontB);
         // this.drawText(proposal.project_ref || 'N/A', this.margin + 45, 9);
 
-        const metaX = this.margin; // Moved to left since Projeto is gone
+        const metaX = this.margin;
         this.currentPage.drawText('Ref. Proj.:', { x: metaX, y: this.y - 9, size: 8, font: this.fontB });
         this.currentPage.drawText(safeText(proposal.metadata?.our_ref || ''), { x: metaX, y: this.y - 18, size: 8, font: this.font });
+
+        if (proposal.metadata?.client_project_name) {
+            this.currentPage.drawText('Projeto (Cliente):', { x: metaX + 100, y: this.y - 9, size: 8, font: this.fontB });
+            this.currentPage.drawText(safeText(proposal.metadata.client_project_name), { x: metaX + 100, y: this.y - 18, size: 8, font: this.font });
+        }
 
         const rightMetaX = 350;
         this.currentPage.drawText('Validade:', { x: rightMetaX + 80, y: this.y - 9, size: 8, font: this.fontB });
@@ -342,6 +347,10 @@ class ProposalExporter {
     // Kept existing Excel logic unchanged for safety
     async generateExcel(proposal) {
         const rows = proposal.lines.map(l => ({
+            'Projeto': proposal.metadata?.client_project_name || '',
+            'NIF': proposal.metadata?.client_vat || '',
+            'Morada Faturação': proposal.metadata?.billing_address || '',
+            'Morada Entrega': proposal.metadata?.shipping_is_billing ? 'Igual à faturação' : (proposal.metadata?.shipping_address || ''),
             'Codigo': l.sku,
             'Descrição': l.description,
             'Quantidade': l.quantity,

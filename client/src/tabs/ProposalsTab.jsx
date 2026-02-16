@@ -4,12 +4,16 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { ActionCard } from '../components/ui/ActionCard';
 import { ActionBar } from '../components/ui/ActionBar';
 import api from '../api/apiClient';
-import { fmtEUR } from '../shared/ui';
+import { fmtEUR, qp } from '../shared/ui';
+import { getViewer } from '../components/viewers/ViewerRegistry';
+import { createPortal } from 'react-dom';
 
 export default function ProposalsTab({ project, setEditingProposalId }) {
     const [proposals, setProposals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [viewDoc, setViewDoc] = useState(null);
+    const [viewPdfUrl, setViewPdfUrl] = useState(null);
 
     useEffect(() => {
         loadProposals();
@@ -34,6 +38,21 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
             setProposals(prev => prev.filter(p => p.id !== id));
         } catch (e) {
             alert("Erro ao apagar: " + e.message);
+        }
+    };
+
+    const handleViewSource = async (docId) => {
+        try {
+            const res = await api.get(qp(`/api/corev2/docs/${docId}`, project));
+            const doc = res.data;
+            if (getViewer(doc)) {
+                setViewDoc(doc);
+            } else {
+                const resView = await api.get(qp(`/api/corev2/docs/${docId}/view`, project), { responseType: 'blob' });
+                setViewPdfUrl(URL.createObjectURL(resView.data));
+            }
+        } catch (e) {
+            alert("Erro ao abrir documento: " + e.message);
         }
     };
 
@@ -121,6 +140,7 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                 <th className="pb-4 font-bold pl-4">Proposta</th>
                                 <th className="pb-4 font-bold">Cliente</th>
                                 <th className="pb-4 font-bold">Referência</th>
+                                <th className="pb-4 font-bold">Doc. Origem</th>
                                 <th className="pb-4 font-bold text-right">Total (c/IVA)</th>
                                 <th className="pb-4 font-bold text-center">Estado</th>
                                 <th className="pb-4 font-bold text-right pr-4">Ações</th>
@@ -158,15 +178,36 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                             <td className="py-4 text-xs font-mono text-[var(--text-muted)]">
                                                 {p.metadata?.our_ref || '-'}
                                             </td>
+                                            <td className="py-4">
+                                                {p.original_doc_id ? (
+                                                    <button
+                                                        onClick={() => handleViewSource(p.original_doc_id)}
+                                                        className="flex flex-col text-left hover:scale-105 transition-transform"
+                                                    >
+                                                        <span className="text-[10px] font-mono text-amber-500 font-bold border-b border-amber-500/20">{p.source_doc_number || 'Ver Doc'}</span>
+                                                        <span className="text-[8px] text-gray-500 uppercase tracking-tighter">Vinculado</span>
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-600 italic">Manual</span>
+                                                )}
+                                            </td>
                                             <td className="py-4 text-right font-mono font-bold text-[var(--text-main)]">
                                                 {fmtEUR(total)}
                                             </td>
                                             <td className="py-4 text-center">
-                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${p.status === 'sent'
-                                                    ? 'border-green-500/30 bg-green-500/10 text-green-500'
-                                                    : 'border-amber-500/30 bg-amber-500/10 text-amber-500'
-                                                    }`}>
-                                                    {p.status === 'sent' ? 'Enviada' : 'Rascunho'}
+                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border 
+                                                    ${p.status === 'sent' ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' : ''}
+                                                    ${p.status === 'draft' ? 'border-gray-500/30 bg-gray-500/10 text-gray-400' : ''}
+                                                    ${p.status === 'accepted' ? 'border-green-500/30 bg-green-500/10 text-green-500' : ''}
+                                                    ${p.status === 'rejected' ? 'border-red-500/30 bg-red-500/10 text-red-500' : ''}
+                                                    ${p.status === 'closed_other' ? 'border-orange-500/30 bg-orange-500/10 text-orange-400' : ''}
+                                                `}>
+                                                    {p.status === 'sent' && 'Enviada'}
+                                                    {p.status === 'draft' && 'Rascunho'}
+                                                    {p.status === 'accepted' && 'Aceite'}
+                                                    {p.status === 'rejected' && 'Perdida'}
+                                                    {p.status === 'closed_other' && 'Encerrada'}
+                                                    {(!p.status || p.status === '') && 'Rascunho'}
                                                 </span>
                                             </td>
                                             <td className="py-4 text-right pr-4 flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
@@ -207,6 +248,32 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                     </table>
                 </div>
             </GlassCard>
+
+            {/* Specialized Viewer Overlay */}
+            {viewDoc && (() => {
+                const ViewerComponent = getViewer(viewDoc);
+                return (
+                    <ViewerComponent
+                        doc={viewDoc}
+                        onClose={() => setViewDoc(null)}
+                        updateRow={() => { }} // Read-only from here or implement if needed
+                        mode="archive"
+                    />
+                );
+            })()}
+
+            {/* PDF Viewer Portal */}
+            {viewPdfUrl && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+                    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col relative">
+                        <div className="flex justify-between items-center p-4 border-b border-[var(--border)]">
+                            <h3 className="font-bold text-lg">Visualizar Documento</h3>
+                            <button onClick={() => setViewPdfUrl(null)} className="text-xl p-2 hover:bg-red-500/20 rounded-full transition-colors">✕</button>
+                        </div>
+                        <iframe src={viewPdfUrl} className="flex-1 w-full bg-white rounded-b-xl" />
+                    </div>
+                </div>, document.body
+            )}
         </div>
     );
 }
