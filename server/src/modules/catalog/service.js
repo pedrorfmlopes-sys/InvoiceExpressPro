@@ -130,72 +130,92 @@ class CatalogService {
         let skippedCount = 0;
         let filteredCount = 0;
 
-        // Process in chunks
-        const CHUNK_SIZE = 500;
-        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-            const chunk = data.slice(i, i + CHUNK_SIZE);
-            await knex.transaction(async trx => {
-                for (const row of chunk) {
-                    const sku = String(row[cols.sku] || row.Codigo || '').trim();
-                    if (!sku) {
-                        skippedCount++;
-                        continue;
-                    }
+        // 1. Load all existing SKUs for this brand into a Map for O(1) lookup
+        console.log(`[CatalogService] Loading existing items for brand "${brand}" into memory...`);
+        const existingItems = await knex('catalog_items')
+            .where({ brand })
+            .select('id', 'sku', 'handle', 'finish_group');
 
-                    const series = String(row[cols.collection] || row.Serie || '').trim();
+        const existingMap = new Map();
+        existingItems.forEach(item => {
+            const key = `${item.sku.toLowerCase()}|${(item.handle || '').toLowerCase()}|${(item.finish_group || '').toLowerCase()}`;
+            existingMap.set(key, item.id);
+        });
 
-                    // COLLECTION FILTER
-                    if (allowedCollections && !allowedCollections.includes(series)) {
-                        filteredCount++;
-                        continue;
-                    }
+        const toInsert = [];
+        const toUpdate = [];
 
-                    const item = {
-                        brand,
-                        sku,
-                        handle: String(row.Manipulo || '').trim(),
-                        finish_group: String(row.Acabamentos || '').trim(),
-                        description_it: row["Des.IT"],
-                        description_pt: row[cols.description_pt] || row["Des.PT"],
-                        price: parseFloat(row[cols.price] || row.PVP || 0),
-                        series,
-                        updated_at: new Date()
-                    };
+        // 2. Prepare items in memory
+        for (const row of data) {
+            const sku = String(row[cols.sku] || row.Codigo || '').trim();
+            if (!sku) {
+                skippedCount++;
+                continue;
+            }
 
-                    // Check uniqueness by SKU + Handle + Finish Group
-                    const existing = await trx('catalog_items').where({
-                        brand,
-                        sku: item.sku,
-                        handle: item.handle,
-                        finish_group: item.finish_group
-                    }).first();
+            const series = String(row[cols.collection] || row.Serie || '').trim();
 
-                    if (existing) {
-                        // For compound keys, we usually want to update everything if we are re-importing
-                        // but let's keep the merge logic to be safe if price is missing in some rows
-                        const updatePayload = {};
-                        if (item.price > 0) updatePayload.price = item.price;
-                        if (item.description_pt) updatePayload.description_pt = item.description_pt;
-                        if (item.description_it) updatePayload.description_it = item.description_it;
-                        if (item.series) updatePayload.series = item.series;
+            // COLLECTION FILTER
+            if (allowedCollections && !allowedCollections.includes(series)) {
+                filteredCount++;
+                continue;
+            }
 
-                        updatePayload.updated_at = new Date();
+            const handle = String(row.Manipulo || '').trim();
+            const finish_group = String(row.Acabamentos || '').trim();
 
-                        if (Object.keys(updatePayload).length > 1) {
-                            await trx('catalog_items').where({ id: existing.id }).update(updatePayload);
-                            updatedCount++;
-                        }
-                    } else {
-                        await trx('catalog_items').insert({ ...item, id: uuidv4() });
-                        createdCount++;
-                    }
-                }
-            });
-            console.log(`[CatalogService] Chunk processed...`);
+            const itemData = {
+                brand,
+                sku,
+                handle,
+                finish_group,
+                description_it: row["Des.IT"],
+                description_pt: row[cols.description_pt] || row["Des.PT"],
+                price: parseFloat(row[cols.price] || row.PVP || 0),
+                series,
+                updated_at: new Date()
+            };
+
+            const key = `${sku.toLowerCase()}|${handle.toLowerCase()}|${finish_group.toLowerCase()}`;
+            const existingId = existingMap.get(key);
+
+            if (existingId) {
+                toUpdate.push({ id: existingId, ...itemData });
+            } else {
+                toInsert.push({ ...itemData, id: uuidv4() });
+            }
         }
 
-        console.log(`[CatalogService] Import finished. Created: ${createdCount}, Updated: ${updatedCount}, Skipped (no SKU): ${skippedCount}`);
-        return { success: true, stats: { createdCount, updatedCount, skippedCount } };
+        // 3. Perform Batch Execution
+        console.log(`[CatalogService] Executing batches: ${toInsert.length} inserts, ${toUpdate.length} updates`);
+
+        // Batch Inserts are very fast
+        if (toInsert.length > 0) {
+            const CHUNK_SIZE = 500;
+            for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
+                await knex('catalog_items').insert(toInsert.slice(i, i + CHUNK_SIZE));
+                createdCount += toInsert.slice(i, i + CHUNK_SIZE).length;
+            }
+        }
+
+        // Updates are trickier because they need unique WHERE clauses. 
+        // We use a transaction for groups of updates to reduce I/O.
+        if (toUpdate.length > 0) {
+            const UPDATE_CHUNK = 200;
+            for (let i = 0; i < toUpdate.length; i += UPDATE_CHUNK) {
+                const chunk = toUpdate.slice(i, i + UPDATE_CHUNK);
+                await knex.transaction(async trx => {
+                    for (const item of chunk) {
+                        const { id, ...data } = item;
+                        await trx('catalog_items').where({ id }).update(data);
+                    }
+                });
+                updatedCount += chunk.length;
+            }
+        }
+
+        console.log(`[CatalogService] Import finished. Created: ${createdCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}, Filtered: ${filteredCount}`);
+        return { success: true, stats: { createdCount, updatedCount, skippedCount, filteredCount } };
     }
 
     // The original upsertItems method is now largely redundant as its logic is integrated into processNicolazziExcel.
