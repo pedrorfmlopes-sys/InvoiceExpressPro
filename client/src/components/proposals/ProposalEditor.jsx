@@ -227,64 +227,63 @@ const ProposalEditor = ({ proposalId, onClose }) => {
         try {
             setSaving(true);
             const newLines = [...proposal.lines];
+            const skusToResolve = newLines.map(l => l.sku).filter(Boolean);
+
+            if (skusToResolve.length === 0) {
+                alert("Nenhum SKU para enriquecer.");
+                return;
+            }
+
+            const resBulk = await api.post('/api/catalog/resolve-bulk', {
+                brand: proposal.brand_id,
+                skus: skusToResolve
+            });
+
+            const resolutions = resBulk.data || [];
             let enrichedCount = 0;
+            let resIdx = 0;
 
             for (let i = 0; i < newLines.length; i++) {
+                if (!newLines[i].sku) continue;
+                const res = resolutions[resIdx++];
                 const line = newLines[i];
-                if (!line.sku) continue;
 
-                try {
-                    const res = await api.post('/api/catalog/resolve', {
-                        brand: proposal.brand_id,
-                        sku: line.sku
-                    });
+                if (res && res.success) {
+                    const item = res.item;
+                    const finish = res.finish;
 
-                    if (res.data && res.data.success) {
-                        const item = res.data.item;
-                        const finish = res.data.finish;
+                    let desc = item.description_pt || item.description_it || line.description;
+                    const rawOriginal = item.description_it || item.description_en || line.description;
+                    const originalFormatted = formatOriginalDescription(rawOriginal);
 
-                        // Unified Description: PT Description + Finish technical note if exists
-                        let desc = item.description_pt || item.description_it || line.description;
+                    const extra = {
+                        ...line.extra_attributes,
+                        catalog_match: true,
+                        finish_code: res.finishCode,
+                        finish_note: finish?.note_pt,
+                        original_it: item.description_it,
+                        original_description: originalFormatted,
+                        collection: res.series || item.series
+                    };
 
-                        // Original description for PDF (Sentence case)
-                        // Prefer IT description as "original", or fallback to current line description
-                        const rawOriginal = item.description_it || item.description_en || line.description;
-                        const originalFormatted = formatOriginalDescription(rawOriginal);
-
-                        // If we have a finish note, we might want to store it in extra_attributes 
-                        // to keep the main description clean but use it in the PDF later.
-                        const extra = {
-                            ...line.extra_attributes,
-                            catalog_match: true,
-                            finish_code: res.data.finishCode,
-                            finish_note: finish?.note_pt,
-                            original_it: item.description_it, // Keep raw for debugging
-                            original_description: originalFormatted, // Formatted for PDF
-                            collection: res.data.series || item.series // Series/Collection
-                        };
-
-                        newLines[i] = {
-                            ...line,
-                            description: desc,
-                            // SMART PRICE LOGIC:
-                            unit_price_commercial: line.unit_price_commercial,
-                            extra_attributes: {
-                                ...extra,
-                                catalog_sku: item.sku,
-                                catalog_price: item.price,
-                                price_match: (Math.abs((item.price || 0) - (line.unit_price_commercial || 0)) < 0.01)
-                            },
-                            enrichment_status: res.data.fuzzy ? 'fuzzy' : 'match'
-                        };
-                        enrichedCount++;
-                    } else {
-                        newLines[i] = {
-                            ...line,
-                            enrichment_status: 'miss'
-                        };
-                    }
-                } catch (err) {
-                    console.error(`Failed to enrich SKU ${line.sku}:`, err);
+                    newLines[i] = {
+                        ...line,
+                        description: desc,
+                        unit_price_commercial: line.unit_price_commercial,
+                        extra_attributes: {
+                            ...extra,
+                            catalog_sku: item.sku,
+                            catalog_price: item.price,
+                            price_match: (Math.abs((item.price || 0) - (line.unit_price_commercial || 0)) < 0.01)
+                        },
+                        enrichment_status: res.fuzzy ? 'fuzzy' : 'match'
+                    };
+                    enrichedCount++;
+                } else {
+                    newLines[i] = {
+                        ...line,
+                        enrichment_status: 'miss'
+                    };
                 }
             }
 
@@ -295,7 +294,8 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                 alert("Nenhuma correspondência exata encontrada na biblioteca.");
             }
         } catch (e) {
-            alert("Erro ao enriquecer: " + e.message);
+            console.error("Enrichment Error:", e);
+            alert("Erro ao enriquecer: " + (e.response?.data?.error || e.message));
         } finally {
             setSaving(false);
         }

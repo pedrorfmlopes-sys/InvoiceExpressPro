@@ -325,128 +325,143 @@ class CatalogService {
         return { error: 'Brand not supported for auto-resolution yet' };
     }
 
+    async resolveBulk(brand, skus) {
+        if (!Array.isArray(skus)) return [];
+        const results = [];
+        for (const sku of skus) {
+            const res = await this.resolveItem(brand, sku);
+            results.push(res);
+        }
+        return results;
+    }
+
     async resolveNicolazziSku(rawSku) {
-        const cleanSku = String(rawSku || '').trim();
-        if (!cleanSku) return { success: false };
+        try {
+            const cleanSku = String(rawSku || '').trim();
+            if (!cleanSku) return { success: false };
 
-        console.log(`[CatalogService] Resolving Nicolazzi SKU: "${cleanSku}"`);
+            console.log(`[CatalogService] Resolving Nicolazzi SKU: "${cleanSku}"`);
 
-        // Helper to perform the tiered lookup once we have candidates
-        const attemptMatch = async (sku, handle, finishCode) => {
-            if (!sku || sku.length < 2) return null;
+            // Helper to perform the tiered lookup once we have candidates
+            const attemptMatch = async (sku, handle, finishCode) => {
+                if (!sku || sku.length < 2) return null;
 
-            let finish = null;
-            if (finishCode) {
-                finish = await knex('catalog_finishes').where({ brand: 'nicolazzi', finish_code: finishCode }).first();
+                let finish = null;
+                if (finishCode) {
+                    finish = await knex('catalog_finishes').where({ brand: 'nicolazzi', finish_code: finishCode }).first();
+                }
+                const groupCode = finish ? finish.group_code : null;
+
+                // 1. Exact Match (SKU + Handle + Group)
+                let item = await this.findItem('nicolazzi', sku, handle, groupCode);
+
+                // 2. Fuzzy Match (SKU + Handle, ignore group)
+                if (!item && handle) {
+                    item = await knex('catalog_items')
+                        .where({ brand: 'nicolazzi', sku: sku.trim(), handle: handle.trim() })
+                        .first();
+                }
+
+                if (item) {
+                    return { item, finish, finishCode, success: true, fuzzy: !finish || item.finish_group !== groupCode };
+                }
+                return null;
+            };
+
+            // STRATEGY 1: Split by separators (Standard)
+            const parts = cleanSku.split(/[- /.]+/).map(p => p.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+                // Try [Base, Handle, Finish]
+                if (parts.length >= 3) {
+                    const res = await attemptMatch(parts[0], parts[1], parts[2]);
+                    if (res) return { ...res, originalSku: rawSku, sku: parts[0], handle: parts[1], series: res.item.series };
+                }
+                // Try [Base, Finish]
+                const res2 = await attemptMatch(parts.slice(0, -1).join(''), '', parts[parts.length - 1]);
+                if (res2) return { ...res2, originalSku: rawSku, sku: parts.slice(0, -1).join(''), handle: '', series: res2.item.series };
             }
-            const groupCode = finish ? finish.group_code : null;
 
-            // 1. Exact Match (SKU + Handle + Group)
-            let item = await this.findItem('nicolazzi', sku, handle, groupCode);
+            // STRATEGY 2: Puzzle (Combined strings)
+            // We try different slices for Handle (digits) and Finish (letters)
 
-            // 2. Fuzzy Match (SKU + Handle, ignore group)
-            if (!item && handle) {
-                item = await knex('catalog_items')
-                    .where({ brand: 'nicolazzi', sku: sku.trim(), handle: handle.trim() })
-                    .first();
-            }
-
-            if (item) {
-                return { item, finish, finishCode, success: true, fuzzy: !finish || item.finish_group !== groupCode };
-            }
-            return null;
-        };
-
-        // STRATEGY 1: Split by separators (Standard)
-        const parts = cleanSku.split(/[- /.]+/).map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 2) {
-            // Try [Base, Handle, Finish]
-            if (parts.length >= 3) {
-                const res = await attemptMatch(parts[0], parts[1], parts[2]);
-                if (res) return { ...res, originalSku: rawSku, sku: parts[0], handle: parts[1], series: res.item.series };
-            }
-            // Try [Base, Finish]
-            const res2 = await attemptMatch(parts.slice(0, -1).join(''), '', parts[parts.length - 1]);
-            if (res2) return { ...res2, originalSku: rawSku, sku: parts.slice(0, -1).join(''), handle: '', series: res2.item.series };
-        }
-
-        // STRATEGY 2: Puzzle (Combined strings)
-        // We try different slices for Handle (digits) and Finish (letters)
-
-        // Pattern 1: Base + Finish + Handle (e.g. 2233EXTNL27)
-        for (const hLen of [3, 2]) {
-            if (cleanSku.length <= hLen) continue;
-            const handle = cleanSku.slice(-hLen);
-            if (!/^\d+$/.test(handle)) continue;
-
-            const rest = cleanSku.slice(0, -hLen);
-            for (const fLen of [3, 2]) {
-                if (rest.length < fLen) continue;
-                const fCode = rest.slice(-fLen);
-                if (fCode.length < 2 || !/^[A-Z]+$/i.test(fCode)) continue;
-
-                const base = rest.slice(0, -fLen);
-                const res = await attemptMatch(base, handle, fCode);
-                if (res) return { ...res, originalSku: rawSku, sku: base, handle, series: res.item.series };
-            }
-            // Try Base (no finish) + Handle
-            const resBase = await attemptMatch(rest, handle, '');
-            if (resBase) return { ...resBase, originalSku: rawSku, sku: rest, handle, series: resBase.item.series };
-        }
-
-        // Pattern 2: Base + Handle + Finish (e.g. 100216CR)
-        for (const fLen of [3, 2]) {
-            if (cleanSku.length <= fLen) continue;
-            const fCode = cleanSku.slice(-fLen);
-            if (fCode.length < 2 || !/^[A-Z]+$/i.test(fCode)) continue;
-
-            const rest = cleanSku.slice(0, -fLen);
+            // Pattern 1: Base + Finish + Handle (e.g. 2233EXTNL27)
             for (const hLen of [3, 2]) {
-                if (rest.length < hLen) continue;
-                const handle = rest.slice(-hLen);
+                if (cleanSku.length <= hLen) continue;
+                const handle = cleanSku.slice(-hLen);
                 if (!/^\d+$/.test(handle)) continue;
 
-                const base = rest.slice(0, -hLen);
-                const res = await attemptMatch(base, handle, fCode);
-                if (res) return { ...res, originalSku: rawSku, sku: base, handle, series: res.item.series };
+                const rest = cleanSku.slice(0, -hLen);
+                for (const fLen of [3, 2]) {
+                    if (rest.length < fLen) continue;
+                    const fCode = rest.slice(-fLen);
+                    if (fCode.length < 2 || !/^[A-Z]+$/i.test(fCode)) continue;
+
+                    const base = rest.slice(0, -fLen);
+                    const res = await attemptMatch(base, handle, fCode);
+                    if (res) return { ...res, originalSku: rawSku, sku: base, handle, series: res.item.series };
+                }
+                // Try Base (no finish) + Handle
+                const resBase = await attemptMatch(rest, handle, '');
+                if (resBase) return { ...resBase, originalSku: rawSku, sku: rest, handle, series: resBase.item.series };
             }
-            // Try Base (no handle) + Finish
-            const resNoHandle = await attemptMatch(rest, '', fCode);
-            if (resNoHandle) return { ...resNoHandle, originalSku: rawSku, sku: rest, handle: '', series: resNoHandle.item.series };
+
+            // Pattern 2: Base + Handle + Finish (e.g. 100216CR)
+            for (const fLen of [3, 2]) {
+                if (cleanSku.length <= fLen) continue;
+                const fCode = cleanSku.slice(-fLen);
+                if (fCode.length < 2 || !/^[A-Z]+$/i.test(fCode)) continue;
+
+                const rest = cleanSku.slice(0, -fLen);
+                for (const hLen of [3, 2]) {
+                    if (rest.length < hLen) continue;
+                    const handle = rest.slice(-hLen);
+                    if (!/^\d+$/.test(handle)) continue;
+
+                    const base = rest.slice(0, -hLen);
+                    const res = await attemptMatch(base, handle, fCode);
+                    if (res) return { ...res, originalSku: rawSku, sku: base, handle, series: res.item.series };
+                }
+                // Try Base (no handle) + Finish
+                const resNoHandle = await attemptMatch(rest, '', fCode);
+                if (resNoHandle) return { ...resNoHandle, originalSku: rawSku, sku: rest, handle: '', series: resNoHandle.item.series };
+            }
+
+            // LAST RESORT: Try to find ANY item where the cleanSku starts with the item's SKU
+            const potentialItems = await knex('catalog_items')
+                .where('brand', 'nicolazzi')
+                .whereRaw('? LIKE CONCAT(sku, \'%\')', [cleanSku])
+                .orderByRaw('LENGTH(sku) DESC')
+                .limit(10);
+
+            for (const item of potentialItems) {
+                const remainder = cleanSku.slice(item.sku.length);
+                // Try to see if remainder contains handle or finish
+                if (!remainder) return { originalSku: rawSku, item, sku: item.sku, handle: item.handle, success: true, fuzzy: true, series: item.series };
+
+                // Guess finish from remainder
+                const possibleFinish = await knex('catalog_finishes')
+                    .where({ brand: 'nicolazzi' })
+                    .whereRaw('? LIKE CONCAT(\'%\', finish_code)', [remainder])
+                    .first();
+
+                return {
+                    originalSku: rawSku,
+                    sku: item.sku,
+                    handle: item.handle,
+                    finishCode: possibleFinish ? possibleFinish.finish_code : '',
+                    finish: possibleFinish,
+                    item,
+                    success: true,
+                    fuzzy: true,
+                    series: item.series
+                };
+            }
+
+            return { originalSku: rawSku, success: false };
+        } catch (error) {
+            console.error(`[CatalogService] Error resolving SKU ${rawSku}:`, error);
+            return { originalSku: rawSku, success: false, error: error.message };
         }
-
-        // LAST RESORT: Try to find ANY item where the cleanSku starts with the item's SKU
-        const potentialItems = await knex('catalog_items')
-            .where('brand', 'nicolazzi')
-            .whereRaw('? LIKE CONCAT(sku, \'%\')', [cleanSku])
-            .orderByRaw('LENGTH(sku) DESC')
-            .limit(10);
-
-        for (const item of potentialItems) {
-            const remainder = cleanSku.slice(item.sku.length);
-            // Try to see if remainder contains handle or finish
-            if (!remainder) return { originalSku: rawSku, item, sku: item.sku, handle: item.handle, success: true, fuzzy: true, series: item.series };
-
-            // Guess finish from remainder
-            const possibleFinish = await knex('catalog_finishes')
-                .where({ brand: 'nicolazzi' })
-                .whereRaw('? LIKE "%" || finish_code', [remainder])
-                .first();
-
-            return {
-                originalSku: rawSku,
-                sku: item.sku,
-                handle: item.handle,
-                finishCode: possibleFinish ? possibleFinish.finish_code : '',
-                finish: possibleFinish,
-                item,
-                success: true,
-                fuzzy: true,
-                series: item.series
-            };
-        }
-
-        return { originalSku: rawSku, success: false };
     }
 
     async findItem(brand, sku, handle, groupCode) {

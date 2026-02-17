@@ -121,6 +121,20 @@ class CatalogController {
         }
     }
 
+    async resolveBulk(req, res) {
+        try {
+            const { brand, skus } = req.body;
+            if (!brand || !Array.isArray(skus)) {
+                return res.status(400).json({ error: 'Missing brand or skus array' });
+            }
+            const results = await CatalogService.resolveBulk(brand, skus);
+            res.json(results);
+        } catch (error) {
+            console.error('[CatalogController] Bulk resolve failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
     async bulkCreate(req, res) {
         try {
             const { brand, baseData, priceMappings } = req.body;

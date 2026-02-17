@@ -14,6 +14,7 @@ router.post('/process', requireAuth, requireRole('admin'), CatalogController.pro
 router.get('/search', requireAuth, CatalogController.search);
 router.get('/stats', requireAuth, CatalogController.getStats);
 router.post('/resolve', requireAuth, CatalogController.resolveItem);
+router.post('/resolve-bulk', requireAuth, CatalogController.resolveBulk);
 router.post('/bulk-create', requireAuth, CatalogController.bulkCreate);
 router.get('/collections', requireAuth, CatalogController.getCollections);
 router.post('/collections/toggle', requireAuth, CatalogController.toggleCollection);
