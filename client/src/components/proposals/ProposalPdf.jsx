@@ -312,29 +312,32 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     <View style={styles.docInfo}>
                         <Text style={styles.docTitle}>PROPOSTA</Text>
 
-                        {/* Nº Proposta & Data on the same line */}
-                        <View style={styles.headerRow}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={styles.label}>Nº Proposta:</Text>
-                                <Text style={styles.value}>{proposal.metadata?.doc_number || proposal.name?.replace('Proposta:', '').trim()}</Text>
+                        {/* Aligned container for Number/Date and Client Info */}
+                        <View style={{ width: 250, alignItems: 'flex-start' }}>
+                            {/* Nº Proposta & Data on the same line */}
+                            <View style={styles.headerRow}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={styles.label}>Nº Proposta:</Text>
+                                    <Text style={styles.value}>{proposal.metadata?.doc_number || proposal.name?.replace('Proposta:', '').trim()}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={styles.label}>Data:</Text>
+                                    <Text style={styles.value}>{new Date(proposal.updated_at).toLocaleDateString('pt-PT')}</Text>
+                                </View>
                             </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={styles.label}>Data:</Text>
-                                <Text style={styles.value}>{new Date(proposal.updated_at).toLocaleDateString('pt-PT')}</Text>
-                            </View>
-                        </View>
 
-                        {/* Client Info Block (The Green Rectangle Area) */}
-                        <View style={styles.clientBlock}>
-                            <Text style={styles.headerSubTitle}>Cliente</Text>
-                            <Text style={styles.clientName}>{proposal.client_ref}</Text>
+                            {/* Client Info Block (The Green Rectangle Area) */}
+                            <View style={styles.clientBlock}>
+                                <Text style={styles.headerSubTitle}>Cliente</Text>
+                                <Text style={styles.clientName}>{proposal.client_ref}</Text>
 
-                            <Text style={[styles.headerSubTitle, { marginTop: 6 }]}>Morada de Faturação</Text>
-                            <Text style={styles.clientAddress}>{proposal.metadata?.billing_address || proposal.client_ref}</Text>
+                                <Text style={[styles.headerSubTitle, { marginTop: 6 }]}>Morada de Faturação</Text>
+                                <Text style={styles.clientAddress}>{proposal.metadata?.billing_address || proposal.client_ref}</Text>
 
-                            <View style={[styles.infoRow, { marginTop: 6 }]}>
-                                <Text style={[styles.label, { fontWeight: 'bold' }]}>NIF:</Text>
-                                <Text style={[styles.value, { fontWeight: 'bold' }]}>{proposal.metadata?.client_vat || '---'}</Text>
+                                <View style={[styles.infoRow, { marginTop: 6 }]}>
+                                    <Text style={[styles.label, { fontWeight: 'bold' }]}>NIF:</Text>
+                                    <Text style={[styles.value, { fontWeight: 'bold' }]}>{proposal.metadata?.client_vat || '---'}</Text>
+                                </View>
                             </View>
                         </View>
                     </View>
