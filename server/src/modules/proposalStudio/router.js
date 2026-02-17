@@ -19,6 +19,7 @@ router.get('/:id/excel', (req, res) => controller.exportExcel(req, res));
 // Presets
 router.get('/presets/list', (req, res) => controller.getPresets(req, res));
 router.post('/presets', (req, res) => controller.createPreset(req, res));
+router.put('/presets/:id', (req, res) => controller.updatePreset(req, res));
 router.delete('/presets/:id', (req, res) => controller.deletePreset(req, res));
 
 module.exports = router;

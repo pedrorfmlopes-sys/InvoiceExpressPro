@@ -37,6 +37,17 @@ class ProposalPresetService {
         // Only allow deleting if it belongs to this project or user is admin (simplified to project check for now)
         return await knex('proposal_presets').where({ project, id }).delete();
     }
+
+    async updatePreset(project, id, data) {
+        return await knex('proposal_presets')
+            .where({ project, id })
+            .update({
+                name: data.name,
+                content: data.content,
+                is_global: !!data.is_global,
+                updated_at: new Date()
+            });
+    }
 }
 
 module.exports = new ProposalPresetService();

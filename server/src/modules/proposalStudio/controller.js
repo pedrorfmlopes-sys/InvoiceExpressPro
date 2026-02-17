@@ -125,6 +125,16 @@ class ProposalStudioController {
             res.status(500).json({ error: e.message });
         }
     }
+    async updatePreset(req, res) {
+        try {
+            const project = req.project;
+            const { id } = req.params;
+            await presetService.updatePreset(project, id, req.body);
+            res.json({ ok: true });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
 }
 
 module.exports = new ProposalStudioController();

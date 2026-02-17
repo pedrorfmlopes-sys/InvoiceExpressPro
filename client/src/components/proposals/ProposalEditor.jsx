@@ -6,8 +6,9 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import ProposalPdf from './ProposalPdf';
 import { NICOLAZZI_FINISH_GROUPS, shouldShowCollection } from '../../constants/catalog';
 import CatalogSearchModal from '../catalog/CatalogSearchModal';
-import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus } from 'react-icons/fi';
+import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus, FiSettings } from 'react-icons/fi';
 import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
+import PresetManagementModal from './PresetManagementModal';
 
 const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
@@ -32,6 +33,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     const [resolutionIndex, setResolutionIndex] = useState(null);
     const [visibleCollections, setVisibleCollections] = useState(null); // Null means not loaded yet (show all)
     const [collectionsLoaded, setCollectionsLoaded] = useState(false);
+    const [showPresetManagement, setShowPresetManagement] = useState(null); // category name or null
 
     useEffect(() => { loadData(); }, [proposalId]);
 
@@ -894,6 +896,13 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                     >
                                         + Guardar
                                     </button>
+                                    <button
+                                        onClick={() => setShowPresetManagement(PRESET_CATEGORIES.OBSERVATIONS)}
+                                        className="text-[12px] text-gray-400 hover:text-amber-500 transition-colors"
+                                        title="Gerir Predefinições"
+                                    >
+                                        <FiSettings />
+                                    </button>
                                     <select
                                         className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none max-w-[120px]"
                                         onChange={(e) => {
@@ -926,6 +935,13 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                         className="text-[8px] text-amber-500/60 hover:text-amber-500 font-bold uppercase transition-colors"
                                     >
                                         + Guardar
+                                    </button>
+                                    <button
+                                        onClick={() => setShowPresetManagement(PRESET_CATEGORIES.WARRANTY)}
+                                        className="text-[12px] text-gray-400 hover:text-amber-500 transition-colors"
+                                        title="Gerir Predefinições"
+                                    >
+                                        <FiSettings />
                                     </button>
                                     <select
                                         className="bg-gray-900 text-[9px] text-amber-500 border border-white/10 rounded px-1 outline-none max-w-[120px]"
