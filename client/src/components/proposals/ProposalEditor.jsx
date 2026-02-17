@@ -544,7 +544,21 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                         {proposal && (
                             <PDFDownloadLink
                                 document={<ProposalPdf proposal={proposal} visibleCollections={visibleCollections} />}
-                                fileName={`proposta_${proposal.name?.replace(/[^a-z0-9]/gi, '_') || proposalId}.pdf`}
+                                fileName={(() => {
+                                    const brandMap = {
+                                        'nicolazzi': 'NIC',
+                                        'ritmonio': 'RIT',
+                                        'bette': 'BET',
+                                        'nicolazzi_gold': 'NIC'
+                                    };
+                                    const brandAbbr = brandMap[proposal.brand_id] || proposal.brand_id?.substring(0, 3).toUpperCase() || 'PRO';
+                                    const clientFirstName = (proposal.client_ref || '').split(' ')[0] || 'Cliente';
+                                    const docNum = proposal.metadata?.doc_number || proposal.name?.replace('Proposta:', '').trim() || proposalId;
+
+                                    // Sanitize for filename (replacing / with - is usually best for OS compatibility)
+                                    const safeNum = String(docNum).replace(/[\/\\?%*:|"<>]/g, '-');
+                                    return `Proposta ${safeNum} ${clientFirstName} ${brandAbbr}.pdf`;
+                                })()}
                                 className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all text-xs font-bold border border-white/10 flex items-center gap-2"
                             >
                                 {({ blob, url, loading, error }) =>

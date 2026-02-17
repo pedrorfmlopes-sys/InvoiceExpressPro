@@ -316,7 +316,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                         <View style={styles.headerRow}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={styles.label}>Nº Proposta:</Text>
-                                <Text style={styles.value}>{proposal.name?.replace('Proposta:', '').trim()}</Text>
+                                <Text style={styles.value}>{proposal.metadata?.doc_number || proposal.name?.replace('Proposta:', '').trim()}</Text>
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={styles.label}>Data:</Text>
@@ -507,7 +507,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                 </View>
 
             </Page>
-        </Document>
+        </Document >
     );
 };
 
