@@ -7,6 +7,7 @@ import ProposalPdf from './ProposalPdf';
 import { NICOLAZZI_FINISH_GROUPS, shouldShowCollection } from '../../constants/catalog';
 import CatalogSearchModal from '../catalog/CatalogSearchModal';
 import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus } from 'react-icons/fi';
+import CreateCatalogItemModal from '../catalog/CreateCatalogItemModal';
 
 const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
@@ -655,6 +656,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                         onSelect={(item) => selectCatalogItem(resolutionIndex, item)}
                         onCreateNew={(sku) => {
                             setCreateItemSku(sku);
+                            setShowCatalogModal(false);
                             setShowCreateItemModal(true);
                         }}
                     />
