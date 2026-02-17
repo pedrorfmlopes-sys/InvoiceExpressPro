@@ -105,9 +105,19 @@ class ProposalStudioService {
     }
 
     async getProposals(project) {
+        // Calculate total including VAT in a subquery
+        const subquery = knex('proposal_lines')
+            .select(knex.raw('SUM((quantity * unit_price_commercial * (1 - discount_commercial_percent / 100)) * (1 + CAST(vat_rate AS FLOAT) / 100))'))
+            .whereRaw('proposal_id = custom_proposals.id')
+            .as('total_amount');
+
         const q = knex('custom_proposals')
             .leftJoin('documents', 'custom_proposals.original_doc_id', 'documents.id')
-            .select('custom_proposals.*', 'documents.docNumber as source_doc_number')
+            .select(
+                'custom_proposals.*',
+                'documents.docNumber as source_doc_number',
+                subquery
+            )
             .orderBy('custom_proposals.updated_at', 'desc');
 
         if (project) {

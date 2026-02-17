@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Tester</title>
+</head>
+<body>
+    <h1>API Connection Tester</h1>
+    <p>Open Console (F12) to see results.</p>
+    <input type="text" id="apiUrl" value="https://invoice-studio-backend.onrender.com" style="width: 300px;">
+    <button onclick="testHealth()">Test Health</button>
+    <button onclick="testPreflight()">Test Preflight (Projects)</button>
+    <div id="output" style="margin-top: 20px; white-space: pre;"></div>
+
+    <script>
+        const log = (msg) => document.getElementById('output').innerText += msg + '\n';
+
+        async function testHealth() {
+            const url = document.getElementById('apiUrl').value + '/api/health';
+            log(`Testing GET ${url}...`);
+            try {
+                const res = await fetch(url);
+                log(`Status: ${res.status}`);
+                const txt = await res.text();
+                log(`Body: ${txt}`);
+            } catch (e) {
+                log(`ERROR: ${e.message}`);
+            }
+        }
+
+        async function testPreflight() {
+            const url = document.getElementById('apiUrl').value + '/api/projects';
+            log(`Testing POST ${url} (Preflight)...`);
+            try {
+                const res = await fetch(url, {
+                    method: 'OPTIONS', // Manual preflight check
+                    headers: {
+                        'Access-Control-Request-Method': 'POST',
+                        'Origin': 'https://invoice-studio-frontend.onrender.com' // Simulator
+                    }
+                });
+                log(`Status: ${res.status}`);
+                log(`Headers: ${[...res.headers].map(h => h.join(': ')).join('\n')}`);
+            } catch (e) {
+                log(`ERROR: ${e.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

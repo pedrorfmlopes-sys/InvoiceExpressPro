@@ -24,6 +24,7 @@ import AssetsTab from './tabs/AssetsTab' // New Assets Module
 import ExtractionProfilesTab from './tabs/ExtractionProfilesTab' // New Extraction Module
 import ProposalsTab from './tabs/ProposalsTab' // Phase 34
 import CustomersTab from './tabs/CustomersTab' // Phase 36 (User Request)
+import CatalogManagementTab from './tabs/CatalogManagementTab'; // Phase 28
 import ProposalEditor from './components/proposals/ProposalEditor'; // Phase 33
 
 import Login from './components/Login'
@@ -187,6 +188,7 @@ export default function App() {
     { id: 'reports_v2', label: 'Reports V2', Component: ReportsTab },
     { id: 'proposals', label: 'Estúdio Propostas', Component: ProposalsTab },
     { id: 'customers', label: 'Clientes', Component: CustomersTab },
+    { id: 'catalog_mgmt', label: 'Biblioteca', Component: CatalogManagementTab },
     { id: 'corev2', label: 'Core V2', Component: CoreV2Tab },
     { id: 'transactions', label: 'Transactions', Component: TransactionsTab },
     { id: 'config', label: t('sidebar.config'), Component: ConfigTab },

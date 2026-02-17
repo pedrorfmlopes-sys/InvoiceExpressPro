@@ -2,6 +2,8 @@ import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
 
 // Register a standard font if needed, but Helvetica is default and safe.
+
+// Register a standard font if needed, but Helvetica is default and safe.
 // Font.register({ family: 'Roboto', src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-light-webfont.ttf' });
 
 const styles = StyleSheet.create({
@@ -22,7 +24,7 @@ const styles = StyleSheet.create({
         paddingBottom: 10
     },
     companyInfo: {
-        width: '50%'
+        width: '45%'
     },
     companyTitle: {
         fontSize: 16,
@@ -35,27 +37,33 @@ const styles = StyleSheet.create({
         marginTop: 2
     },
     docInfo: {
-        width: '40%',
-        textAlign: 'right'
+        width: '50%',
+        alignItems: 'flex-end' // Align the rows to the right side of this container
     },
     docTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 10
+        marginBottom: 10,
+        textAlign: 'right',
+        width: '100%'
     },
     infoRow: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        width: '100%',
         marginBottom: 2
     },
     label: {
         fontWeight: 'bold',
-        width: 70,
+        width: '35%', // Use percentage for responsiveness within the 50% block
         textAlign: 'right',
-        marginRight: 5
+        paddingRight: 5,
+        fontSize: 8
     },
     value: {
-        textAlign: 'left'
+        width: '65%',
+        textAlign: 'left',
+        fontSize: 9,
+        fontFamily: 'Helvetica'
     },
     projectBox: {
         backgroundColor: '#F9FAFB',
@@ -162,8 +170,14 @@ const styles = StyleSheet.create({
     }
 });
 
-const ProposalPdf = ({ proposal }) => {
+const ProposalPdf = ({ proposal, visibleCollections }) => {
     if (!proposal) return <Document></Document>;
+
+    const shouldShow = (name) => {
+        if (!name) return false;
+        if (!visibleCollections) return true; // Default to show if no config passed
+        return visibleCollections.has(String(name).trim().toLowerCase());
+    };
 
     const lines = proposal.lines || [];
 
@@ -242,24 +256,25 @@ const ProposalPdf = ({ proposal }) => {
 
                 {/* Project & Shipping Box */}
                 <View style={styles.projectBox} fixed>
-                    <View style={{ flex: 1, flexDirection: 'row', gap: 20 }}>
-                        <View style={{ flexDirection: 'row' }}>
-                            <Text style={{ fontWeight: 'bold', marginRight: 5 }}>Ref. Proj.:</Text>
-                            <Text>{proposal.metadata?.our_ref || 'N/A'}</Text>
+                    {/* Left Column: References */}
+                    <View style={{ width: '60%', flexDirection: 'column', gap: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                            <Text style={{ fontWeight: 'bold', width: 80, fontSize: 8 }}>Vossa Ref.:</Text>
+                            <Text style={{ fontSize: 9, flex: 1 }}>{proposal.metadata?.client_project_name || '---'}</Text>
                         </View>
-                        {proposal.metadata?.client_project_name && (
-                            <View style={{ flexDirection: 'row' }}>
-                                <Text style={{ fontWeight: 'bold', marginRight: 5 }}>Projeto:</Text>
-                                <Text>{proposal.metadata.client_project_name}</Text>
-                            </View>
-                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                            <Text style={{ fontWeight: 'bold', width: 80, fontSize: 8 }}>Nossa Ref.:</Text>
+                            <Text style={{ fontSize: 9, flex: 1 }}>{proposal.metadata?.our_ref || '---'}</Text>
+                        </View>
                     </View>
-                    <View style={{ flex: 1, borderLeftWidth: 1, borderLeftColor: '#E5E7EB', paddingLeft: 10 }}>
+
+                    {/* Right Column: Shipping Address */}
+                    <View style={{ width: '40%', borderLeftWidth: 1, borderLeftColor: '#E5E7EB', paddingLeft: 10 }}>
                         <Text style={{ fontSize: 7, color: '#666666', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: 2 }}>Morada de Entrega:</Text>
                         <Text style={{ fontSize: 8 }}>
                             {proposal.metadata?.shipping_is_billing
                                 ? 'Mesma que faturação'
-                                : (proposal.metadata?.shipping_address || 'N/A')
+                                : (proposal.metadata?.shipping_address || '---')
                             }
                         </Text>
                     </View>
@@ -286,7 +301,23 @@ const ProposalPdf = ({ proposal }) => {
                     return (
                         <View key={idx} style={styles.tableRow} wrap={false}>
                             <Text style={[styles.colCode, styles.skuText]}>{line.sku}</Text>
-                            <Text style={[styles.colDesc, styles.descText]}>{line.description}</Text>
+                            <View style={[styles.colDesc]}>
+                                <Text style={styles.descText}>{line.description}</Text>
+                                {proposal.metadata?.show_technical_details && (
+                                    <>
+                                        {line.extra_attributes?.original_description && (
+                                            <Text style={{ fontSize: 6, color: '#6B7280', marginTop: 1, fontFamily: 'Helvetica-Oblique' }}>
+                                                ({line.extra_attributes.original_description})
+                                            </Text>
+                                        )}
+                                        {shouldShow(line.extra_attributes?.collection) && (
+                                            <Text style={{ fontSize: 6, color: '#6B7280', marginTop: 1, textTransform: 'uppercase', fontWeight: 'bold' }}>
+                                                Coleção {line.extra_attributes.collection}
+                                            </Text>
+                                        )}
+                                    </>
+                                )}
+                            </View>
                             <Text style={styles.colQty}>{line.quantity}</Text>
                             <Text style={styles.colUn}>UN</Text>
                             <Text style={styles.colPrice}>{fmtMoney(price).replace('€', '')}</Text>
@@ -366,6 +397,42 @@ const ProposalPdf = ({ proposal }) => {
                         </View>
                     ) : null}
                 </View>
+
+                {/* Technical Finishes Annex */}
+                {(() => {
+                    const uniqueFinishes = [];
+                    const finishCheck = new Set();
+                    lines.forEach(line => {
+                        const note = line.extra_attributes?.finish_note;
+                        if (note && !finishCheck.has(note)) {
+                            finishCheck.add(note);
+                            uniqueFinishes.push({
+                                code: line.extra_attributes?.finish_code || '',
+                                note: note
+                            });
+                        }
+                    });
+
+                    if (uniqueFinishes.length === 0) return null;
+
+                    return (
+                        <View style={{ marginTop: 10, break: 'before' }}>
+                            <View style={{ backgroundColor: '#F3F4F6', padding: 8, marginBottom: 10 }}>
+                                <Text style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                    Especificações Técnicas de Acabamentos
+                                </Text>
+                            </View>
+                            {uniqueFinishes.map((f, i) => (
+                                <View key={i} style={{ marginBottom: 10 }}>
+                                    {f.code ? (
+                                        <Text style={{ fontSize: 9, fontWeight: 'bold', marginBottom: 2 }}>{f.code}</Text>
+                                    ) : null}
+                                    <Text style={{ fontSize: 8, color: '#4B5563', textAlign: 'justify' }}>{f.note}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    );
+                })()}
 
                 {/* Fixed Footer */}
                 <View style={styles.footer} fixed>

@@ -149,19 +149,19 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                         <tbody className="divide-y divide-[var(--border)]">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="6" className="py-12 text-center text-[var(--text-muted)] animate-pulse">
+                                    <td colSpan="7" className="py-12 text-center text-[var(--text-muted)] animate-pulse">
                                         Carregando propostas...
                                     </td>
                                 </tr>
                             ) : filteredProposals.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="py-12 text-center text-[var(--text-muted)] opacity-60">
+                                    <td colSpan="7" className="py-12 text-center text-[var(--text-muted)] opacity-60">
                                         Nenhuma proposta encontrada.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredProposals.map(p => {
-                                    const total = calculateTotal(p.lines);
+                                    const total = p.total_amount || calculateTotal(p.lines);
                                     return (
                                         <tr key={p.id} className="group hover:bg-[var(--surface-hover)] transition-colors">
                                             <td className="py-4 pl-4">

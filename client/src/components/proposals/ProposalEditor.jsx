@@ -4,6 +4,9 @@ import api from '../../api/apiClient';
 import { qp } from '../../shared/ui';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import ProposalPdf from './ProposalPdf';
+import { NICOLAZZI_FINISH_GROUPS, shouldShowCollection } from '../../constants/catalog';
+import CatalogSearchModal from '../catalog/CatalogSearchModal';
+import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus } from 'react-icons/fi';
 
 const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
@@ -22,9 +25,20 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     const [activeSearchField, setActiveSearchField] = useState(null);
     const [presets, setPresets] = useState([]);
     const [showEntityModal, setShowEntityModal] = useState(false);
+    const [showCatalogModal, setShowCatalogModal] = useState(false);
+    const [showCreateItemModal, setShowCreateItemModal] = useState(false);
+    const [createItemSku, setCreateItemSku] = useState('');
+    const [resolutionIndex, setResolutionIndex] = useState(null);
+    const [visibleCollections, setVisibleCollections] = useState(null); // Null means not loaded yet (show all)
+    const [collectionsLoaded, setCollectionsLoaded] = useState(false);
 
     useEffect(() => { loadData(); }, [proposalId]);
 
+    const shouldShowCollectionDynamic = (name) => {
+        if (!name) return false;
+        if (visibleCollections === null) return true; // Show all if not loaded
+        return visibleCollections.has(String(name).trim().toLowerCase());
+    };
     const handleExport = async (format) => {
         if (format !== 'excel') return;
         try {
@@ -59,6 +73,47 @@ const ProposalEditor = ({ proposalId, onClose }) => {
             alert("Erro ao carregar dados: " + e.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Load collections visibility settings
+    useEffect(() => {
+        if (proposal?.brand_id && !collectionsLoaded) {
+            loadCollections(proposal.brand_id);
+        }
+    }, [proposal?.brand_id]);
+
+    const loadCollections = async (brandId) => {
+        try {
+            const res = await api.get(`/api/catalog/collections?brand=${brandId}`);
+            const collections = res.data || [];
+            // Create Set of visible collection names (lowercase for comparison)
+            // SQLite returns 1/0 for booleans.
+            const visibleSet = new Set(
+                collections
+                    .filter(c => c.is_visible !== false && c.is_visible !== 0)
+                    .map(c => String(c.name).trim().toLowerCase())
+            );
+
+            // If we have stored collections, we use the strict set.
+            // If we have NO stored collections (empty array), it might mean 
+            // the user hasn't imported anything yet, or hasn't configured visibility.
+            // In that case, should we show everything? 
+            // The logic "visibleCollections === null" handles "not loaded".
+            // If loaded but empty, it means NOTHING is visible? Or everything?
+            // Usually if the DB returns empty, it means no config. 
+            // But here the DB returns the list of KNOWN collections.
+            // If the DB returns [], then there are no collections known, so nothing is visible?
+            // Actually, if the list is empty, `visibleCollections` becomes a empty Set.
+            // Then `has` returns false for everything.
+            // But if the DB is empty (invalid brand?), then we probably want to show everything (default behavior).
+            // Let's stick to: if we successfully fetched, we use the result.
+
+            setVisibleCollections(visibleSet);
+            setCollectionsLoaded(true);
+        } catch (err) {
+            console.error("Failed to load collections", err);
+            // On error, leave as null to show all
         }
     };
 
@@ -157,6 +212,143 @@ const ProposalEditor = ({ proposalId, onClose }) => {
         const temp = newLines[index];
         newLines[index] = newLines[newIndex];
         newLines[newIndex] = temp;
+        setProposal({ ...proposal, lines: newLines });
+    };
+
+    // Helper to format original description (Sentence case)
+    const formatOriginalDescription = (text) => {
+        if (!text) return '';
+        // Lowercase everything, then capitalize first letter
+        const lower = text.toLowerCase();
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+    };
+
+    const handleEnrich = async () => {
+        try {
+            setSaving(true);
+            const newLines = [...proposal.lines];
+            let enrichedCount = 0;
+
+            for (let i = 0; i < newLines.length; i++) {
+                const line = newLines[i];
+                if (!line.sku) continue;
+
+                try {
+                    const res = await api.post('/api/catalog/resolve', {
+                        brand: proposal.brand_id,
+                        sku: line.sku
+                    });
+
+                    if (res.data && res.data.success) {
+                        const item = res.data.item;
+                        const finish = res.data.finish;
+
+                        // Unified Description: PT Description + Finish technical note if exists
+                        let desc = item.description_pt || item.description_it || line.description;
+
+                        // Original description for PDF (Sentence case)
+                        // Prefer IT description as "original", or fallback to current line description
+                        const rawOriginal = item.description_it || item.description_en || line.description;
+                        const originalFormatted = formatOriginalDescription(rawOriginal);
+
+                        // If we have a finish note, we might want to store it in extra_attributes 
+                        // to keep the main description clean but use it in the PDF later.
+                        const extra = {
+                            ...line.extra_attributes,
+                            catalog_match: true,
+                            finish_code: res.data.finishCode,
+                            finish_note: finish?.note_pt,
+                            original_it: item.description_it, // Keep raw for debugging
+                            original_description: originalFormatted, // Formatted for PDF
+                            collection: res.data.series || item.series // Series/Collection
+                        };
+
+                        newLines[i] = {
+                            ...line,
+                            description: desc,
+                            // SMART PRICE LOGIC:
+                            unit_price_commercial: line.unit_price_commercial,
+                            extra_attributes: {
+                                ...extra,
+                                catalog_sku: item.sku,
+                                catalog_price: item.price,
+                                price_match: (Math.abs((item.price || 0) - (line.unit_price_commercial || 0)) < 0.01)
+                            },
+                            enrichment_status: res.data.fuzzy ? 'fuzzy' : 'match'
+                        };
+                        enrichedCount++;
+                    } else {
+                        newLines[i] = {
+                            ...line,
+                            enrichment_status: 'miss'
+                        };
+                    }
+                } catch (err) {
+                    console.error(`Failed to enrich SKU ${line.sku}:`, err);
+                }
+            }
+
+            setProposal({ ...proposal, lines: newLines });
+            if (enrichedCount > 0) {
+                alert(`${enrichedCount} artigos enriquecidos com sucesso!`);
+            } else {
+                alert("Nenhuma correspondência exata encontrada na biblioteca.");
+            }
+        } catch (e) {
+            alert("Erro ao enriquecer: " + e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const selectCatalogItem = (index, item) => {
+        const newLines = [...proposal.lines];
+        const line = newLines[index];
+
+        // Format original description (Sentence case)
+        const rawOriginal = item.description_it || item.description_en || '';
+        const originalFormatted = rawOriginal ? (rawOriginal.charAt(0).toUpperCase() + rawOriginal.slice(1).toLowerCase()) : '';
+
+        // Price Safety: Do not overwrite current price, but set mismatch if needed
+        const currentPrice = parseFloat(line.unit_price_commercial || 0);
+        const catalogPrice = parseFloat(item.price || 0);
+        const priceDiff = Math.abs(currentPrice - catalogPrice);
+        const isMatch = priceDiff < 0.01;
+
+        // Update with catalog data
+        newLines[index] = {
+            ...line,
+            // SKU REMAIN UNCHANGED BY USER REQUEST
+            description: item.description_pt || item.description_it || line.description,
+            unit_price_commercial: line.unit_price_commercial,
+            extra_attributes: {
+                ...line.extra_attributes,
+                catalog_match: true,
+                catalog_sku: item.sku,
+                finish_code: item.finish_code || line.extra_attributes.finish_code,
+                finish_group: item.finish_group,
+                finish_note: item.finish_note || line.extra_attributes.finish_note,
+                manual_resolution: true,
+                collection: item.series,
+                series: item.series,
+                original_description: originalFormatted,
+                catalog_price: item.price,
+                price_match: isMatch
+            },
+            enrichment_status: 'match'
+        };
+
+        setProposal({ ...proposal, lines: newLines });
+        setShowCatalogModal(false);
+        setResolutionIndex(null);
+    };
+
+    const confirmFuzzyMatch = (index) => {
+        const newLines = [...proposal.lines];
+        newLines[index] = {
+            ...newLines[index],
+            enrichment_status: 'match'
+        };
         setProposal({ ...proposal, lines: newLines });
     };
 
@@ -338,9 +530,19 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                         </div>
                         <div className="w-px h-10 bg-white/10 mx-2"></div>
 
+                        <div className="flex items-center gap-2 bg-white/5 py-1 px-3 rounded-full hover:bg-white/10 transition-colors mr-2">
+                            <input
+                                type="checkbox"
+                                checked={!!proposal.metadata?.show_technical_details}
+                                onChange={e => updateMetadata('show_technical_details', e.target.checked)}
+                                className="accent-amber-500 cursor-pointer w-3 h-3"
+                            />
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Detalhes Técnicos</span>
+                        </div>
+
                         {proposal && (
                             <PDFDownloadLink
-                                document={<ProposalPdf proposal={proposal} />}
+                                document={<ProposalPdf proposal={proposal} visibleCollections={visibleCollections} />}
                                 fileName={`proposta_${proposal.name?.replace(/[^a-z0-9]/gi, '_') || proposalId}.pdf`}
                                 className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all text-xs font-bold border border-white/10 flex items-center gap-2"
                             >
@@ -445,13 +647,53 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                     />
                 )}
 
+                {showCatalogModal && (
+                    <CatalogSearchModal
+                        brand={proposal.brand_id}
+                        initialSku={proposal.lines[resolutionIndex]?.sku}
+                        onClose={() => { setShowCatalogModal(false); setResolutionIndex(null); }}
+                        onSelect={(item) => selectCatalogItem(resolutionIndex, item)}
+                        onCreateNew={(sku) => {
+                            setCreateItemSku(sku);
+                            setShowCreateItemModal(true);
+                        }}
+                    />
+                )}
+
+                {showCreateItemModal && (
+                    <CreateCatalogItemModal
+                        isOpen={showCreateItemModal}
+                        onClose={() => setShowCreateItemModal(false)}
+                        initialSku={createItemSku}
+                        initialDescription={proposal.lines[resolutionIndex]?.description}
+                        onCreated={(newSku) => {
+                            alert(`Artigo ${newSku} criado com sucesso! Pode selecioná-lo agora.`);
+                            setShowCreateItemModal(false);
+                        }}
+                    />
+                )}
+
                 {/* Editor Content */}
                 <div className="flex-1 overflow-auto p-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+                            Artigos e Serviços
+                        </h3>
+                        <button
+                            onClick={handleEnrich}
+                            disabled={saving}
+                            className="px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/20 transition-all text-[10px] font-black uppercase tracking-tight flex items-center gap-2 group disabled:opacity-50"
+                        >
+                            <span className="group-hover:rotate-12 transition-transform text-xs">✨</span>
+                            Enriquecer Artigos
+                        </button>
+                    </div>
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/10">
                                 <th className="pb-4 font-normal w-12 text-center">#</th>
-                                <th className="pb-4 font-normal w-24">SKU</th>
+                                <th className="pb-4 font-normal w-40">SKU</th>
                                 <th className="pb-4 font-normal">Descrição Comercial</th>
                                 <th className="pb-4 font-normal w-20 text-center">Qtd</th>
                                 <th className="pb-4 font-normal w-32 text-right">Preço Un. (€)</th>
@@ -469,73 +711,135 @@ const ProposalEditor = ({ proposalId, onClose }) => {
 
                                 return (
                                     <tr key={line.id} className="group hover:bg-white/[0.02]">
-                                        <td className="py-3 text-[9px] font-mono text-gray-600 text-center">{idx + 1}</td>
-                                        <td className="py-3 text-[11px] font-mono text-amber-500/70">
-                                            <input
-                                                className="bg-transparent outline-none w-full focus:text-white"
-                                                value={line.sku}
-                                                onChange={e => updateLine(idx, 'sku', e.target.value)}
-                                                placeholder="SKU..."
-                                            />
+                                        <td className="py-2 text-[9px] font-mono text-gray-600 text-center">{idx + 1}</td>
+                                        <td className="py-2 text-[10px] font-mono text-amber-500/70">
+                                            <div className="flex items-center gap-1.5">
+                                                {line.enrichment_status === 'match' && (
+                                                    <button onClick={() => { setResolutionIndex(idx); setShowCatalogModal(true); }} className="text-[10px] hover:scale-125 transition-transform" title="Correspondência Exata (Clique para alterar)">✅</button>
+                                                )}
+                                                {line.enrichment_status === 'fuzzy' && (
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => { setResolutionIndex(idx); setShowCatalogModal(true); }}
+                                                            className="text-[10px] hover:scale-125 transition-transform"
+                                                            title="Correspondência Aproximada (Clique para pesquisar manual)"
+                                                        >🟡</button>
+                                                        <button
+                                                            onClick={() => confirmFuzzyMatch(idx)}
+                                                            className="text-[8px] bg-green-500/20 text-green-500 px-1 rounded hover:bg-green-500/40"
+                                                            title="Confirmar esta sugestão"
+                                                        >Comp.</button>
+                                                    </div>
+                                                )}
+                                                {line.enrichment_status === 'miss' && (
+                                                    <button
+                                                        onClick={() => { setResolutionIndex(idx); setShowCatalogModal(true); }}
+                                                        className="text-[14px] leading-none text-red-500 hover:scale-150 transition-transform"
+                                                        title="Não encontrado na Biblioteca (Clique para resolver)"
+                                                    >·</button>
+                                                )}
+                                                <input
+                                                    className="bg-transparent outline-none w-full focus:text-white font-bold"
+                                                    value={line.sku}
+                                                    onChange={e => updateLine(idx, 'sku', e.target.value)}
+                                                    placeholder="SKU..."
+                                                />
+                                            </div>
                                         </td>
-                                        <td className="py-3 pr-4">
-                                            <textarea
-                                                rows="1"
-                                                className="w-full bg-transparent text-gray-300 outline-none resize-none focus:text-white"
-                                                value={line.description}
-                                                onChange={e => updateLine(idx, 'description', e.target.value)}
-                                            />
+                                        <td className="py-2 pr-4">
+                                            <div className="flex flex-col gap-0.5">
+                                                <textarea
+                                                    rows="1"
+                                                    className="w-full bg-transparent text-gray-300 outline-none resize-none focus:text-white text-xs font-bold leading-tight"
+                                                    value={line.description}
+                                                    onChange={e => updateLine(idx, 'description', e.target.value)}
+                                                />
+                                                {line.extra_attributes?.original_description && (
+                                                    <div className="text-[9px] text-gray-500 italic leading-none">
+                                                        ({line.extra_attributes.original_description})
+                                                    </div>
+                                                )}
+                                                {shouldShowCollectionDynamic(line.extra_attributes?.collection) && (
+                                                    <div className="text-[9px] font-bold text-amber-500/60 uppercase tracking-tighter leading-none mt-0.5">
+                                                        Coleção {line.extra_attributes.collection}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="py-3">
+                                        <td className="py-2">
                                             <input
-                                                className="w-full bg-transparent text-center outline-none text-gray-400 focus:text-white"
+                                                className="w-full bg-transparent text-center outline-none text-gray-400 focus:text-white text-xs"
                                                 type="number"
                                                 onWheel={(e) => e.target.blur()}
                                                 value={line.quantity}
                                                 onChange={e => updateLine(idx, 'quantity', e.target.value)}
                                             />
                                         </td>
-                                        <td className="py-3">
-                                            <input
-                                                className="w-full bg-transparent text-right outline-none text-gray-400 focus:text-white font-mono"
-                                                type="number"
-                                                step="0.01"
-                                                onWheel={(e) => e.target.blur()}
-                                                value={line.unit_price_commercial}
-                                                onChange={e => updateLine(idx, 'unit_price_commercial', e.target.value)}
-                                            />
+                                        <td className="py-2">
+                                            <div className="flex flex-col items-end gap-0.5">
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        className="bg-transparent w-20 text-right outline-none font-mono text-xs"
+                                                        type="number"
+                                                        value={line.unit_price_commercial}
+                                                        onChange={e => updateLine(idx, 'unit_price_commercial', e.target.value)}
+                                                    />
+                                                    <span className="text-gray-500 text-[10px]">€</span>
+
+                                                    {/* Price Mismatch Indicator */}
+                                                    {line.extra_attributes?.price_match === false && line.extra_attributes?.catalog_price > 0 && (
+                                                        <button
+                                                            className="text-amber-500 hover:text-amber-400"
+                                                            title={`PVP Catálogo: ${line.extra_attributes.catalog_price.toFixed(2)}€ (Clique para atualizar)`}
+                                                            onClick={() => {
+                                                                updateLine(idx, 'unit_price_commercial', line.extra_attributes.catalog_price);
+                                                                const newLines = [...proposal.lines];
+                                                                newLines[idx].extra_attributes.price_match = true;
+                                                                setProposal({ ...proposal, lines: newLines });
+                                                            }}
+                                                        >
+                                                            <FiAlertTriangle size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {line.extra_attributes?.price_match === false && line.extra_attributes?.catalog_price > 0 && (
+                                                    <div className="text-[9px] text-amber-500 font-bold leading-none pr-4">
+                                                        Bib: {line.extra_attributes.catalog_price.toFixed(2)}€
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="py-3">
+                                        <td className="py-2">
                                             <input
-                                                className="w-full bg-transparent text-center outline-none text-gray-400 focus:text-white"
+                                                className="w-full bg-transparent text-center outline-none text-gray-400 focus:text-white text-xs"
                                                 type="number"
                                                 onWheel={(e) => e.target.blur()}
                                                 value={line.discount_commercial_percent}
                                                 onChange={e => updateLine(idx, 'discount_commercial_percent', e.target.value)}
                                             />
                                         </td>
-                                        <td className="py-3 text-right font-mono text-white font-bold">
+                                        <td className="py-2 text-right font-mono text-white font-bold text-xs">
                                             {lineTotal.toFixed(2)} €
                                         </td>
-                                        <td className="py-3">
+                                        <td className="py-2">
                                             <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => moveLine(idx, -1)}
-                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-gray-400 hover:text-white"
+                                                    className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded text-gray-400 hover:text-white text-[10px]"
                                                     title="Mover para cima"
                                                 >
                                                     ↑
                                                 </button>
                                                 <button
                                                     onClick={() => moveLine(idx, 1)}
-                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-gray-400 hover:text-white"
+                                                    className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded text-gray-400 hover:text-white text-[10px]"
                                                     title="Mover para baixo"
                                                 >
                                                     ↓
                                                 </button>
                                                 <button
                                                     onClick={() => removeLine(idx)}
-                                                    className="w-8 h-8 flex items-center justify-center hover:bg-red-500/20 rounded text-gray-500 hover:text-red-500"
+                                                    className="w-6 h-6 flex items-center justify-center hover:bg-red-500/20 rounded text-gray-500 hover:text-red-500 text-[10px]"
                                                     title="Remover linha"
                                                 >
                                                     🗑️
@@ -873,5 +1177,6 @@ const EntityDataModal = ({
         </div>
     );
 };
+
 
 export default ProposalEditor;

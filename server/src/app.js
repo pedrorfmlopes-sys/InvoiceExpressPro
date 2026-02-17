@@ -23,6 +23,12 @@ app.use(cookieParser());
 // 1. Static Client (Public) - Serve before Auth check
 app.use('/', express.static(PATHS.CLIENT_DIST));
 
+// Request Logger [DEBUG]
+app.use((req, res, next) => {
+    console.log(`[REQ] ${req.method} ${req.url}`);
+    next();
+});
+
 
 
 // --- BOOT CHECK: STORAGE PERMISSIONS ---
@@ -100,6 +106,7 @@ app.use('/api/dossiers', require('./modules/dossiers'));
 app.use('/api/extraction', require('./modules/extraction'));
 app.use('/api/proposals', require('./modules/proposalStudio/router'));
 app.use('/api/crm', require('./modules/crm/router'));
+app.use('/api/catalog', require('./modules/catalog/routes'));
 
 // Parity Routes
 // Parity Components (Modularized)

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../../api/apiClient';
 
-import { FiBriefcase, FiUsers, FiBarChart2, FiDatabase } from 'react-icons/fi';
+import { FiBriefcase, FiUsers, FiBarChart2, FiDatabase, FiSearch } from 'react-icons/fi';
 
 function NavGroup({ title, expanded, onToggle, children }) {
     return (
@@ -34,7 +34,7 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
     }, []);
 
     // Grouping
-    const primaryTabsRaw = tabs.filter(t => !['health', 'config', 'labels', 'assets', 'extraction', 'proposals', 'customers', 'reports', 'corev2'].includes(t.id)); // Exclude manually placed items
+    const primaryTabsRaw = tabs.filter(t => !['health', 'config', 'labels', 'assets', 'extraction', 'proposals', 'customers', 'reports', 'corev2', 'catalog_mgmt'].includes(t.id)); // Exclude manually placed items
     const systemTabs = tabs.filter(t => ['health', 'config', 'labels', 'assets', 'extraction'].includes(t.id));
 
     // Sort Primary Tabs
@@ -173,6 +173,12 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
                         label="Core V2"
                         active={activeTab === 'corev2'}
                         onClick={() => onTabChange('corev2')}
+                    />
+                    <SidebarItem
+                        icon={<FiSearch />}
+                        label="Biblioteca"
+                        active={activeTab === 'catalog_mgmt'}
+                        onClick={() => onTabChange('catalog_mgmt')}
                     />
                     {primaryTabs.map(tab => <NavItem key={tab.id} tab={tab} />)}
                 </NavGroup>
