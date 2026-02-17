@@ -275,44 +275,40 @@ class CatalogService {
 
     async searchItems(brand, query) {
         let q = knex('catalog_items')
-            .select('catalog_items.*', 'catalog_finishes.note_pt as finish_note', 'catalog_finishes.finish_code')
-            .leftJoin('catalog_finishes', function () {
-                this.on('catalog_items.brand', '=', 'catalog_finishes.brand')
-                    .andOn('catalog_items.finish_group', '=', 'catalog_finishes.group_code');
-            })
-            .where({ 'catalog_items.brand': brand });
+            .where({ brand });
 
         if (query) {
-            const terms = query.trim().split(/\s+/);
+            const qLower = query.trim().toLowerCase();
+            const terms = qLower.split(/\s+/);
+
             if (terms.length > 1) {
-                // Multi-term search: First term for SKU, others for handle or description
+                // Multi-term: First term for SKU, others for handle or description
                 const firstTerm = terms[0];
                 const otherTerms = terms.slice(1);
 
-                q = q.andWhere('catalog_items.sku', 'like', `%${firstTerm}%`);
+                q = q.andWhereRaw('LOWER(sku) LIKE ?', [`%${firstTerm}%`]);
 
                 for (const term of otherTerms) {
                     if (!term) continue;
                     q = q.andWhere(function () {
-                        this.where('catalog_items.handle', 'like', `%${term}%`)
-                            .orWhere('catalog_items.description_pt', 'like', `%${term}%`)
-                            .orWhere('catalog_items.description_it', 'like', `%${term}%`)
-                            .orWhere('catalog_items.finish_group', 'like', `%${term}%`);
+                        this.whereRaw('LOWER(handle) LIKE ?', [`%${term}%`])
+                            .orWhereRaw('LOWER(description_pt) LIKE ?', [`%${term}%`])
+                            .orWhereRaw('LOWER(description_it) LIKE ?', [`%${term}%`])
+                            .orWhereRaw('LOWER(finish_group) LIKE ?', [`%${term}%`]);
                     });
                 }
             } else {
                 // Single term: Match SKU, handle or description
                 q = q.andWhere(function () {
-                    this.where('catalog_items.sku', 'like', `%${query}%`)
-                        .orWhere('catalog_items.handle', 'like', `%${query}%`)
-                        .orWhere('catalog_items.description_pt', 'like', `%${query}%`)
-                        .orWhere('catalog_items.description_it', 'like', `%${query}%`);
+                    this.whereRaw('LOWER(sku) LIKE ?', [`%${qLower}%`])
+                        .orWhereRaw('LOWER(handle) LIKE ?', [`%${qLower}%`])
+                        .orWhereRaw('LOWER(description_pt) LIKE ?', [`%${qLower}%`])
+                        .orWhereRaw('LOWER(description_it) LIKE ?', [`%${qLower}%`]);
                 });
             }
         }
 
-        // Use groupBy to avoid multiple rows if a finish_group has multiple finish_codes
-        return q.groupBy('catalog_items.id').limit(50).orderBy('catalog_items.sku', 'asc');
+        return q.limit(50).orderBy('sku', 'asc');
     }
 
     /**
