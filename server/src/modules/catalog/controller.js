@@ -56,8 +56,9 @@ class CatalogController {
                 return res.status(404).json({ error: 'Temporary file not found or expired' });
             }
 
+            let result;
             if (brand === 'nicolazzi') {
-                await CatalogService.processNicolazziExcel(filePath, mappings);
+                result = await CatalogService.processNicolazziExcel(filePath, mappings);
             } else {
                 return res.status(400).json({ error: 'Brand not supported yet for auto-processing' });
             }
@@ -65,7 +66,7 @@ class CatalogController {
             // Cleanup temp file after processing
             try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to cleanup temp file', e); }
 
-            res.json({ success: true, message: `Catalog for ${brand} updated successfully` });
+            res.json({ success: true, message: `Catalog for ${brand} updated successfully`, stats: result.stats });
         } catch (error) {
             console.error('[CatalogController] Process failed:', error);
             res.status(500).json({ error: error.message });
