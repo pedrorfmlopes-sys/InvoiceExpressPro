@@ -418,7 +418,7 @@ class CatalogService {
         // LAST RESORT: Try to find ANY item where the cleanSku starts with the item's SKU
         const potentialItems = await knex('catalog_items')
             .where('brand', 'nicolazzi')
-            .whereRaw('? LIKE sku || "%"', [cleanSku])
+            .whereRaw('? LIKE CONCAT(sku, \'%\')', [cleanSku])
             .orderByRaw('LENGTH(sku) DESC')
             .limit(10);
 

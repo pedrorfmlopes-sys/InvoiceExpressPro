@@ -790,7 +790,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                     {line.extra_attributes?.price_match === false && line.extra_attributes?.catalog_price > 0 && (
                                                         <button
                                                             className="text-amber-500 hover:text-amber-400"
-                                                            title={`PVP Catálogo: ${line.extra_attributes.catalog_price.toFixed(2)}€ (Clique para atualizar)`}
+                                                            title={`PVP Catálogo: ${parseFloat(line.extra_attributes.catalog_price || 0).toFixed(2)}€ (Clique para atualizar)`}
                                                             onClick={() => {
                                                                 updateLine(idx, 'unit_price_commercial', line.extra_attributes.catalog_price);
                                                                 const newLines = [...proposal.lines];
@@ -804,7 +804,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                 </div>
                                                 {line.extra_attributes?.price_match === false && line.extra_attributes?.catalog_price > 0 && (
                                                     <div className="text-[9px] text-amber-500 font-bold leading-none pr-4">
-                                                        Bib: {line.extra_attributes.catalog_price.toFixed(2)}€
+                                                        Bib: {parseFloat(line.extra_attributes.catalog_price || 0).toFixed(2)}€
                                                     </div>
                                                 )}
                                             </div>
@@ -1141,7 +1141,7 @@ const EntityDataModal = ({
                                         }
                                     }}
                                     className={`text-[9px] px-2 py-1 rounded border transition-all font-bold uppercase
-                                        ${proposal.metadata?.shipping_is_billing
+                                                    ${proposal.metadata?.shipping_is_billing
                                             ? 'bg-green-500/20 border-green-500/40 text-green-400'
                                             : 'bg-white/5 border-white/10 text-gray-500 hover:text-white'
                                         }`}
