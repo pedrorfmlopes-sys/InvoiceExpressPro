@@ -731,12 +731,14 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                         >Comp.</button>
                                                     </div>
                                                 )}
-                                                {line.enrichment_status === 'miss' && (
+                                                {(line.enrichment_status === 'miss' || !line.enrichment_status) && (
                                                     <button
                                                         onClick={() => { setResolutionIndex(idx); setShowCatalogModal(true); }}
-                                                        className="text-[14px] leading-none text-red-500 hover:scale-150 transition-transform"
-                                                        title="Não encontrado na Biblioteca (Clique para resolver)"
-                                                    >·</button>
+                                                        className={`text-[12px] transition-all hover:scale-125 ${line.enrichment_status === 'miss' ? 'text-red-500' : 'text-gray-600 hover:text-amber-500'}`}
+                                                        title={line.enrichment_status === 'miss' ? "Não encontrado na Biblioteca (Clique para pesquisar manual)" : "Pesquisa Manual na Biblioteca"}
+                                                    >
+                                                        <FiSearch />
+                                                    </button>
                                                 )}
                                                 <input
                                                     className="bg-transparent outline-none w-full focus:text-white font-bold"
