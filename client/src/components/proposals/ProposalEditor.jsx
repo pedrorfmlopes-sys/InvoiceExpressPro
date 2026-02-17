@@ -790,9 +790,9 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                     {line.extra_attributes?.price_match === false && line.extra_attributes?.catalog_price > 0 && (
                                                         <button
                                                             className="text-amber-500 hover:text-amber-400"
-                                                            title={`PVP Catálogo: ${parseFloat(line.extra_attributes.catalog_price || 0).toFixed(2)}€ (Clique para atualizar)`}
+                                                            title={`PVP Catálogo: ${parseFloat(line.extra_attributes?.catalog_price || 0).toFixed(2)}€ (Clique para atualizar)`}
                                                             onClick={() => {
-                                                                updateLine(idx, 'unit_price_commercial', line.extra_attributes.catalog_price);
+                                                                updateLine(idx, 'unit_price_commercial', line.extra_attributes?.catalog_price);
                                                                 const newLines = [...proposal.lines];
                                                                 newLines[idx].extra_attributes.price_match = true;
                                                                 setProposal({ ...proposal, lines: newLines });
@@ -804,7 +804,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                 </div>
                                                 {line.extra_attributes?.price_match === false && line.extra_attributes?.catalog_price > 0 && (
                                                     <div className="text-[9px] text-amber-500 font-bold leading-none pr-4">
-                                                        Bib: {parseFloat(line.extra_attributes.catalog_price || 0).toFixed(2)}€
+                                                        Bib: {parseFloat(line.extra_attributes?.catalog_price || 0).toFixed(2)}€
                                                     </div>
                                                 )}
                                             </div>
