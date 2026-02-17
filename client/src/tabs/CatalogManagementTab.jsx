@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/ui/GlassCard';
-import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiCheckSquare, FiSquare } from 'react-icons/fi';
+import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiCheckSquare, FiSquare, FiCheck } from 'react-icons/fi';
 import api from '../api/apiClient';
 
 const BRANDS_CONFIG = [
