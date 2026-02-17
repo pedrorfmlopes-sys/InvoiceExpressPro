@@ -624,7 +624,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                         <div className="w-px h-6 bg-amber-500/10"></div>
                         <div className="flex flex-col">
                             <span className="text-[8px] text-amber-500/50 uppercase font-bold">Total Bruto</span>
-                            <span className="text-sm text-white font-bold">{calculateTotals().gross.toFixed(2)} €</span>
+                            <span className="text-sm text-white font-bold">{parseFloat(calculateTotals().gross || 0).toFixed(2)} €</span>
                         </div>
                     </div>
                 </div>
@@ -823,7 +823,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                             />
                                         </td>
                                         <td className="py-2 text-right font-mono text-white font-bold text-xs">
-                                            {lineTotal.toFixed(2)} €
+                                            {parseFloat(lineTotal || 0).toFixed(2)} €
                                         </td>
                                         <td className="py-2">
                                             <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -943,7 +943,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                         <div className="text-right space-y-2">
                             <div>
                                 <div className="text-[10px] text-gray-500 uppercase">Soma Ilíquida</div>
-                                <div className="text-lg text-gray-300 font-mono">{totals.net.toFixed(2)} €</div>
+                                <div className="text-lg text-gray-300 font-mono">{parseFloat(totals.net || 0).toFixed(2)} €</div>
                             </div>
                             <div>
                                 <div className="text-[10px] text-gray-500 uppercase">Portes Envio</div>
@@ -968,13 +968,13 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                             </div>
                             <div>
                                 <div className="text-[10px] text-gray-500 uppercase">IVA (23%)</div>
-                                <div className="text-lg text-gray-300 font-mono">{totals.vat.toFixed(2)} €</div>
+                                <div className="text-lg text-gray-300 font-mono">{parseFloat(totals.vat || 0).toFixed(2)} €</div>
                             </div>
                         </div>
 
                         <div className="text-right bg-amber-500/10 px-6 py-4 rounded-xl border border-amber-500/20 h-full flex flex-col justify-center">
                             <div className="text-[10px] text-amber-500 font-bold uppercase mb-1">Total Final</div>
-                            <div className="text-3xl text-white font-black font-mono">{totals.gross.toFixed(2)} €</div>
+                            <div className="text-3xl text-white font-black font-mono">{parseFloat(totals.gross || 0).toFixed(2)} €</div>
                         </div>
                     </div>
                 </div>
