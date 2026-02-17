@@ -7,7 +7,7 @@ import ProposalPdf from './ProposalPdf';
 import { NICOLAZZI_FINISH_GROUPS, shouldShowCollection } from '../../constants/catalog';
 import CatalogSearchModal from '../catalog/CatalogSearchModal';
 import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus } from 'react-icons/fi';
-import CreateCatalogItemModal from '../catalog/CreateCatalogItemModal';
+import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
 
 const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
