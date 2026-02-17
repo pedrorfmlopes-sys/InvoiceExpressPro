@@ -18,9 +18,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#EEEEEE',
+        marginBottom: 10,
         paddingBottom: 10
     },
     companyInfo: {
@@ -37,7 +35,8 @@ const styles = StyleSheet.create({
         marginTop: 2
     },
     docInfo: {
-        width: '55%'
+        width: '55%',
+        alignItems: 'flex-end'
     },
     docTitle: {
         fontSize: 22,
@@ -52,13 +51,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         width: '100%',
-        marginBottom: 10,
+        marginBottom: 15,
         borderBottomWidth: 0.5,
         borderBottomColor: '#E5E7EB',
         paddingBottom: 4
     },
     headerSubTitle: {
-        fontSize: 7,
+        fontSize: 6.5,
         color: '#6B7280',
         textTransform: 'uppercase',
         fontWeight: 'bold',
@@ -68,8 +67,7 @@ const styles = StyleSheet.create({
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 2,
-        justifyContent: 'flex-start'
+        marginBottom: 1
     },
     label: {
         fontWeight: 'bold',
@@ -84,9 +82,10 @@ const styles = StyleSheet.create({
         textAlign: 'left'
     },
     clientBlock: {
-        marginTop: 8,
+        marginTop: 5,
         alignItems: 'flex-start',
-        width: '100%'
+        width: 250, // Fixed width to ensure left-justification starts at a consistent spot on the right
+        padding: 5
     },
     clientName: {
         fontSize: 10,
@@ -102,15 +101,19 @@ const styles = StyleSheet.create({
         maxWidth: '100%',
         lineHeight: 1.3
     },
-    projectBox: {
+    grayBox: {
         backgroundColor: '#F9FAFB',
-        padding: 8,
-        borderRadius: 4,
-        marginBottom: 20,
+        padding: 6,
+        borderRadius: 2,
+        marginBottom: 8,
+        width: '85%'
+    },
+    projectBox: {
+        // Redefined as the main container for the middle section
         flexDirection: 'row',
-        gap: 20,
-        borderWidth: 1,
-        borderColor: '#F3F4F6'
+        justifyContent: 'space-between',
+        marginBottom: 15,
+        width: '100%'
     },
     table: {
         width: '100%',
@@ -269,13 +272,43 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
                 {/* Header */}
                 <View style={styles.header} fixed>
-                    <View style={styles.companyInfo}>
-                        <Text style={styles.companyTitle}>DVTKB, Lda</Text>
-                        <Text style={styles.companySub}>www.divitek.pt</Text>
-                        <Text style={styles.companySub}>Rua da Baixa 326, 3 Drt</Text>
-                        <Text style={styles.companySub}>2870-231 Montijo, Portugal</Text>
-                        <Text style={styles.companySub}>NIF: PT515834807</Text>
+                    {/* Left Column: Company & Boxes */}
+                    <View style={{ width: '45%' }}>
+                        <View style={styles.companyInfo}>
+                            <Text style={styles.companyTitle}>DVTKB, Lda</Text>
+                            <Text style={styles.companySub}>www.divitek.pt</Text>
+                            <Text style={styles.companySub}>Rua da Baixa 326, 3 Drt</Text>
+                            <Text style={styles.companySub}>2870-231 Montijo, Portugal</Text>
+                            <Text style={styles.companySub}>NIF: PT515834807</Text>
+                        </View>
+
+                        <View style={{ marginTop: 15 }}>
+                            {/* References Box */}
+                            <View style={styles.grayBox}>
+                                <View style={styles.infoRow}>
+                                    <Text style={[styles.label, { width: 60 }]}>Vossa Ref.:</Text>
+                                    <Text style={styles.value}>{proposal.metadata?.client_project_name || '---'}</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={[styles.label, { width: 60 }]}>Nossa Ref.:</Text>
+                                    <Text style={styles.value}>{proposal.metadata?.our_ref || '---'}</Text>
+                                </View>
+                            </View>
+
+                            {/* Delivery Address Box */}
+                            <View style={styles.grayBox}>
+                                <Text style={styles.headerSubTitle}>Morada de Entrega</Text>
+                                <Text style={[styles.clientAddress, { maxWidth: '100%' }]}>
+                                    {proposal.metadata?.shipping_is_billing
+                                        ? 'Mesma que faturação'
+                                        : (proposal.metadata?.shipping_address || '---')
+                                    }
+                                </Text>
+                            </View>
+                        </View>
                     </View>
+
+                    {/* Right Column: Title & Client */}
                     <View style={styles.docInfo}>
                         <Text style={styles.docTitle}>PROPOSTA</Text>
 
@@ -291,7 +324,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                             </View>
                         </View>
 
-                        {/* Client Info Block */}
+                        {/* Client Info Block (The Green Rectangle Area) */}
                         <View style={styles.clientBlock}>
                             <Text style={styles.headerSubTitle}>Cliente</Text>
                             <Text style={styles.clientName}>{proposal.client_ref}</Text>
@@ -300,36 +333,10 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                             <Text style={styles.clientAddress}>{proposal.metadata?.billing_address || proposal.client_ref}</Text>
 
                             <View style={[styles.infoRow, { marginTop: 6 }]}>
-                                <Text style={styles.label}>NIF:</Text>
-                                <Text style={styles.value}>{proposal.metadata?.client_vat || '---'}</Text>
+                                <Text style={[styles.label, { fontWeight: 'bold' }]}>NIF:</Text>
+                                <Text style={[styles.value, { fontWeight: 'bold' }]}>{proposal.metadata?.client_vat || '---'}</Text>
                             </View>
                         </View>
-                    </View>
-                </View>
-
-                {/* Project & Shipping Box */}
-                <View style={styles.projectBox} fixed>
-                    {/* Left Column: References */}
-                    <View style={{ width: '60%', flexDirection: 'column', gap: 4 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                            <Text style={{ fontWeight: 'bold', width: 80, fontSize: 8 }}>Vossa Ref.:</Text>
-                            <Text style={{ fontSize: 9, flex: 1 }}>{proposal.metadata?.client_project_name || '---'}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                            <Text style={{ fontWeight: 'bold', width: 80, fontSize: 8 }}>Nossa Ref.:</Text>
-                            <Text style={{ fontSize: 9, flex: 1 }}>{proposal.metadata?.our_ref || '---'}</Text>
-                        </View>
-                    </View>
-
-                    {/* Right Column: Shipping Address */}
-                    <View style={{ width: '40%', borderLeftWidth: 1, borderLeftColor: '#E5E7EB', paddingLeft: 10 }}>
-                        <Text style={{ fontSize: 7, color: '#666666', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: 2 }}>Morada de Entrega:</Text>
-                        <Text style={{ fontSize: 8 }}>
-                            {proposal.metadata?.shipping_is_billing
-                                ? 'Mesma que faturação'
-                                : (proposal.metadata?.shipping_address || '---')
-                            }
-                        </Text>
                     </View>
                 </View>
 
