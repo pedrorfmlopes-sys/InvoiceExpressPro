@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "archiver": "^7.0.1",
-    "axios": "^1.13.2",
+    "axios": "^1.7.9",
     "axios-cookiejar-support": "^6.0.5",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -62,7 +62,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.9"
   },
   "description": "## Como usar (Replit) 1) Importe este ZIP para um novo Repl **Node.js**. 2) Defina a variável de ambiente **OPENAI_API_KEY** (Secrets). 3) Clique **Run**. O Repl:    - instala deps do frontend, faz `build`,    - arranca o servidor Express,    - serve o frontend estático em `/`.",
   "main": "index.js",

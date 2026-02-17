@@ -15,7 +15,7 @@ RUN apk update && apk add --no-cache \
     make \
     g++
 
-RUN npm install
+RUN npm install --no-fund --no-audit --quiet
 
 # Copy source code
 WORKDIR /app
@@ -29,7 +29,7 @@ COPY scripts ./scripts
 
 
 # Expose API Port
-EXPOSE 3000
+EXPOSE 10000
 
 # Start Server
 # Start Server from ROOT (where package.json scripts expect to run)

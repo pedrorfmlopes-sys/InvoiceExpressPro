@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY client/package*.json ./client/
 WORKDIR /app/client
-RUN npm install
+RUN npm install --no-fund --no-audit --quiet
 COPY client ./
 # Capture build-time env vars
 ARG VITE_API_URL
@@ -16,6 +16,6 @@ FROM node:20-alpine
 WORKDIR /app
 RUN npm install -g serve
 COPY --from=builder /app/client/dist ./dist
-EXPOSE 5173
+EXPOSE 10000
 # Start usage of shell to allow variable expansion
 CMD ["/bin/sh", "-c", "serve -s dist -l tcp://0.0.0.0:${PORT:-10000}"]
