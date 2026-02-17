@@ -322,7 +322,12 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                                 </View>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <Text style={styles.label}>Data:</Text>
-                                    <Text style={styles.value}>{new Date(proposal.updated_at).toLocaleDateString('pt-PT')}</Text>
+                                    <Text style={styles.value}>
+                                        {proposal.metadata?.doc_date
+                                            ? new Date(proposal.metadata.doc_date).toLocaleDateString('pt-PT')
+                                            : new Date(proposal.updated_at).toLocaleDateString('pt-PT')
+                                        }
+                                    </Text>
                                 </View>
                             </View>
 
