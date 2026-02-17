@@ -115,7 +115,7 @@ export default function NicolazziProformaViewer({
             } else {
                 disc = parseFloat(discText) || 0;
             }
-            line.total = (qty * price * (1 - disc / 100)).toFixed(2);
+            line.total = parseFloat((qty * price * (1 - disc / 100)) || 0).toFixed(2);
         }
 
         newLines[idx] = line;
@@ -126,10 +126,10 @@ export default function NicolazziProformaViewer({
 
         const totals = {
             ...(data?.totals || {}),
-            goods: net.toFixed(2),
-            net: net.toFixed(2),
-            total: (net + transport + vat).toFixed(2),
-            gross: (net + transport + vat).toFixed(2)
+            goods: parseFloat(net || 0).toFixed(2),
+            net: parseFloat(net || 0).toFixed(2),
+            total: parseFloat((net + transport + vat) || 0).toFixed(2),
+            gross: parseFloat((net + transport + vat) || 0).toFixed(2)
         };
 
         setData({ ...data, lines: newLines, totals, total: totals.gross });
@@ -141,7 +141,7 @@ export default function NicolazziProformaViewer({
             const net = parseFloat(newTotals.net || newTotals.goods || newTotals.subtotal || 0) || 0;
             const transport = parseFloat(newTotals.transport || 0) || 0;
             const vat = parseFloat(newTotals.tax || newTotals.vat || 0) || 0;
-            newTotals.total = (net + transport + vat).toFixed(2);
+            newTotals.total = parseFloat((net + transport + vat) || 0).toFixed(2);
             newTotals.gross = newTotals.total;
         }
         setData({ ...data, totals: newTotals, total: newTotals.gross });

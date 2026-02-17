@@ -196,7 +196,7 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
             const qty = parseFloat(line.quantity) || 0;
             const price = parseFloat(line.unitPrice) || 0;
             const disc = parseFloat(line.discountPercent) || 0;
-            line.total = (qty * price * (1 - disc / 100)).toFixed(2);
+            line.total = parseFloat((qty * price * (1 - disc / 100)) || 0).toFixed(2);
         }
 
         lines[idx] = line;
@@ -208,8 +208,8 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
 
         const totals = {
             ...satelliteData.totals,
-            net: net.toFixed(2),
-            gross: (net + transport + vat).toFixed(2)
+            net: parseFloat(net || 0).toFixed(2),
+            gross: parseFloat((net + transport + vat) || 0).toFixed(2)
         };
 
         // If simple 'tax' field exists (legacy support), update it too if needed, but 'vat' is standard here
@@ -421,9 +421,9 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
                                         const newTotals = { ...data.totals, transport: val };
                                         const net = parseFloat(newTotals.net || 0);
                                         const vat = parseFloat(newTotals.vat || 0);
-                                        const trans = parseFloat(val || 0);
-                                        newTotals.gross = (net + vat + trans).toFixed(2);
-                                        saveData({ ...data, totals: newTotals });
+                                        const trans = parseFloat(val || 0) || 0;
+                                        newTotals.gross = parseFloat((net + vat + trans) || 0).toFixed(2);
+                                        setSatelliteData({ ...satelliteData, totals: newTotals });
                                     }}
                                 />
                             </div>

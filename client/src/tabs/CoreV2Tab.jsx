@@ -324,7 +324,7 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
             render: (r) => r.entities?.shipTo?.name || r.shipTo?.name || '-'
         },
         // RIGHT ALIGN TOTAL
-        { key: 'total', label: 'Total', width: 100, editable: true, align: 'right', format: (v) => v ? `${parseFloat(v).toFixed(2)} €` : '-' },
+        { key: 'total', label: 'Total', width: 100, editable: true, align: 'right', format: (v) => v ? `${parseFloat(parseFloat(v) || 0).toFixed(2)} €` : '-' },
         {
             key: 'sub_project_id', label: 'Sub-Project', width: 150,
             editable: true, type: 'lookup', options: subProjects

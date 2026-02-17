@@ -223,7 +223,7 @@ export default function TransactionsTab({ project }) {
                         <ul>
                             {suggestions.map((s, i) => (
                                 <li key={i}>
-                                    Doc <strong>{s.documentId}</strong> (Score: {s.confidence.toFixed(2)}) - {s.reason}
+                                    Doc <strong>{s.documentId}</strong> (Score: {parseFloat(s.confidence || 0).toFixed(2)}) - {s.reason}
                                 </li>
                             ))}
                         </ul>

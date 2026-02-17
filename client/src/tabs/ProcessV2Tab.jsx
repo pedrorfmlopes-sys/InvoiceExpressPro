@@ -182,7 +182,7 @@ export default function ProcessV2Tab({ project }) {
 
             const fmtRows = allPending.map(r => ({
                 ...r,
-                total: r.total ? parseFloat(String(r.total).replace(',', '.')).toFixed(2) : r.total
+                total: r.total ? parseFloat(parseFloat(String(r.total).replace(',', '.')) || 0).toFixed(2) : r.total
             }));
             setRows(fmtRows);
             setBatchId('recovered-' + Date.now()); // Fake batchId to bypass the empty state
@@ -215,7 +215,7 @@ export default function ProcessV2Tab({ project }) {
                     if (rowsRes.data.rows && isMounted) {
                         const fmtRows = rowsRes.data.rows.map(r => ({
                             ...r,
-                            total: r.total ? parseFloat(String(r.total).replace(',', '.')).toFixed(2) : r.total
+                            total: r.total ? parseFloat(parseFloat(String(r.total).replace(',', '.')) || 0).toFixed(2) : r.total
                         }));
                         setRows(fmtRows);
                         // Auto-clear files to hide the "Processar (X)" button once results start appearing
@@ -766,7 +766,7 @@ function Row({ index, row, updateRow, deleteRow, viewRowPdf, showAdditional, t, 
                     onBlur={(e) => {
                         const v = parseFloat(e.target.value.replace(',', '.')); // Handle decimal comma
                         if (!isNaN(v)) {
-                            updateRow(row.id, 'total', v.toFixed(2));
+                            updateRow(row.id, 'total', parseFloat(v || 0).toFixed(2));
                         }
                     }}
                 />

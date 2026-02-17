@@ -166,7 +166,7 @@ export const BackupDataViewer = ({ snapshot, onClose, onRestore }) => {
                             <div className="flex flex-col items-end">
                                 <span className="text-[8px] uppercase font-black text-gray-600">Portes / IVA</span>
                                 <span className="font-mono text-gray-400 text-sm">
-                                    {(parseFloat(data.totals.transport || 0) + parseFloat(data.totals.vat || 0)).toFixed(2)} €
+                                    {parseFloat((parseFloat(data.totals.transport || 0) + parseFloat(data.totals.vat || 0)) || 0).toFixed(2)} €
                                 </span>
                             </div>
                             <div className="flex flex-col items-end">

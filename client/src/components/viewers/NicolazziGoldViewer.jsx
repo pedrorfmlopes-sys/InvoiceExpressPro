@@ -106,7 +106,7 @@ export default function NicolazziGoldViewer({
             } else {
                 disc = parseFloat(discText) || 0;
             }
-            line.total = (qty * price * (1 - disc / 100)).toFixed(2);
+            line.total = parseFloat((qty * price * (1 - disc / 100)) || 0).toFixed(2);
         }
 
         lines[idx] = line;
@@ -117,10 +117,10 @@ export default function NicolazziGoldViewer({
 
         const totals = {
             ...satelliteData.totals,
-            net: net.toFixed(2),
-            goods: net.toFixed(2),
-            gross: (net + transport + vat).toFixed(2),
-            total: (net + transport + vat).toFixed(2)
+            net: parseFloat(net || 0).toFixed(2),
+            goods: parseFloat(net || 0).toFixed(2),
+            gross: parseFloat((net + transport + vat) || 0).toFixed(2),
+            total: parseFloat((net + transport + vat) || 0).toFixed(2)
         };
 
         setSatelliteData({ ...satelliteData, lines, totals });
@@ -294,7 +294,7 @@ export default function NicolazziGoldViewer({
                                 const net = parseFloat(newTotals.net || newTotals.goods || newTotals.subtotal || 0) || 0;
                                 const vat = parseFloat(newTotals.vat || newTotals.tax || 0) || 0;
                                 const trans = parseFloat(val || 0) || 0;
-                                newTotals.gross = (net + vat + trans).toFixed(2);
+                                newTotals.gross = parseFloat((net + vat + trans) || 0).toFixed(2);
                                 setSatelliteData({ ...satelliteData, totals: newTotals });
                             }} /></div>
                             <div className="flex flex-col items-end"><span className="text-[9px] uppercase font-bold text-gray-600">Total Final</span><span className="font-mono text-xl font-bold text-yellow-500">{data.totals?.gross || '0.00'} €</span></div>

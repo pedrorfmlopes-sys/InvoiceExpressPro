@@ -40,14 +40,14 @@ export const normalizeNicolazziData = (rawData) => {
         net = data.lines.reduce((acc, l) => acc + (parseFloat(l.total) || 0), 0);
     }
 
-    data.totals.net = net.toFixed(2);
+    data.totals.net = parseFloat(net || 0).toFixed(2);
     data.totals.goods = data.totals.net; // Sync both keys
     data.totals.vat = String(data.totals.vat || data.totals.tax || '0.00');
     data.totals.transport = String(data.totals.transport || '0.00');
 
     const vat = parseFloat(data.totals.vat) || 0;
     const transport = parseFloat(data.totals.transport) || 0;
-    data.totals.gross = (net + vat + transport).toFixed(2);
+    data.totals.gross = parseFloat((net + vat + transport) || 0).toFixed(2);
 
     // 4. Normalize References (The Regression Fix)
     // Extractor might send docRefs as object or array

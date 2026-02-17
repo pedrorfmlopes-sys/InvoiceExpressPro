@@ -33,9 +33,9 @@ function PdfViewerOverlay({ open, url, onClose }) {
             <iframe className="viewer__frame" src={url} title="Documento" />
           </div>
           <div style={{ position: 'absolute', right: 12, bottom: 12, display: 'flex', gap: 6 }}>
-            <button className="btn btn--icon" title="-" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))}>–</button>
+            <button className="btn btn--icon" title="-" onClick={() => setZoom(z => Math.max(0.5, parseFloat(parseFloat(z - 0.1).toFixed(2))))}>–</button>
             <div className="btn btn--icon" style={{ pointerEvents: 'none' }}>{Math.round(zoom * 100)}%</div>
-            <button className="btn btn--icon" title="+" onClick={() => setZoom(z => Math.min(3, +(z + 0.1).toFixed(2)))}>+</button>
+            <button className="btn btn--icon" title="+" onClick={() => setZoom(z => Math.min(3, parseFloat(parseFloat(z + 0.1).toFixed(2))))}>+</button>
           </div>
         </div>
       </div>
