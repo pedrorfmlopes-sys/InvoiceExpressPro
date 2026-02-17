@@ -177,7 +177,7 @@ const CatalogManagementTab = ({ project }) => {
 
         setIsUploading(true);
         try {
-            await api.post('/api/catalog/process', {
+            const res = await api.post('/api/catalog/process', {
                 brand: selectedBrand.id,
                 tempFilename: inspectData.tempFilename,
                 mappings: {
@@ -185,7 +185,14 @@ const CatalogManagementTab = ({ project }) => {
                     allowedCollections: selectedCollections
                 }
             });
-            alert('Tabela processada com sucesso!');
+
+            const stats = res.data.stats || {};
+            alert(`Processamento concluído!\n\n` +
+                `✅ Criados: ${stats.createdCount || 0}\n` +
+                `🔄 Atualizados: ${stats.updatedCount || 0}\n` +
+                `🚫 Saltados (Sem SKU): ${stats.skippedCount || 0}\n` +
+                `🔍 Filtrados (Coleções não selecionadas): ${stats.filteredCount || 0}`);
+
             setInspectData(null);
             setAvailableCollections([]);
             setSelectedCollections([]);
