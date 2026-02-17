@@ -84,7 +84,7 @@ const CatalogSearchModal = ({ brand, initialSku, onClose, onSelect, onCreateNew 
                                             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{item.finish_group}</span>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-sm font-mono text-blue-400 font-bold">{item.price?.toFixed(2)} €</span>
+                                            <span className="text-sm font-mono text-blue-400 font-bold">{parseFloat(item.price || 0).toFixed(2)} €</span>
                                         </div>
                                     </div>
                                     <p className="text-xs text-gray-400 leading-relaxed group-hover:text-gray-200">
