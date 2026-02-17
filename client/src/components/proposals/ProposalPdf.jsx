@@ -37,8 +37,7 @@ const styles = StyleSheet.create({
         marginTop: 2
     },
     docInfo: {
-        width: '55%',
-        alignItems: 'flex-end'
+        width: '55%'
     },
     docTitle: {
         fontSize: 22,
@@ -63,39 +62,44 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         textTransform: 'uppercase',
         fontWeight: 'bold',
-        marginBottom: 2
+        marginBottom: 2,
+        textAlign: 'left'
     },
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 2
+        marginBottom: 2,
+        justifyContent: 'flex-start'
     },
     label: {
         fontWeight: 'bold',
         fontSize: 8,
-        color: '#374151'
+        color: '#374151',
+        textAlign: 'left'
     },
     value: {
         fontSize: 9,
         marginLeft: 4,
-        color: '#111827'
+        color: '#111827',
+        textAlign: 'left'
     },
     clientBlock: {
         marginTop: 8,
-        alignItems: 'flex-end',
+        alignItems: 'flex-start',
         width: '100%'
     },
     clientName: {
         fontSize: 10,
         fontWeight: 'bold',
         color: '#111827',
-        marginBottom: 2
+        marginBottom: 4,
+        textAlign: 'left'
     },
     clientAddress: {
         fontSize: 8,
         color: '#4B5563',
-        textAlign: 'right',
-        maxWidth: '80%',
+        textAlign: 'left',
+        maxWidth: '100%',
         lineHeight: 1.3
     },
     projectBox: {
