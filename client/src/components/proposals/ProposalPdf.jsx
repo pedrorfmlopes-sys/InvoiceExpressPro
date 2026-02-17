@@ -37,33 +37,66 @@ const styles = StyleSheet.create({
         marginTop: 2
     },
     docInfo: {
-        width: '50%',
-        alignItems: 'flex-end' // Align the rows to the right side of this container
+        width: '55%',
+        alignItems: 'flex-end'
     },
     docTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 10,
+        fontSize: 22,
+        fontWeight: 'extrabold',
+        color: '#111827',
+        marginBottom: 12,
         textAlign: 'right',
-        width: '100%'
+        width: '100%',
+        letterSpacing: 1
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginBottom: 10,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#E5E7EB',
+        paddingBottom: 4
+    },
+    headerSubTitle: {
+        fontSize: 7,
+        color: '#6B7280',
+        textTransform: 'uppercase',
+        fontWeight: 'bold',
+        marginBottom: 2
     },
     infoRow: {
         flexDirection: 'row',
-        width: '100%',
+        alignItems: 'center',
         marginBottom: 2
     },
     label: {
         fontWeight: 'bold',
-        width: '35%', // Use percentage for responsiveness within the 50% block
-        textAlign: 'right',
-        paddingRight: 5,
-        fontSize: 8
+        fontSize: 8,
+        color: '#374151'
     },
     value: {
-        width: '65%',
-        textAlign: 'left',
         fontSize: 9,
-        fontFamily: 'Helvetica'
+        marginLeft: 4,
+        color: '#111827'
+    },
+    clientBlock: {
+        marginTop: 8,
+        alignItems: 'flex-end',
+        width: '100%'
+    },
+    clientName: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#111827',
+        marginBottom: 2
+    },
+    clientAddress: {
+        fontSize: 8,
+        color: '#4B5563',
+        textAlign: 'right',
+        maxWidth: '80%',
+        lineHeight: 1.3
     },
     projectBox: {
         backgroundColor: '#F9FAFB',
@@ -71,7 +104,9 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         marginBottom: 20,
         flexDirection: 'row',
-        gap: 20
+        gap: 20,
+        borderWidth: 1,
+        borderColor: '#F3F4F6'
     },
     table: {
         width: '100%',
@@ -86,15 +121,15 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
         borderStyle: 'solid',
         alignItems: 'flex-start',
-        minHeight: 20, // Reduced height
-        fontSize: 8,   // Reduced font size
-        paddingVertical: 2
+        minHeight: 20,
+        fontSize: 8,
+        paddingVertical: 3
     },
     tableHeader: {
         backgroundColor: '#F3F4F6',
         color: '#111827',
         fontWeight: 'bold',
-        fontSize: 7, // Smaller header too
+        fontSize: 7,
         textTransform: 'uppercase',
         padding: 4
     },
@@ -103,7 +138,7 @@ const styles = StyleSheet.create({
     colQty: { width: '8%', padding: 2, textAlign: 'center' },
     colUn: { width: '5%', padding: 2, textAlign: 'center' },
     colPrice: { width: '12%', padding: 2, textAlign: 'right' },
-    colDisc: { width: '8%', padding: 2, textAlign: 'center' }, // New Column
+    colDisc: { width: '8%', padding: 2, textAlign: 'center' },
     colTotal: { width: '12%', padding: 2, textAlign: 'right' },
 
     skuText: { fontFamily: 'Helvetica', color: '#4B5563' },
@@ -112,7 +147,7 @@ const styles = StyleSheet.create({
     totalsSection: {
         marginTop: 10,
         marginLeft: 'auto',
-        width: '55%', // Increased again to be safe
+        width: '55%',
         borderTopWidth: 1,
         borderTopColor: '#E5E7EB',
         paddingTop: 10
@@ -122,7 +157,6 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         fontSize: 9
     },
-    // New specific styles for columns to prevent overlap
     totalLabel: {
         width: '60%',
         textAlign: 'right',
@@ -132,15 +166,15 @@ const styles = StyleSheet.create({
     totalValue: {
         width: '40%',
         textAlign: 'right',
-        fontFamily: 'Helvetica-Bold', // Make numbers pop slightly
+        fontFamily: 'Helvetica-Bold',
         color: '#111827'
     },
     finalTotal: {
         borderTopWidth: 1,
-        borderTopColor: '#000000',
+        borderTopColor: '#111827',
         paddingTop: 8,
         marginTop: 8,
-        flexDirection: 'row' // Ensure it uses the same row layout
+        flexDirection: 'row'
     },
     finalTotalLabel: {
         width: '60%',
@@ -167,6 +201,15 @@ const styles = StyleSheet.create({
         color: '#9CA3AF',
         flexDirection: 'row',
         justifyContent: 'space-between'
+    },
+    pageNumber: {
+        position: 'absolute',
+        fontSize: 8,
+        bottom: 30,
+        left: 0,
+        right: 40,
+        textAlign: 'right',
+        color: '#9CA3AF'
     }
 });
 
@@ -231,25 +274,31 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     </View>
                     <View style={styles.docInfo}>
                         <Text style={styles.docTitle}>PROPOSTA</Text>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>Nº Proposta:</Text>
-                            <Text style={styles.value}>{proposal.name?.replace('Proposta:', '')}</Text>
+
+                        {/* Nº Proposta & Data on the same line */}
+                        <View style={styles.headerRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={styles.label}>Nº Proposta:</Text>
+                                <Text style={styles.value}>{proposal.name?.replace('Proposta:', '').trim()}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={styles.label}>Data:</Text>
+                                <Text style={styles.value}>{new Date(proposal.updated_at).toLocaleDateString('pt-PT')}</Text>
+                            </View>
                         </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>Cliente:</Text>
-                            <Text style={styles.value}>{proposal.client_ref}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>NIF:</Text>
-                            <Text style={styles.value}>{proposal.metadata?.client_vat || '999999999'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>Data:</Text>
-                            <Text style={styles.value}>{new Date(proposal.updated_at).toLocaleDateString('pt-PT')}</Text>
-                        </View>
-                        <View style={{ marginTop: 10, textAlign: 'right' }}>
-                            <Text style={{ fontSize: 7, color: '#666666', textTransform: 'uppercase', fontWeight: 'bold' }}>Morada Faturação:</Text>
-                            <Text style={{ fontSize: 8 }}>{proposal.metadata?.billing_address || proposal.client_ref}</Text>
+
+                        {/* Client Info Block */}
+                        <View style={styles.clientBlock}>
+                            <Text style={styles.headerSubTitle}>Cliente</Text>
+                            <Text style={styles.clientName}>{proposal.client_ref}</Text>
+
+                            <Text style={[styles.headerSubTitle, { marginTop: 6 }]}>Morada de Faturação</Text>
+                            <Text style={styles.clientAddress}>{proposal.metadata?.billing_address || proposal.client_ref}</Text>
+
+                            <View style={[styles.infoRow, { marginTop: 6 }]}>
+                                <Text style={styles.label}>NIF:</Text>
+                                <Text style={styles.value}>{proposal.metadata?.client_vat || '---'}</Text>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -438,8 +487,12 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                 <View style={styles.footer} fixed>
                     <View style={{ flexDirection: 'column', gap: 2 }}>
                         <Text>Pagamento por transferência bancária (BPI): PT50 0010 0000 5819 1020 0010 2</Text>
+                        <Text style={{ fontSize: 6, color: '#999', marginTop: 2 }}>Este documento não serve de fatura</Text>
                     </View>
-                    <Text>Este documento não serve de fatura</Text>
+                    <Text
+                        style={{ fontSize: 8, color: '#9CA3AF' }}
+                        render={({ pageNumber, totalPages }) => `Página ${pageNumber} / ${totalPages}`}
+                    />
                 </View>
 
             </Page>
