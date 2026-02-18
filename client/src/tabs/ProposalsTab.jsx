@@ -14,15 +14,23 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
     const [search, setSearch] = useState('');
     const [viewDoc, setViewDoc] = useState(null);
     const [viewPdfUrl, setViewPdfUrl] = useState(null);
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterBrand, setFilterBrand] = useState('');
 
     useEffect(() => {
         loadProposals();
-    }, [project]);
+    }, [project, filterStatus, filterBrand, search]);
 
     const loadProposals = async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/api/proposals?project=${project}`);
+            const params = new URLSearchParams({
+                project,
+                status: filterStatus,
+                brand_id: filterBrand,
+                client_ref: search
+            });
+            const res = await api.get(`/api/proposals?${params.toString()}`);
             setProposals(res.data);
         } catch (e) {
             console.error("Failed to load proposals", e);
@@ -92,6 +100,27 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
         }
     };
 
+    const handleExportConsolidated = async () => {
+        try {
+            const params = new URLSearchParams({
+                project,
+                status: filterStatus,
+                brand_id: filterBrand,
+                client_ref: search
+            });
+            const res = await api.get(`/api/proposals/export/items?${params.toString()}`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `listagem_consolidada_itens_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (e) {
+            alert("Erro ao exportar listagem: " + e.message);
+        }
+    };
+
     const calculateTotal = (lines) => {
         if (!lines) return 0;
         return lines.reduce((acc, l) => {
@@ -118,15 +147,73 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                     <h2 className="text-2xl font-black text-white tracking-tight">Estúdio de Propostas</h2>
                     <p className="text-sm text-[var(--text-muted)]">Gerencie, edite e exporte as suas propostas comerciais.</p>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 items-center">
+                    {/* Brand Filter */}
+                    <select
+                        className="bg-[var(--surface-base)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none focus:border-[var(--accent-primary)] transition-colors"
+                        value={filterBrand}
+                        onChange={e => setFilterBrand(e.target.value)}
+                    >
+                        <option value="">Todas as Marcas</option>
+                        <option value="nicolazzi">Nicolazzi</option>
+                        <option value="other">Outras</option>
+                    </select>
+
+                    {/* Status Filter */}
+                    <select
+                        className="bg-[var(--surface-base)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none focus:border-[var(--accent-primary)] transition-colors"
+                        value={filterStatus}
+                        onChange={e => setFilterStatus(e.target.value)}
+                    >
+                        <option value="">Todos os Estados</option>
+                        <option value="draft">Rascunho</option>
+                        <option value="sent">Enviada</option>
+                        <option value="accepted">Aceite</option>
+                        <option value="rejected">Perdida</option>
+                    </select>
+
                     <div className="relative group">
                         <input
-                            className="bg-[var(--surface-base)] border border-[var(--border)] rounded-xl px-4 py-2 pl-10 text-sm w-64 outline-none focus:border-[var(--accent-primary)] transition-colors"
-                            placeholder="Pesquisar propostas..."
+                            className="bg-[var(--surface-base)] border border-[var(--border)] rounded-xl px-4 py-2 pl-10 text-sm w-48 outline-none focus:border-[var(--accent-primary)] transition-colors"
+                            placeholder="Cliente..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                         />
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50">🔍</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 text-xs">🔍</span>
+                    </div>
+
+                    <button
+                        onClick={handleExportConsolidated}
+                        className="bg-[var(--accent-primary)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:brightness-110 transition-all flex items-center gap-2"
+                        title="Exportar listagem de itens das propostas filtradas"
+                    >
+                        <span>📊</span> Exportar Itens
+                    </button>
+                </div>
+            </div>
+
+            {/* Stats Summary Area */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+                <div className="bg-[var(--surface-base)] border border-[var(--border)] p-4 rounded-2xl">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] font-bold mb-1">Total Propostas</div>
+                    <div className="text-2xl font-black text-white">{proposals.length}</div>
+                </div>
+                <div className="bg-[var(--surface-base)] border border-[var(--border)] p-4 rounded-2xl">
+                    <div className="text-[10px] uppercase tracking-widest text-green-500 font-bold mb-1">Aceites</div>
+                    <div className="text-2xl font-black text-white">
+                        {proposals.filter(p => p.status === 'accepted').length}
+                    </div>
+                </div>
+                <div className="bg-[var(--surface-base)] border border-[var(--border)] p-4 rounded-2xl">
+                    <div className="text-[10px] uppercase tracking-widest text-blue-400 font-bold mb-1">Enviadas</div>
+                    <div className="text-2xl font-black text-white">
+                        {proposals.filter(p => p.status === 'sent').length}
+                    </div>
+                </div>
+                <div className="bg-[var(--surface-base)] border border-[var(--border)] p-4 rounded-2xl">
+                    <div className="text-[10px] uppercase tracking-widest text-amber-500 font-bold mb-1">Valor Total (Filtrado)</div>
+                    <div className="text-2xl font-black text-white">
+                        {fmtEUR(proposals.reduce((acc, p) => acc + (p.total_amount || 0), 0))}
                     </div>
                 </div>
             </div>
@@ -140,6 +227,7 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                 <th className="pb-4 font-bold pl-4">Proposta</th>
                                 <th className="pb-4 font-bold">Cliente</th>
                                 <th className="pb-4 font-bold">Referência</th>
+                                <th className="pb-4 font-bold">Marca</th>
                                 <th className="pb-4 font-bold">Doc. Origem</th>
                                 <th className="pb-4 font-bold text-right">Total (c/IVA)</th>
                                 <th className="pb-4 font-bold text-center">Estado</th>
@@ -177,6 +265,11 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                             </td>
                                             <td className="py-4 text-xs font-mono text-[var(--text-muted)]">
                                                 {p.metadata?.our_ref || '-'}
+                                            </td>
+                                            <td className="py-4">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded border ${p.brand_id === 'nicolazzi' ? 'border-amber-500/30 text-amber-500' : 'border-gray-500/30 text-gray-500'} uppercase font-bold tracking-tighter`}>
+                                                    {p.brand_id || 'Other'}
+                                                </span>
                                             </td>
                                             <td className="py-4">
                                                 {p.original_doc_id ? (

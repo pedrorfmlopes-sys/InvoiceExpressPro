@@ -13,6 +13,7 @@ router.patch('/:id', (req, res) => controller.patchProposal(req, res));
 router.delete('/:id', (req, res) => controller.deleteProposal(req, res));
 
 // Exports
+router.get('/export/items', (req, res) => controller.exportConsolidated(req, res));
 router.get('/:id/pdf', (req, res) => controller.exportPdf(req, res));
 router.get('/:id/excel', (req, res) => controller.exportExcel(req, res));
 

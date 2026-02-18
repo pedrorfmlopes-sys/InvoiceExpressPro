@@ -104,7 +104,7 @@ class ProposalStudioService {
         return { proposalId, linesCount: proposalLines.length };
     }
 
-    async getProposals(project) {
+    async getProposals(project, filters = {}) {
         // Calculate total including VAT in a subquery
         const subquery = knex('proposal_lines')
             .select(knex.raw('SUM((quantity * unit_price_commercial * (1 - discount_commercial_percent / 100)) * (1 + CAST(vat_rate AS FLOAT) / 100))'))
@@ -125,7 +125,25 @@ class ProposalStudioService {
                 this.where('custom_proposals.project_ref', project).orWhereNull('custom_proposals.project_ref');
             });
         }
+
+        if (filters.status) q.where('custom_proposals.status', filters.status);
+        if (filters.brand_id) q.where('custom_proposals.brand_id', filters.brand_id);
+        if (filters.client_ref) q.where('custom_proposals.client_ref', 'ilike', `%${filters.client_ref}%`);
+
         return await q;
+    }
+
+    async getConsolidatedProposalsData(project, filters = {}) {
+        const proposals = await this.getProposals(project, filters);
+        for (const p of proposals) {
+            p.lines = await knex('proposal_lines').where({ proposal_id: p.id }).orderBy('sort_order', 'asc');
+        }
+        return proposals;
+    }
+
+    async generateConsolidatedExcel(project, filters = {}) {
+        const data = await this.getConsolidatedProposalsData(project, filters);
+        return await ProposalExporter.generateConsolidatedItemsExcel(data);
     }
 
     async getProposal(id) {

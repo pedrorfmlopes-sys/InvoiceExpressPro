@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import api from '../../services/api';
+import api from '../../api/apiClient';
 
 const PresetManagementModal = ({ category, presets, onClose, onRefresh }) => {
     const [editingId, setEditingId] = useState(null);

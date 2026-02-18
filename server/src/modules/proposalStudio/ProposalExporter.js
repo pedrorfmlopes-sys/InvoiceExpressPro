@@ -376,6 +376,33 @@ class ProposalExporter {
         xlsx.utils.book_append_sheet(wb, ws, "Proposta");
         return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
     }
+    async generateConsolidatedItemsExcel(proposals) {
+        const flatRows = [];
+
+        for (const p of proposals) {
+            const lines = p.lines || [];
+            lines.forEach(l => {
+                flatRows.push({
+                    'Proposta': p.name || '',
+                    'Estado': p.status || '',
+                    'Marca': p.brand_id || '',
+                    'Cliente': p.client_ref || '',
+                    'Data': p.updated_at ? new Date(p.updated_at).toLocaleDateString('pt-PT') : '',
+                    'SKU/Artigo': l.sku || '',
+                    'Descrição': l.description || '',
+                    'Quantidade': l.quantity || 0,
+                    'P.Unit Com.': l.unit_price_commercial || 0,
+                    'IVA %': l.vat_rate || '23',
+                    'Total Item (c/IVA)': (l.quantity * l.unit_price_commercial * (1 - (l.discount_commercial_percent / 100))) * (1 + parseFloat(l.vat_rate || 23) / 100)
+                });
+            });
+        }
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(flatRows);
+        xlsx.utils.book_append_sheet(wb, ws, "Listagem de Itens");
+        return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    }
 }
 
 module.exports = new ProposalExporter();

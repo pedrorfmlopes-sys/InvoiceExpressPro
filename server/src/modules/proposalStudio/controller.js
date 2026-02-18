@@ -19,7 +19,8 @@ class ProposalStudioController {
     async getProposals(req, res) {
         try {
             const project = req.project;
-            const proposals = await service.getProposals(project);
+            const { status, brand_id, client_ref } = req.query;
+            const proposals = await service.getProposals(project, { status, brand_id, client_ref });
             res.json(proposals);
         } catch (e) {
             res.status(500).json({ error: e.message });
@@ -86,6 +87,21 @@ class ProposalStudioController {
             const buffer = await service.generateExcel(id);
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename=proposta_${id}.xlsx`);
+            res.send(buffer);
+        } catch (e) {
+            console.error(e);
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async exportConsolidated(req, res) {
+        try {
+            const project = req.project;
+            const { status, brand_id, client_ref } = req.query;
+            const buffer = await service.generateConsolidatedExcel(project, { status, brand_id, client_ref });
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=listagem_propostas_consolidada_${new Date().toISOString().slice(0, 10)}.xlsx`);
             res.send(buffer);
         } catch (e) {
             console.error(e);
