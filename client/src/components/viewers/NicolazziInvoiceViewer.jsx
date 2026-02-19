@@ -302,34 +302,42 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
                             />
                         </div>
 
-                        {/* Q3: SHIPPING (SHIP TO) */}
                         <div className="border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-green-900/50 transition-colors">
                             <label className="absolute -top-2 left-2 bg-[#1a1a1a] px-1 text-[9px] text-green-600 font-bold uppercase tracking-wider">Entrega / Ship To</label>
                             <textarea
                                 className="w-full bg-transparent border-none outline-none text-[10px] text-gray-400 h-16 resize-none mt-1 leading-snug custom-scrollbar"
-                                value={data.entities?.shipping?.address || (['fatura', 'invoice'].includes((data.docType || '').toLowerCase()) ? data.entities?.customer?.address : '')}
+                                value={data.entities?.shipping?.address || ''}
                                 onChange={e => updateEntity('shipping', 'address', e.target.value)}
                                 placeholder="Morada de Entrega..."
                             />
                         </div>
 
                         {/* Q4: PROJECT & META */}
-                        <div className="border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-yellow-900/50 transition-colors flex flex-col gap-2">
+                        <div className="border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-yellow-900/50 transition-colors flex flex-col gap-1.5">
                             <label className="absolute -top-2 left-2 bg-[#1a1a1a] px-1 text-[9px] text-yellow-600 font-bold uppercase tracking-wider">Projeto & Meta</label>
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] text-gray-500 uppercase">Doc Nº</span>
-                                <input className="w-24 bg-[#0f0f0f] border border-[#333] px-1 text-right font-mono text-yellow-500 font-bold rounded focus:border-yellow-500 outline-none"
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0">Doc Nº</span>
+                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right font-mono text-yellow-500 font-bold rounded focus:border-yellow-500 outline-none h-5"
                                     value={data.docNumber || ''} onChange={e => updateHeader('docNumber', e.target.value)} />
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] text-gray-500 uppercase">Data</span>
-                                <input className="w-24 bg-[#0f0f0f] border border-[#333] px-1 text-right font-mono text-gray-300 rounded focus:border-yellow-500 outline-none"
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0">Data</span>
+                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right font-mono text-gray-300 rounded focus:border-yellow-500 outline-none h-5"
                                     value={data.date || ''} onChange={e => updateHeader('date', e.target.value)} />
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] text-gray-500 uppercase">Ref. Proj</span>
-                                <input className="w-24 bg-[#0f0f0f] border border-[#333] px-1 text-right text-[10px] text-gray-300 rounded focus:border-yellow-500 outline-none"
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0">Ref. Proj</span>
+                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right text-[10px] text-gray-300 rounded focus:border-yellow-500 outline-none h-5 font-bold"
                                     value={(data.docRefs || [])[0] || ''} onChange={e => saveData({ ...data, docRefs: [e.target.value] })} />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0 leading-tight">Ship Marks</span>
+                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right text-[10px] text-yellow-500/80 rounded focus:border-yellow-500 outline-none h-5"
+                                    value={data.shippingMarks || ''} onChange={e => updateHeader('shippingMarks', e.target.value)} />
                             </div>
                         </div>
                     </div>
