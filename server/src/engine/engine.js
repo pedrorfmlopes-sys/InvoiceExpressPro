@@ -122,12 +122,14 @@ async function process(text, pdfBuffer) {
         docType: extractedData.docType || docType || 'other',
         docNumber: extractedData.docNumber,
         currency: 'EUR', // Assumption for V2
+        date: extractedData.dates?.issued || extractedData.date, // [CRITICAL FIX] Map for Viewer
         dates: extractedData.dates,
         entities: extractedData.entities,
         totals: extractedData.totals,
         lines: extractedData.lines,
         docRefs: extractedData.docRefs,
         projectRef: extractedData.projectRef, // [NEW] Pass through Project Ref
+        shippingMarks: extractedData.shippingMarks, // [CRITICAL FIX] Pass through Shipping Marks
 
         confidence: validation.confidence,
         needsReview: validation.needsReview,

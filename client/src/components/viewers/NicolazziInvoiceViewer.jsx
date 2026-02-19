@@ -1,158 +1,89 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import api from '../../api/apiClient';
+import api from '../../api/apiClient'; // Still needed for Reprocess logic? Or move to Container?
+import { normalizeInvoiceData } from './nicolazziInvoiceUtils'; // For reprocess normalization
 
 /**
- * NicolazziInvoiceViewer (Digital Twin Edition)
- * Layout: Vertical Split (Twin-Frame)
- * Persistence: Sandbox-First (Satellite DB: nicolazzi_invoices)
+ * NicolazziInvoiceViewer (Pure Presenter)
+ * Receives data from Container. Only handles UI interaction.
  */
-export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFinalize }) {
-    // --- State ---
-    const [satelliteData, setSatelliteData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [reprocessing, setReprocessing] = useState(false);
-    const [showPdf, setShowPdf] = useState(true);
-    const [pdfUrl, setPdfUrl] = useState(null);
+export default function NicolazziInvoiceViewer({
+    doc,
+    data,
+    loading,
+    saving,
+    pdfUrl,
 
-    // Filter for Item Grid
+    onDataChange,
+    onSave,
+    onClose,
+    onFinalize,
+
+    mode // 'staging' or 'archive'
+}) {
+    // Local UI State
+    const [showPdf, setShowPdf] = useState(true);
+    const [reprocessing, setReprocessing] = useState(false);
     const [itemFilter, setItemFilter] = useState('');
 
-    // --- Effects ---
-    useEffect(() => {
-        if (!doc?.id) return;
-        loadData();
-        return () => {
-            if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    // --- Actions (Delegated to Container via onDataChange) ---
+
+    const updateHeader = (field, val) => {
+        const newData = { ...data, [field]: val };
+        onDataChange(newData);
+    };
+
+    const updateEntity = (entityType, field, val) => {
+        const entities = { ...(data.entities || {}) };
+        entities[entityType] = { ...(entities[entityType] || {}), [field]: val };
+        onDataChange({ ...data, entities });
+    };
+
+    const updateLine = (idx, field, val) => {
+        const lines = [...(data.lines || [])];
+        const line = { ...lines[idx], [field]: val };
+
+        // Auto-Calc Line Total
+        if (field === 'quantity' || field === 'unitPrice' || field === 'discountPercent') {
+            const qty = parseFloat(line.quantity) || 0;
+            const price = parseFloat(line.unitPrice) || 0;
+            const discText = String(line.discountPercent || '0').replace(',', '.');
+            const disc = parseFloat(discText) || 0;
+            line.total = parseFloat((qty * price * (1 - disc / 100)) || 0).toFixed(2);
+        }
+
+        lines[idx] = line;
+
+        // Auto-Calc Global Totals
+        const net = lines.reduce((acc, l) => acc + (parseFloat(l.total) || 0), 0);
+        const transport = parseFloat(data.totals?.transport || 0);
+        const vat = parseFloat(data.totals?.vat || 0);
+
+        const totals = {
+            ...data.totals,
+            net: parseFloat(net || 0).toFixed(2),
+            gross: parseFloat((net + transport + vat) || 0).toFixed(2)
         };
-    }, [doc?.id]);
 
-    // --- Actions ---
-    async function loadData() {
-        if (!doc || !doc.id) return;
+        // Sync 'total' alias
+        totals.total = totals.gross;
 
-        try {
-            setLoading(true);
+        onDataChange({ ...data, lines, totals });
+    };
 
-            // 1. Fire Parallel Requests
-            // Endpoint changed to nicolazzi_invoices
-            const pSat = api.get(`/api/corev2/extraction-data/nicolazzi_invoices/${doc.id}`);
-            const pPdf = api.get(`/api/corev2/docs/${doc.id}/view?project=${doc.project || 'default'}`, { responseType: 'blob' });
-            const pMainDoc = api.get(`/api/corev2/docs/${doc.id}/json?project=${doc.project || 'default'}`);
-
-            const [satRes, pdfRes, mainDocRes] = await Promise.allSettled([pSat, pPdf, pMainDoc]);
-
-            // 2. Handle PDF
-            if (pdfRes.status === 'fulfilled') {
-                const url = URL.createObjectURL(pdfRes.value.data);
-                setPdfUrl(url);
-            } else {
-                console.warn("[InvoiceViewer] PDF Load Failed", pdfRes.reason);
-            }
-
-            // 3. Handle Data Hierarchy and Merging
-            // Hierarchy: Satellite (Edit) > MainDoc.rawJson (Initial Extract) > Prop (Fallback)
-
-            let finalData = null;
-
-            // A. Check Satellite
-            if (satRes.status === 'fulfilled' && satRes.value.data &&
-                ((satRes.value.data.lines && satRes.value.data.lines.length > 0) ||
-                    (satRes.value.data.totals && satRes.value.data.totals.total))
-            ) {
-                finalData = satRes.value.data;
-                console.log("[InvoiceViewer] Loaded from Satellite");
-            }
-
-            // B. Check Main Doc Fresh Fetch (Repair Mechanism)
-            else if (mainDocRes.status === 'fulfilled' && mainDocRes.value.data && mainDocRes.value.data.rawJson) {
-                const raw = typeof mainDocRes.value.data.rawJson === 'string'
-                    ? JSON.parse(mainDocRes.value.data.rawJson)
-                    : mainDocRes.value.data.rawJson;
-
-                if (raw && Object.keys(raw).length > 0) {
-                    finalData = raw;
-                    console.log("[InvoiceViewer] Loaded from Main Doc (Fresh Fetch)");
-                }
-            }
-
-            // C. Fallback to Prop
-            if (!finalData) {
-                let propData = doc.rawJson || (doc.raw_data ? (typeof doc.raw_data === 'string' ? JSON.parse(doc.raw_data) : doc.raw_data) : null);
-
-                // Safety: Parse if string
-                if (typeof propData === 'string') {
-                    try { propData = JSON.parse(propData); } catch (e) { propData = null; }
-                }
-
-                if (propData) {
-                    finalData = propData;
-                    console.log("[InvoiceViewer] Loaded from Prop Fallback");
-                }
-            }
-
-            setSatelliteData(normalizeData(finalData || {}));
-
-        } catch (err) {
-            console.error("[InvoiceViewer] Critical Load Error:", err);
-            setSatelliteData(normalizeData({}));
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    // Helper: Normalize Backend JSON (Poppler/Engine) to Viewer State
-    function normalizeData(incoming) {
-        if (!incoming) return {};
-        const d = { ...incoming };
-
-        // 1. Normalize Totals (Engine uses goods/total, Viewer uses net/gross)
-        d.totals = d.totals || {};
-        if (d.totals.goods !== undefined && d.totals.net === undefined) d.totals.net = d.totals.goods;
-        if (d.totals.total !== undefined && d.totals.gross === undefined) d.totals.gross = d.totals.total;
-
-        // 2. Normalize Lines
-        if (Array.isArray(d.lines)) {
-            d.lines = d.lines.map(l => ({
-                ...l,
-                // Engine uses discountText (e.g. "45"), Viewer uses discountPercent
-                discountPercent: l.discountPercent !== undefined ? l.discountPercent : (parseFloat(l.discountText) || 0),
-                // Ensure numeric types for UI calcs
-                unitPrice: parseFloat(l.unitPrice) || 0,
-                quantity: parseFloat(l.quantity) || 0,
-                total: parseFloat(l.total) || 0
-            }));
-        }
-
-        // 3. Normalize Extracted Date if present in 'dates.issued' to root 'date'
-        if (d.dates?.issued && !d.date) d.date = d.dates.issued;
-
-        // 4. Normalize Project Ref (Customer Ref)
-        // FORCE: Always map ProjectRef if found (Aggressive Fix)
-        if (d.projectRef) {
-            d.docRefs = [d.projectRef];
-        } else if (d.docRefs && !Array.isArray(d.docRefs) && typeof d.docRefs === 'object') {
-            // Legacy Object Support (Proforma)
-            const refs = [];
-            if (d.docRefs.customerRef) refs.push(d.docRefs.customerRef);
-            d.docRefs = refs;
-        }
-
-        return d;
-    }
-
+    // Reprocess Logic (Still local for now, could be moved to Container)
     const handleReProcess = async () => {
-        if (!confirm("Tem a certeza? Isto irá apagar todas as edições manuais e reler o PDF original com o motor Poppler.")) return;
-
+        if (!confirm("Tem a certeza? Isto irá apagar todas as edições manuais e reler o PDF original.")) return;
         try {
             setReprocessing(true);
-            // Call the real reprocess endpoint
-            const res = await api.post(`/api/reprocess/${doc.id}?project=${doc.project}`);
+            // Assuming endpoint exists
+            const res = await api.post(`/api/reprocess/${doc.id}?project=${doc.project || 'default'}`);
             const freshDoc = res.data;
-
             const freshData = freshDoc.rawJson || {};
-            setSatelliteData(normalizeData(freshData));
+
+            // Normalize immediately
+            const cleanData = normalizeInvoiceData(freshData);
+            onDataChange(cleanData); // Push up to Container
 
             alert("Releitura efetuada com sucesso!");
         } catch (err) {
@@ -163,66 +94,12 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
         }
     };
 
-    const saveData = async (newData) => {
-        setSatelliteData(newData);
-        try {
-            setSaving(true);
-            // Endpoint changed to nicolazzi_invoices
-            await api.post(`/api/corev2/extraction-data/nicolazzi_invoices/${doc.id}`, newData);
-            if (newData.totals?.gross !== doc.total) updateRow(doc.id, 'total', newData.totals?.gross);
-            if (newData.docNumber !== doc.docNumber) updateRow(doc.id, 'docNumber', newData.docNumber);
-        } catch (err) {
-            console.error("Save failed:", err);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // --- Helpers ---
-    const updateHeader = (field, val) => saveData({ ...satelliteData, [field]: val });
-
-    const updateEntity = (entityType, field, val) => {
-        const entities = { ...(satelliteData.entities || {}) };
-        entities[entityType] = { ...(entities[entityType] || {}), [field]: val };
-        saveData({ ...satelliteData, entities });
-    };
-
-    const updateLine = (idx, field, val) => {
-        const lines = [...(satelliteData.lines || [])];
-        const line = { ...lines[idx], [field]: val };
-
-        // Auto-Calc Line Total
-        if (field === 'quantity' || field === 'unitPrice' || field === 'discountPercent') {
-            const qty = parseFloat(line.quantity) || 0;
-            const price = parseFloat(line.unitPrice) || 0;
-            const disc = parseFloat(line.discountPercent) || 0;
-            line.total = parseFloat((qty * price * (1 - disc / 100)) || 0).toFixed(2);
-        }
-
-        lines[idx] = line;
-
-        // Auto-Calc Global Totals
-        const net = lines.reduce((acc, l) => acc + (parseFloat(l.total) || 0), 0);
-        const transport = parseFloat(satelliteData.totals?.transport || 0);
-        const vat = parseFloat(satelliteData.totals?.vat || 0);
-
-        const totals = {
-            ...satelliteData.totals,
-            net: parseFloat(net || 0).toFixed(2),
-            gross: parseFloat((net + transport + vat) || 0).toFixed(2)
-        };
-
-        // If simple 'tax' field exists (legacy support), update it too if needed, but 'vat' is standard here
-        // Note: Invoices have 'tax' in extractor.
-        if (satelliteData.totals?.tax !== undefined) totals.tax = vat;
-
-        saveData({ ...satelliteData, lines, totals });
-    };
-
     // --- Render ---
     if (!doc) return null;
-    const data = satelliteData || {};
-    const lines = data.lines || [];
+
+    // Safety Fallback for initial render
+    const safeData = data || { lines: [], totals: {}, entities: {} };
+    const lines = safeData.lines || [];
     const filteredLines = lines.filter(l =>
         (l.code || '').toLowerCase().includes(itemFilter.toLowerCase()) ||
         (l.description || '').toLowerCase().includes(itemFilter.toLowerCase())
@@ -237,14 +114,16 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
                     <h2 className="text-gray-300 font-bold tracking-wider flex items-center gap-2">
                         <span className="text-yellow-500">NICOLAZZI INVOICE VIEWER</span>
                         <span className="opacity-30">|</span>
-                        {doc.docNumber || 'SEM NÚMERO'}
+                        {safeData.docNumber || 'SEM NÚMERO'}
                     </h2>
                     {saving && <span className="text-[10px] text-blue-400 animate-pulse">A GRAVAR...</span>}
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={handleReProcess} disabled={reprocessing} className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 transition-colors flex items-center gap-2">
-                        <span>{reprocessing ? '⚙️' : '🔄'}</span> Refazer Releitura
-                    </button>
+                    {mode === 'staging' && (
+                        <button onClick={handleReProcess} disabled={reprocessing} className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 transition-colors flex items-center gap-2">
+                            <span>{reprocessing ? '⚙️' : '🔄'}</span> Refazer Releitura
+                        </button>
+                    )}
                     <button onClick={() => setShowPdf(!showPdf)} className={`px-3 py-1 rounded border border-gray-600 transition-colors ${showPdf ? 'bg-blue-900/30 text-blue-400 border-blue-800' : 'bg-gray-800 text-gray-400'}`}>
                         {showPdf ? 'Ocultar PDF' : 'Mostrar PDF'}
                     </button>
@@ -256,6 +135,13 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
 
             {/* 2. MAIN SPLIT CONTAINER */}
             <div className="flex-1 flex flex-col overflow-hidden relative min-h-0">
+
+                {/* Loading Overlay */}
+                {loading && (
+                    <div className="absolute inset-0 z-[6000] bg-black/50 flex items-center justify-center backdrop-blur-sm">
+                        <div className="text-white animate-pulse font-bold">A CARREGAR DADOS...</div>
+                    </div>
+                )}
 
                 {/* FRAME A: PDF */}
                 {showPdf && (
@@ -272,72 +158,82 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
                 <div className="h-[calc(70vh-40px)] w-full bg-[#121212] text-gray-300 flex flex-col overflow-hidden min-h-0">
 
                     {/* B1. QUADRANTS HEADER */}
-                    <div className="p-4 grid grid-cols-4 gap-4 border-b border-[#333] bg-[#1a1a1a]">
+                    <div className="p-4 grid grid-cols-4 gap-3 border-b border-[#333] bg-[#1a1a1a]">
 
                         {/* Q1: SUPPLIER */}
-                        <div className="border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-[#555] transition-colors">
+                        <div className="col-span-1 border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-[#555] transition-colors">
                             <label className="absolute -top-2 left-2 bg-[#1a1a1a] px-1 text-[9px] text-gray-500 font-bold uppercase tracking-wider">Fornecedor / Supplier</label>
-                            <input className="w-full bg-transparent border-none outline-none font-bold text-gray-200" value={data.entities?.supplier?.name || 'NICOLAZZI S.p.A.'} disabled />
+                            <input className="w-full bg-transparent border-none outline-none font-bold text-gray-200" value={safeData.entities?.supplier?.name || 'NICOLAZZI S.p.A.'} disabled />
                             <textarea
-                                className="w-full bg-transparent border-none outline-none text-[10px] text-gray-500 h-12 resize-none mt-1"
-                                value={data.entities?.supplier?.address || ''}
+                                className="w-full bg-transparent border-none outline-none text-[10px] text-gray-500 h-16 resize-none mt-1"
+                                value={safeData.entities?.supplier?.address || ''}
                                 onChange={e => updateEntity('supplier', 'address', e.target.value)}
                             />
                         </div>
 
                         {/* Q2: CUSTOMER (BILL TO) */}
-                        <div className="border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-blue-900/50 transition-colors">
+                        <div className="col-span-1 border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-blue-900/50 transition-colors">
                             <label className="absolute -top-2 left-2 bg-[#1a1a1a] px-1 text-[9px] text-blue-500 font-bold uppercase tracking-wider">Cliente / Bill To</label>
                             <input
                                 className="w-full bg-transparent border-none outline-none font-bold text-blue-100 placeholder-white/10"
-                                value={data.entities?.customer?.name || ''}
+                                value={safeData.entities?.customer?.name || ''}
                                 onChange={e => updateEntity('customer', 'name', e.target.value)}
                                 placeholder="Nome do Cliente"
                             />
                             <textarea
-                                className="w-full bg-transparent border-none outline-none text-[10px] text-gray-400 h-12 resize-none mt-1 custom-scrollbar"
-                                value={data.entities?.customer?.address || ''}
+                                className="w-full bg-transparent border-none outline-none text-[10px] text-gray-400 h-16 resize-none mt-1 custom-scrollbar"
+                                value={safeData.entities?.customer?.address || ''}
                                 onChange={e => updateEntity('customer', 'address', e.target.value)}
                                 placeholder="Morada Fiscal..."
                             />
                         </div>
 
-                        <div className="border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-green-900/50 transition-colors">
-                            <label className="absolute -top-2 left-2 bg-[#1a1a1a] px-1 text-[9px] text-green-600 font-bold uppercase tracking-wider">Entrega / Ship To</label>
-                            <textarea
-                                className="w-full bg-transparent border-none outline-none text-[10px] text-gray-400 h-16 resize-none mt-1 leading-snug custom-scrollbar"
-                                value={data.entities?.shipping?.address || ''}
-                                onChange={e => updateEntity('shipping', 'address', e.target.value)}
-                                placeholder="Morada de Entrega..."
-                            />
-                        </div>
-
-                        {/* Q4: PROJECT & META */}
-                        <div className="border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-yellow-900/50 transition-colors flex flex-col gap-1.5">
+                        {/* Q3: PROJECT & META (EXPANDED col-span-2) */}
+                        <div className="col-span-2 border border-[#333] rounded p-2 bg-[#151515] relative group hover:border-yellow-900/50 transition-colors flex gap-2">
                             <label className="absolute -top-2 left-2 bg-[#1a1a1a] px-1 text-[9px] text-yellow-600 font-bold uppercase tracking-wider">Projeto & Meta</label>
 
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0">Doc Nº</span>
-                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right font-mono text-yellow-500 font-bold rounded focus:border-yellow-500 outline-none h-5"
-                                    value={data.docNumber || ''} onChange={e => updateHeader('docNumber', e.target.value)} />
+                            {/* Left Column */}
+                            <div className="flex-1 flex flex-col gap-2 border-r border-[#222] pr-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] text-gray-500 uppercase w-12 shrink-0">Doc Nº</span>
+                                    <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right font-mono text-yellow-500 font-bold rounded focus:border-yellow-500 outline-none h-6"
+                                        value={safeData.docNumber || ''} onChange={e => updateHeader('docNumber', e.target.value)} />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] text-gray-500 uppercase w-12 shrink-0">Data</span>
+                                    <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right font-mono text-gray-300 rounded focus:border-yellow-500 outline-none h-6"
+                                        value={safeData.date || ''} onChange={e => updateHeader('date', e.target.value)} />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] text-gray-500 uppercase w-12 shrink-0">DDT Ref</span>
+                                    <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right text-[10px] text-blue-400 font-mono rounded focus:border-blue-500 outline-none h-6"
+                                        value={(safeData.docRefs && safeData.docRefs.length > 0) ? safeData.docRefs.join(', ') : ''}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            updateHeader('docRefs', val ? [val] : []);
+                                        }}
+                                        placeholder="DDT..."
+                                    />
+                                </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0">Data</span>
-                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right font-mono text-gray-300 rounded focus:border-yellow-500 outline-none h-5"
-                                    value={data.date || ''} onChange={e => updateHeader('date', e.target.value)} />
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0">Ref. Proj</span>
-                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right text-[10px] text-gray-300 rounded focus:border-yellow-500 outline-none h-5 font-bold"
-                                    value={(data.docRefs || [])[0] || ''} onChange={e => saveData({ ...data, docRefs: [e.target.value] })} />
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-gray-500 uppercase w-14 shrink-0 leading-tight">Ship Marks</span>
-                                <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right text-[10px] text-yellow-500/80 rounded focus:border-yellow-500 outline-none h-5"
-                                    value={data.shippingMarks || ''} onChange={e => updateHeader('shippingMarks', e.target.value)} />
+                            {/* Right Column */}
+                            <div className="flex-1 flex flex-col gap-2 pl-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] text-gray-500 uppercase w-16 shrink-0">Ref. Proj</span>
+                                    <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right text-[10px] text-gray-300 rounded focus:border-yellow-500 outline-none h-6 font-bold"
+                                        value={safeData.projectRef || ''}
+                                        onChange={e => updateHeader('projectRef', e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] text-gray-500 uppercase w-16 shrink-0 leading-tight">Ship Marks</span>
+                                    <input className="flex-1 bg-[#0f0f0f] border border-[#333] px-2 text-right text-[10px] text-yellow-500/80 rounded focus:border-yellow-500 outline-none h-6"
+                                        value={safeData.shippingMarks || ''}
+                                        onChange={e => updateHeader('shippingMarks', e.target.value)}
+                                        placeholder="Marcas..."
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -350,7 +246,7 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
                                     <th className="p-2 w-10 text-center border-r border-[#333]">#</th>
                                     <th className="p-2 w-32 border-r border-[#333]">SKU</th>
                                     <th className="p-2 border-r border-[#333]">Descrição (Click to Expand)</th>
-                                    <th className="p-2 w-[10%] text-right text-yellow-600 border-r border-[#333]">REF. ENC.</th>
+                                    <th className="p-2 w-[10%] text-center text-yellow-600 border-r border-[#333]">REF. ENC.</th>
                                     <th className="p-2 w-16 text-center border-r border-[#333]">Qtd</th>
                                     <th className="p-2 w-24 text-right border-r border-[#333]">Unit Price</th>
                                     <th className="p-2 w-16 text-center border-r border-[#333]">Desc%</th>
@@ -370,7 +266,7 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
                                                 value={line.description || ''} onChange={e => updateLine(idx, 'description', e.target.value)} />
                                         </td>
                                         <td className="p-0 border-r border-[#222]">
-                                            <input className="w-full h-full bg-transparent px-2 py-2 outline-none text-right text-yellow-600 font-bold focus:bg-[#222]"
+                                            <input className="w-full h-full bg-transparent px-2 py-2 outline-none text-center text-yellow-600 font-bold focus:bg-[#222]"
                                                 value={line.projectRef || ''}
                                                 placeholder="-"
                                                 onChange={e => updateLine(idx, 'projectRef', e.target.value)} />
@@ -409,45 +305,71 @@ export default function NicolazziInvoiceViewer({ doc, onClose, updateRow, onFina
                             <input
                                 className="w-full bg-transparent border-none outline-none text-[10px] text-gray-500 italic placeholder-gray-700"
                                 placeholder="Notas internas ou observações..."
-                                value={data.notes || ''}
+                                value={safeData.notes || ''}
                                 onChange={e => updateHeader('notes', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-8">
                             <div className="flex flex-col items-end">
                                 <span className="text-[9px] uppercase font-bold text-gray-600">Subtotal</span>
-                                <span className="font-mono text-gray-400">{data.totals?.net || '0.00'} €</span>
+                                <span className="font-mono text-gray-400">{safeData.totals?.net || '0.00'} €</span>
                             </div>
                             <div className="flex flex-col items-end group">
                                 <span className="text-[9px] uppercase font-bold text-gray-600 group-hover:text-blue-500 cursor-pointer">Portes (Edit)</span>
                                 <input
                                     className="bg-transparent border-b border-[#333] w-16 text-right font-mono text-gray-300 outline-none focus:border-blue-500"
-                                    value={data.totals?.transport || '0.00'}
+                                    value={safeData.totals?.transport || '0.00'}
                                     onChange={e => {
                                         const val = e.target.value;
-                                        // Update Transport and Global Total instantly
-                                        const newTotals = { ...data.totals, transport: val };
+                                        // Dynamic update immediately
+                                        const newTotals = { ...safeData.totals, transport: val };
                                         const net = parseFloat(newTotals.net || 0);
                                         const vat = parseFloat(newTotals.vat || 0);
                                         const trans = parseFloat(val || 0) || 0;
                                         newTotals.gross = parseFloat((net + vat + trans) || 0).toFixed(2);
-                                        setSatelliteData({ ...satelliteData, totals: newTotals });
+                                        newTotals.total = newTotals.gross;
+
+                                        onDataChange({ ...safeData, totals: newTotals });
                                     }}
                                 />
                             </div>
                             <div className="flex flex-col items-end">
                                 <span className="text-[9px] uppercase font-bold text-gray-600">Total Final</span>
-                                <span className="font-mono text-xl font-bold text-yellow-500">{data.totals?.gross || '0.00'} €</span>
+                                <span className="font-mono text-xl font-bold text-yellow-500">{safeData.totals?.gross || '0.00'} €</span>
                             </div>
-                            <button className="bg-green-700 hover:bg-green-600 text-white font-bold px-6 py-2 rounded shadow-lg transition-transform active:scale-95 flex items-center gap-2"
-                                onClick={onFinalize}
-                            >
-                                <span>✔</span> FINALIZAR
-                            </button>
+
+                            <div className="flex gap-2">
+                                <button
+                                    className="px-4 py-2 bg-blue-900/40 text-blue-400 border border-blue-800/50 rounded hover:bg-blue-900/60 transition-colors flex items-center gap-2"
+                                    onClick={() => onSave(safeData)}
+                                    disabled={saving}
+                                >
+                                    💾 {saving ? 'A gravar...' : 'Guardar'}
+                                </button>
+
+                                {mode === 'staging' && (
+                                    <button
+                                        className="bg-green-700 hover:bg-green-600 text-white font-bold px-6 py-2 rounded shadow-lg transition-transform active:scale-95 flex items-center gap-2"
+                                        onClick={() => onFinalize(safeData)}
+                                    >
+                                        <span>✔</span> FINALIZAR
+                                    </button>
+                                )}
+
+                                {mode === 'archive' && (
+                                    <button
+                                        className="bg-gray-700 hover:bg-gray-600 text-white font-bold px-6 py-2 rounded shadow-lg transition-transform active:scale-95 flex items-center gap-2"
+                                        onClick={onClose}
+                                    >
+                                        <span>✔</span> FECHAR
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <style dangerouslySetInnerHTML={{ __html: styles }} />
         </div>,
         document.body
     );

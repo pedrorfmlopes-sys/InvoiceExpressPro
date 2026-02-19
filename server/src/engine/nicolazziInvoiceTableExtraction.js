@@ -8,11 +8,13 @@ function parseMoneyEU(str) {
 }
 
 function extractNicolazziInvoiceTable(text) {
+    // --- INITIALIZATION ---
     const extracted = {
         docType: 'invoice',
         docNumber: null,
+        date: null,
         projectRef: null,
-        shippingMarks: null,
+        shippingMarks: null, // Crucial Addition for V12
         orderRef: null,
         shipmentDetails: null,
         dates: { issued: null, due: null },
@@ -21,194 +23,233 @@ function extractNicolazziInvoiceTable(text) {
         entities: {
             customer: { name: null, vat: null, address: null },
             shipping: { name: null, address: null },
-            supplier: { name: "NICOLAZZI s.p.a." }
+            supplier: { name: "NICOLAZZI s.p.a.", address: "Via Pietro Durio 119, 28010 ALZO DI PELLA (NO)" }
         },
-        debug: { extractor: 'nicolazzi (V11.5 - Clean Revert)' }
+        debug: { extractor: 'nicolazzi (V12.2 - Supplier Fix)' }
     };
 
     if (!text) return extracted;
-    const allLines = text.split('\n');
-    let inTableZone = false;
-    let lineBuffer = [];
+    // const lines = text.split('\n'); // Original line
+    // let inTableZone = false; // Original line
+    // let lineBuffer = []; // Original line
     let customerBuffer = [];
-    let collectingAddress = true;
 
-    // Helper to detect column boundaries from a line
-    const getAnchorIndex = (line) => {
-        const umMatch = line.match(/\b(NR|PZ|CF)\b/);
-        return umMatch ? umMatch.index : -1;
-    };
+    // --- DATE & MONEY REGEX ---
+    const dateRegex = /(\d{2}\/\d{2}\/\d{4})/;
 
-    const legalRegex = /In relazione al presente documento|assumendo agli efeitos|delle vigenti disposizioni|piena e diretta|responsabilita|dichiara di garantir|veridicità di quanto|da esso resulta|risulta|effettivamente concordati|corrispondenti di massima|correnti noti/i;
+    // --- PAGE-BASED EXTRACTION LOGIC ---
+    // Split text by Form Feed (\f or \u000c) to treat each page separately
+    const pages = text.split(/\f|\u000c/);
 
-    for (let i = 0; i < allLines.length; i++) {
-        const line = allLines[i];
-        const trimmed = line.trim();
-        if (!trimmed) continue;
+    // Global Accumulators
+    let globalLineBuffer = [];
 
-        // KILL SWITCH: Stop processing lines once legal footer starts
-        if (line.match(legalRegex)) {
-            break;
-        }
+    pages.forEach((pageText, pageIndex) => {
+        const pageLines = pageText.split('\n');
+        let pageInTable = false;
 
-        // Meta Data (Header) - Improved Address Logic
-        if (i < 60 && collectingAddress) {
-            // Nicolazzi metadata usually ends before index 95. Client starts at 100.
-            const rightPart = line.length > 100 ? line.substring(100).trim() : "";
+        for (let i = 0; i < pageLines.length; i++) {
+            const line = pageLines[i];
+            const trimmed = line.trim();
+            if (!trimmed) continue;
 
-            const stopTerms = /Fattura|INVOICE|Numero|Data|Codice|Banca|Condizione|Payment|Annotazioni|riferimento|Shipping Marks|Volume|Colli|Peso|Privacy|Banca/i;
-            const supplierTerms = /NICOLAZZI|ALZO|IVA|Fiscale|Trib\.|Capitale|Via P\.|Durio|Telefax|tel\.|Telefax/i;
-
-            if (rightPart.length > 2) {
-                if (rightPart.match(stopTerms) || trimmed.match(/Fattura|INVOICE/i)) {
-                    collectingAddress = false;
-                } else if (!rightPart.match(supplierTerms) && !rightPart.match(/^\d{4}/)) {
-                    if (!customerBuffer.includes(rightPart)) customerBuffer.push(rightPart);
+            // DDT Line Detection (Transport Document Reference)
+            // Example: "DDT Nr. 003050 del 09/12/2025"
+            // If found, add to docRefs and skip so it doesn't contaminate the first item description.
+            if (trimmed.match(/^(DDT|D\.D\.T\.)/i)) {
+                if (!extracted.docRefs) extracted.docRefs = [];
+                // Extract only the number/date part or the whole line if needed, usually whole line is useful ref
+                // Clean up a bit
+                const ddtClean = trimmed.replace(/^(DDT|D\.D\.T\.)\s*(Nr\.|N\.)?\s*/i, '').trim();
+                // Avoid duplicates
+                if (!extracted.docRefs.includes(ddtClean)) {
+                    extracted.docRefs.push(ddtClean);
                 }
-            }
-        }
-
-        // Other metadata (numbers, dates)
-        if (i < 80) {
-            // Document Number
-            if (!extracted.docNumber && (/Numero\/.*Number/i.test(line) || /Fattura.*INVOICE/i.test(line))) {
-                const m = (allLines[i + 1] || "").match(/(\d{5,}\/[A-Z])/i) || (allLines[i + 1] || "").match(/(\d{3,})/i);
-                if (m) extracted.docNumber = m[1].trim();
-            }
-            // Date
-            if (!extracted.dates.issued && /Data\/.*Date/i.test(line)) {
-                const m = (allLines[i + 1] || "").match(/(\d{2}\/\d{2}\/\d{4})/);
-                if (m) extracted.dates.issued = normalizeDate(m[1]);
+                continue; // Skip this line completely
             }
 
-            // Project Ref (Vostro Riferimento)
-            if (!extracted.projectRef && /Vostro Riferimento/i.test(line)) {
-                let nextL = (allLines[i + 1] || "").substring(0, 90).trim();
-                extracted.projectRef = nextL;
-            }
-
-            // Shipping Marks
-            if (!extracted.shippingMarks && /Shipping Marks/i.test(line)) {
-                let part = line.split(/Shipping Marks/i)[1]?.trim();
-                if (part && part.length > 2 && !part.match(/Volume|Colli|Peso/i)) {
-                    extracted.shippingMarks = part.replace(/^[:\-\s/]+/, '').trim();
-                }
-            }
-        }
-
-        // Table Gating
-        if (trimmed.match(/Articolo.*Descrizione/i) || trimmed.match(/Descrizione.*Ord\. Ref/i)) {
-            inTableZone = true;
-            continue;
-        }
-        if (inTableZone && (trimmed.toLowerCase().includes("totale netto merce") || trimmed.toLowerCase().includes("totale documento"))) {
-            inTableZone = false;
-        }
-
-        // Table Parsing
-        if (inTableZone) {
-            if (trimmed.match(/^Segue|^Pag\.|^Numero\/ Number/i)) continue;
-
-            const moneyPattern = "\\d{1,3}(?:\\.\\d{3})*,\\d{2}";
-            const isFinRow = trimmed.includes("EUR") && trimmed.match(new RegExp(moneyPattern));
-
-            if (isFinRow) {
-                const allRows = [...lineBuffer, line];
-                lineBuffer = [];
-                let code = "", description = "", ordRef = "", qty = 0, unitPrice = 0, total = 0;
-
-                const moneyMatches = line.match(new RegExp(moneyPattern, 'g'));
-                if (moneyMatches && moneyMatches.length >= 2) {
-                    unitPrice = parseMoneyEU(moneyMatches[moneyMatches.length - 2]);
-                    total = parseMoneyEU(moneyMatches[moneyMatches.length - 1]);
-                }
-
-                allRows.forEach(row => {
-                    const rowAnchor = getAnchorIndex(row);
-                    // PURE LAYOUT: Fixed coordinates (Standard Nicolazzi Grid)
-                    const skuPart = row.substring(0, 30).trim();
-                    const descPart = row.substring(30, 88).trim();
-                    const refPart = row.substring(88, 132).trim();
-
-                    if (skuPart && !code && !skuPart.match(/DDT|Nr\.|del|Data|Articolo/i)) {
-                        code = skuPart;
+            // --- UNIFIED HEADER SKIP (All Pages identical) ---
+            // Wait for Table Header ("Articolo...") to start extraction
+            if (line.match(/^Articolo|^Descrizione/i) || (line.includes("Articolo") && line.includes("Col."))) {
+                pageInTable = true;
+                // Special handling for Customer Buffer only on Page 1
+                if (pageIndex === 0 && customerBuffer.length > 0) {
+                    extracted.entities.customer.name = customerBuffer[0];
+                    if (customerBuffer.length > 1) {
+                        extracted.entities.customer.address = customerBuffer.slice(1).join(", ");
                     }
-                    if (descPart) description += " " + descPart;
-                    // Fix: Only ignore if it's ONLY the UOM, not if it's part of the ref string
-                    if (refPart && !refPart.match(/^(NR|PZ|CF)$/)) {
-                        ordRef += (ordRef ? " " : "") + refPart;
+                }
+                continue; // Skip the header line itself
+            }
+
+            // --- 1. META DATA EXTRACTION (Only while NOT in Table) ---
+            if (!pageInTable) {
+                // Only extract metadata on Page 1 or if specifically needed
+                if (pageIndex === 0) {
+                    // DOC NUMBER & DATE
+                    if (!extracted.docNumber || !extracted.dates.issued) {
+                        const numDateMatch = line.match(/([0-9]+\/[A-Z])\s+(\d{2}\/\d{2}\/\d{4})/);
+                        if (numDateMatch) {
+                            extracted.docNumber = numDateMatch[1];
+                            extracted.dates.issued = normalizeDate(numDateMatch[2]);
+                            extracted.date = numDateMatch[2];
+                        } else if (line.match(/^\d+\/[A-Z]$/) && !extracted.docNumber) {
+                            extracted.docNumber = line.trim();
+                        } else if (!extracted.dates.issued) {
+                            const dateMatch = line.match(/(\d{2}\/\d{2}\/\d{4})/);
+                            if (dateMatch && i < 20) {
+                                const prev = pageLines[i - 1] || "";
+                                if (prev.match(/Data|Date/i) || line.match(/Data|Date/i) || line.length < 40) {
+                                    extracted.dates.issued = normalizeDate(dateMatch[1]);
+                                    extracted.date = dateMatch[1];
+                                }
+                            }
+                        }
                     }
 
-                    if (row.includes("EUR")) {
-                        const qM = row.match(/\s+(\d+)\s+(?:EUR|NR|PZ)/);
-                        if (qM) qty = parseInt(qM[1]);
+                    // CUSTOMER
+                    const customerPart = line.length > 100 ? line.substring(100).trim() : "";
+                    const isStopWord = line.match(/Fattura|INVOICE|Numero|Data|Codice|Banca|Condizione|Payment|Annotazioni|riferimento|Shipping Marks/i);
+                    const isVolumeLine = customerPart.match(/\d+,\d{2}\s+\d+/);
+                    if (i < 25 && customerPart.length > 2 && !isStopWord && !isVolumeLine) {
+                        const clean = customerPart.replace(/Spett\.le/gi, '').trim();
+                        if (!clean.match(/Messrs|LIPARI|PORTO|FRANCO|DDT|Transport|Mezzo|Vettore|Causale|Aspetto|Pag\./i) && !clean.match(/^\s*\d{2}\/\d{2}\/\d{4}/)) {
+                            customerBuffer.push(clean);
+                        }
                     }
-                });
 
-                description = description.replace(/\s{2,}/g, ' ').trim();
+                    // PROJECT REF
+                    if (line.match(/Vostro Riferimento|Your Ref/i)) {
+                        const nextLine = pageLines[i + 1]?.trim();
+                        if (nextLine) {
+                            const candidate = nextLine.split(/\s{2,}/)[0];
+                            if (candidate && !candidate.match(/PROJ\.$|P\.IVA|Cod\. Fisc\./) && candidate.length > 2) extracted.projectRef = candidate;
+                        }
+                    }
+                    if (line.includes("PROJ.") && !extracted.projectRef) {
+                        extracted.projectRef = line.substring(line.indexOf("PROJ.")).trim();
+                    }
 
-                // Justify/Clean Ref Column
-                if (ordRef) {
-                    ordRef = ordRef.replace(/\s+(NR|PZ|PZ\/NR|CF|NR\/NR)$/i, '').trim() || null;
+                    // SHIPPING MARKS
+                    if (line.match(/Shipping Marks/i)) {
+                        const markRegex = /(\d{2}\/\d{3,})/;
+                        let val = line.split(/Shipping Marks/i)[1]?.match(markRegex)?.[0];
+                        if (!val) {
+                            for (let k = 1; k <= 3; k++) {
+                                const nextL = pageLines[i + k];
+                                if (!nextL) continue;
+                                const m = nextL.match(markRegex);
+                                if (m) { val = m[0]; break; }
+                                if (nextL.match(/Volume|Colli/i)) {
+                                    const prevL = pageLines[i + k - 1];
+                                    if (prevL && !prevL.match(/Shipping Marks/i) && prevL.trim().length > 3) val = prevL.trim();
+                                }
+                            }
+                        }
+                        if (val) extracted.shippingMarks = val;
+                    }
+                }
+                continue; // Continue Meta Loop
+            }
+
+            // --- 2. TABLE CONTENT ZONE (Per Page) ---
+            if (pageInTable) {
+                // A. STOP WORDS (Footer Detection - Page Break or Final)
+                if (trimmed.match(/In relazione al presente|vigenti disposizioni|esponibilità|veridicità|prezzi ivi indicati|corrispondenti di massima/i)) {
+                    // Stop processing this page immediately. Legal text marks end of items.
+                    // Important: Flush buffer if pending? Usually legal text is NOT item description.
+                    // So we discard buffer.
+                    globalLineBuffer = [];
+                    break; // Exit Page Loop
+                }
+                if (trimmed.match(/^Trasporto|^Spese incasso|^Totale imponibile|^IVA|^Totale imposta|^Totale netto merce|^Sconto di pagamento/i)) {
+                    // Footer start. Stop page processing.
+                    break;
                 }
 
-                if (code || total > 0) {
-                    extracted.lines.push({
-                        code: code || "SKU_PENDING",
-                        description,
-                        projectRef: ordRef,
-                        uom: "NR",
-                        quantity: qty || 1,
-                        unitPrice: unitPrice ? parseFloat(unitPrice.toFixed(2)) : 0,
-                        total: total ? parseFloat(total.toFixed(2)) : 0
+                // B. BLACKLIST (Header/Footer Noise Check - Safety Net)
+                if (trimmed.match(/^Pag\.|^Numero\/ Number|^Fattura|^INVOICE/i) || trimmed.includes("NICOLAZZI") || trimmed.includes("Privacy information")) {
+                    continue;
+                }
+
+                // C. FINANCIAL ROW DETECTION
+                const moneyPattern = "\\d{1,3}(?:\\.\\d{3})*,\\d{2}";
+                const isFinRow = line.includes("EUR") && line.match(new RegExp(moneyPattern));
+
+                if (isFinRow) {
+                    const allRows = [...globalLineBuffer, line];
+                    globalLineBuffer = []; // Flush
+
+                    let code = "", description = "", ordRef = "", qty = 0, unitPrice = 0, total = 0;
+
+                    // Parse Financials
+                    const moneyMatches = line.match(new RegExp(moneyPattern, 'g'));
+                    if (moneyMatches && moneyMatches.length >= 2) {
+                        unitPrice = parseMoneyEU(moneyMatches[moneyMatches.length - 2]);
+                        total = parseMoneyEU(moneyMatches[moneyMatches.length - 1]);
+                    }
+                    const qM = line.match(/\s+(\d+)\s+(?:EUR|NR|PZ)/);
+                    if (qM) qty = parseInt(qM[1]);
+
+                    // Parse Content
+                    allRows.forEach(row => {
+                        // Double safety filter against headers inside buffer
+                        // Fixed Coordinates Logic (Poppler Layout)
+                        const cPart = row.substring(0, 30).trim();
+                        const dPart = row.substring(30, 89).trim();
+                        const rPart = row.substring(89, 128).trim();
+
+                        if (cPart && !code && !cPart.includes("DDT")) code = cPart;
+                        if (dPart) description += " " + dPart;
+                        if (rPart && !rPart.match(/^(NR|PZ|CF)$/)) ordRef += (ordRef ? " " : "") + rPart;
                     });
-                }
-            } else {
-                const skuM = line.substring(0, 30).match(/([A-Z]*\d{3,}[A-Z0-9.\-]*)/);
-                const isHeading = trimmed.match(/Articolo|Descrizione|Fattura|Numero/i);
 
-                if (!skuM && !isHeading && extracted.lines.length > 0) {
-                    // BACKWARD ANNEXATION: Text row sticks to the PREVIOUS item
-                    const last = extracted.lines[extracted.lines.length - 1];
-                    let dPart = line.substring(30, 88).trim();
-                    const rPart = line.substring(88, 132).trim();
+                    if (code || total > 0) {
+                        // Clean Order Ref (Remove NR/PZ suffix)
+                        let cleanedRef = ordRef ? ordRef.replace(/\s*(?:NR|PZ|CF)[\.\s]*$/i, '').trim() : null;
 
-                    if (dPart) last.description += " " + dPart;
-                    if (rPart && !rPart.match(/^(NR|PZ|CF)$/)) {
-                        const cleanR = rPart.replace(/\s+(NR|PZ|PZ\/NR|CF|NR\/NR)$/i, '').trim();
-                        if (cleanR) last.projectRef = (last.projectRef || "") + (last.projectRef ? " " : "") + cleanR;
+                        extracted.lines.push({
+                            code: code || "SKU_PENDING",
+                            description: description.trim(),
+                            projectRef: cleanedRef,
+                            uom: "NR",
+                            quantity: qty || 1,
+                            unitPrice: unitPrice,
+                            total: total
+                        });
                     }
-                } else if (trimmed.length > 2 && !isHeading) {
-                    // Buffer for the NEXT financial row
-                    lineBuffer.push(line);
+                } else {
+                    // Buffer Logic
+                    // Push to buffer ONLY if it looks like content
+                    globalLineBuffer.push(line);
                 }
             }
         }
-    }
+        // End of Page Loop - Clear Buffer to prevent cross-page contamination
+        // (Any description pending at end of page usually belongs to item on prev page? 
+        // No, Nicolazzi usually keeps items on same page or repeats header. 
+        // Safer to clear buffer to avoid "Fattura" becoming description)
+        globalLineBuffer = [];
+    });
 
-    if (customerBuffer.length > 0) {
-        extracted.entities.customer.name = customerBuffer[0];
-        extracted.entities.customer.address = customerBuffer.slice(1, 4).join(", ");
-    }
-
-    // Improved Totals Logic
+    // --- 3. TOTALS & FINALIZATION ---
+    // (Keep existing totals logic from extracted.lines)
     const subtotalMatch = text.match(/Totale netto merce[\s\S]{1,100}?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
     if (subtotalMatch) extracted.totals.subtotal = parseMoneyEU(subtotalMatch[1]);
 
     const grossTotalMatch = text.match(/Totale\s+EUR[\s\S]{1,50}?(\d{1,3}(?:\.\d{3})*,\d{2})/i) ||
+        text.match(/Totale da pagare[\s\S]{1,50}?(\d{1,3}(?:\.\d{3})*,\d{2})/i) ||
         text.match(/Totale\s*(?:\d{1,3}(?:\.\d{3})*,\d{2})?[\s\S]{1,100}?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
 
     if (grossTotalMatch) {
         extracted.totals.total = parseMoneyEU(grossTotalMatch[1]);
-    } else {
-        // Fallback: Sum lines if footer total not found
+    } else if (extracted.lines.length > 0) {
         extracted.totals.total = extracted.lines.reduce((acc, l) => acc + (l.total || 0), 0);
     }
 
-    // Normalize for Viewer (net/gross) and ensure 2 decimals
+    // Normalization
     const subVal = extracted.totals.subtotal || extracted.lines.reduce((s, l) => s + (l.total || 0), 0);
     const grossVal = extracted.totals.total || subVal;
-
     extracted.totals.net = parseFloat(subVal || 0).toFixed(2);
     extracted.totals.gross = parseFloat(grossVal || 0).toFixed(2);
 

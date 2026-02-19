@@ -1,5 +1,5 @@
 import React from 'react';
-import NicolazziInvoiceViewer from './NicolazziInvoiceViewer';
+import NicolazziInvoiceContainer from './NicolazziInvoiceContainer'; // Refactored to Container
 import NicolazziGoldViewer from './NicolazziGoldViewer'; // Classic Layout (Fixed)
 import NicolazziProformaViewer from './NicolazziProformaViewer'; // Modern Layout
 import NicolazziProformaContainer from './NicolazziProformaContainer';
@@ -21,7 +21,7 @@ const viewers = [
             const type = (doc.docType || '').toLowerCase();
             return supplier.includes('NICOLAZZI') && (type === 'fatura' || type === 'invoice');
         },
-        Component: NicolazziInvoiceViewer
+        Component: NicolazziInvoiceContainer // Now points to Container
     },
     {
         name: 'Nicolazzi Proforma (Gold)',
