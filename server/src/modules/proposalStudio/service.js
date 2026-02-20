@@ -201,30 +201,77 @@ class ProposalStudioService {
         // ... (lines update part)
 
         if (lines) {
-            // Simple approach: delete and recreat lines or update one by one.
-            // For stability, we'll update if ID exists, or delete all and re-insert.
-            // Let's do delete/re-insert for simplicity and to handle re-ordering easily.
-            await knex('proposal_lines').where({ proposal_id: id }).delete();
+            // SAFE UPSERT: preserve existing line IDs so proposal_fulfillments links are never broken.
+            // Strategy:
+            //   1. Load current lines from DB (keyed by SKU)
+            //   2. UPDATE existing lines (matched by SKU or id) — keeps their UUID
+            //   3. INSERT truly new lines (new UUID)
+            //   4. DELETE lines that were removed from the proposal (not in new list)
+            //      BUT only if they have NO fulfillments linked (to avoid data loss)
 
-            const newLines = lines.map((l, index) => ({
-                id: uuidv4(),
-                proposal_id: id,
-                sku: l.sku,
-                description: l.description,
-                quantity: parseFloat(l.quantity),
-                unit_price_factory: parseFloat(l.unit_price_factory),
-                unit_price_commercial: parseFloat(l.unit_price_commercial),
-                discount_factory: String(l.discount_factory),
-                discount_commercial_percent: parseFloat(l.discount_commercial_percent),
-                vat_rate: String(l.vat_rate),
-                sort_order: index,
-                extra_attributes: JSON.stringify(l.extra_attributes || {}),
-                created_at: l.created_at || new Date(),
-                updated_at: new Date()
-            }));
+            const existingLines = await knex('proposal_lines').where({ proposal_id: id });
+            // Build lookup: prefer id match first, then sku match
+            const existingById = {};
+            const existingBySku = {};
+            existingLines.forEach(l => {
+                existingById[l.id] = l;
+                // Keep first occurrence per SKU (handle duplicates gracefully)
+                if (!existingBySku[l.sku]) existingBySku[l.sku] = l;
+            });
 
-            if (newLines.length > 0) {
-                await knex('proposal_lines').insert(newLines);
+            const processedIds = new Set();
+
+            for (let index = 0; index < lines.length; index++) {
+                const l = lines[index];
+                // Find existing line: prefer matching by ID (if client sends it), then by SKU
+                const existing = (l.id && existingById[l.id]) || existingBySku[l.sku];
+
+                const lineData = {
+                    proposal_id: id,
+                    sku: l.sku,
+                    description: l.description,
+                    quantity: parseFloat(l.quantity),
+                    unit_price_factory: parseFloat(l.unit_price_factory),
+                    unit_price_commercial: parseFloat(l.unit_price_commercial),
+                    discount_factory: String(l.discount_factory),
+                    discount_commercial_percent: parseFloat(l.discount_commercial_percent),
+                    vat_rate: String(l.vat_rate),
+                    sort_order: index,
+                    extra_attributes: JSON.stringify(l.extra_attributes || {}),
+                    updated_at: new Date()
+                };
+
+                if (existing) {
+                    // UPDATE — preserving the existing UUID
+                    await knex('proposal_lines').where({ id: existing.id }).update(lineData);
+                    processedIds.add(existing.id);
+                } else {
+                    // INSERT — new line
+                    const newId = uuidv4();
+                    await knex('proposal_lines').insert({
+                        ...lineData,
+                        id: newId,
+                        created_at: new Date()
+                    });
+                    processedIds.add(newId);
+                }
+            }
+
+            // DELETE lines that are no longer in the proposal — but ONLY if they have no fulfillments
+            const removedLines = existingLines.filter(l => !processedIds.has(l.id));
+            for (const removed of removedLines) {
+                const hasFulfillments = await knex('proposal_fulfillments')
+                    .where({ proposal_line_id: removed.id }).count('* as cnt').first();
+                if (parseInt(hasFulfillments.cnt) === 0) {
+                    await knex('proposal_lines').where({ id: removed.id }).delete();
+                } else {
+                    // Keep the line but mark it as removed (qty 0 or a flag) so it's not shown
+                    await knex('proposal_lines').where({ id: removed.id }).update({
+                        sort_order: 9999,
+                        updated_at: new Date()
+                    });
+                    console.log(`[ProposalStudio] Line ${removed.sku} retained (has fulfillments)`);
+                }
             }
         }
 

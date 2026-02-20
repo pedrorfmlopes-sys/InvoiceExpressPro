@@ -307,8 +307,14 @@ async function getProposalFulfillmentDetails(proposalId) {
             }
         }
 
-        // 2. Get Proposal Lines
-        const lines = await knex('proposal_lines').where({ proposal_id: proposalId }).orderBy('id');
+        // 2. Get Proposal Lines + global discount from metadata
+        const lines = await knex('proposal_lines').where({ proposal_id: proposalId }).orderBy('sort_order');
+        let proposalMeta = {};
+        try { proposalMeta = JSON.parse(proposal.metadata || '{}'); } catch (_) { }
+        // Global discount applied on top of line-level commercial discount (e.g. an extra 5% off total)
+        const globalDiscountPercent = parseFloat(proposalMeta.global_discount || 0);
+        const globalDiscountMultiplier = 1 - (globalDiscountPercent / 100);
+
 
         // 3. Get All Fulfillments for this Proposal
         const fulfillments = await knex('proposal_fulfillments as pf')
@@ -413,23 +419,58 @@ async function getProposalFulfillmentDetails(proposalId) {
         }
 
         // 5. Aggregate Fulfillments per Line
+        let totalCostNet = 0;
         const linesWithFulfillment = lines.map(line => {
             const lineFulfillments = fulfillments.filter(f => f.proposal_line_id === line.id);
             const totalFulfilledQty = lineFulfillments.reduce((acc, f) => acc + parseFloat(f.quantity_fulfilled || 0), 0);
             const originalQty = parseFloat(line.quantity || 0);
 
-            const unitPrice = parseFloat(line.unit_price_commercial || line.unit_price || 0);
-            const discount = parseFloat(line.discount_commercial_percent || 0);
-            const netPrice = unitPrice * (1 - (discount / 100));
+            // ── CUSTO (Proforma price → what we pay the factory) ─────────────────
+            // unit_price_factory = proforma unit price (list price from Nicolazzi)
+            // discount_factory   = factory discount chain (e.g. "50+5")
+            const unitPriceFactory = parseFloat(line.unit_price_factory || 0);
+            const discountFactoryStr = line.discount_factory || '';
+            let factoryMultiplier = 1;
+            discountFactoryStr.split('+').forEach(d => {
+                const perc = parseFloat(d);
+                if (!isNaN(perc)) factoryMultiplier *= (1 - perc / 100);
+            });
+            const hasCostData = unitPriceFactory > 0 && discountFactoryStr.length > 0;
+            const netCostPrice = hasCostData ? unitPriceFactory * factoryMultiplier : 0;
 
-            totalOrderedNet += (originalQty * netPrice);
-            totalFulfilledNet += (totalFulfilledQty * netPrice);
+            // ── VENDA (Proposal price → what the client pays us) ─────────────────
+            // unit_price_commercial = commercial unit price (same list in this case,
+            //   but may differ if the proposal editor sets a different sale price)
+            // discount_commercial_percent = line-level commercial discount
+            // globalDiscountMultiplier    = extra proposal-level discount
+            const unitPriceComm = parseFloat(line.unit_price_commercial || 0);
+            const discountComm = parseFloat(line.discount_commercial_percent || 0);
+            const netSalePrice = unitPriceComm * (1 - discountComm / 100) * globalDiscountMultiplier;
+
+            // ── MARGEM ───────────────────────────────────────────────────────────
+            const marginPerUnit = hasCostData ? netSalePrice - netCostPrice : 0;
+            const marginPercent = hasCostData && netSalePrice > 0 ? (marginPerUnit / netSalePrice) * 100 : 0;
+
+            totalOrderedNet += (originalQty * netSalePrice);
+            totalFulfilledNet += (totalFulfilledQty * netSalePrice);
+            if (hasCostData) totalCostNet += (originalQty * netCostPrice);
 
             const history = lineFulfillments.map(f => {
                 const docData = safeParse(f.rawJson);
-                // (docsMap already populated above)
                 return { doc_id: f.doc_id, doc_number: docData?.docNumber || 'Doc', date: docData?.date, qty: parseFloat(f.quantity_fulfilled) };
             });
+
+            const effectiveLeadWeeks = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
+
+            // Calculate predicted_ship_date dynamically if not stored
+            let predictedDate = line.predicted_ship_date;
+            if (!predictedDate && effectiveLeadWeeks > 0) {
+                const baseDate = proposal.order_confirmation_date
+                    ? new Date(proposal.order_confirmation_date)
+                    : new Date();
+                baseDate.setDate(baseDate.getDate() + (effectiveLeadWeeks * 7));
+                predictedDate = baseDate.getTime();
+            }
 
             return {
                 id: line.id,
@@ -439,12 +480,18 @@ async function getProposalFulfillmentDetails(proposalId) {
                 qty_ordered: originalQty,
                 qty_fulfilled: totalFulfilledQty,
                 qty_remaining: Math.max(0, originalQty - totalFulfilledQty),
-                unit_price: unitPrice,
-                net_total_ordered: originalQty * netPrice,
-                net_total_fulfilled: totalFulfilledQty * netPrice,
-                net_total_pending: Math.max(0, originalQty - totalFulfilledQty) * netPrice,
-                lead_time_weeks: line.lead_time_weeks || proposal.general_lead_time_weeks || 0,
-                predicted_ship_date: line.predicted_ship_date,
+                unit_price: netSalePrice,
+                unit_price_factory: netCostPrice,
+                unit_price_commercial: netSalePrice,
+                margin_per_unit: marginPerUnit,
+                margin_percent: parseFloat(marginPercent.toFixed(1)),
+                net_total_ordered: originalQty * netSalePrice,
+                net_total_cost: originalQty * netCostPrice,
+                net_margin: originalQty * marginPerUnit,
+                net_total_fulfilled: totalFulfilledQty * netSalePrice,
+                net_total_pending: Math.max(0, originalQty - totalFulfilledQty) * netSalePrice,
+                lead_time_weeks: effectiveLeadWeeks,
+                predicted_ship_date: predictedDate,
                 production_category: line.production_category,
                 status: totalFulfilledQty >= originalQty ? 'completed' : (totalFulfilledQty > 0 ? 'partial' : 'pending'),
                 history: history
@@ -497,7 +544,13 @@ async function getProposalFulfillmentDetails(proposalId) {
             financial: {
                 ordered: { net: totalOrderedNet, gross: totalOrderedNet * (1 + vatRate) },
                 fulfilled: { net: totalFulfilledNet, gross: totalFulfilledNet * (1 + vatRate) },
-                pending: { net: Math.max(0, totalOrderedNet - totalFulfilledNet), gross: Math.max(0, (totalOrderedNet - totalFulfilledNet) * (1 + vatRate)) }
+                pending: { net: Math.max(0, totalOrderedNet - totalFulfilledNet), gross: Math.max(0, (totalOrderedNet - totalFulfilledNet) * (1 + vatRate)) },
+                cost: { net: totalCostNet, gross: totalCostNet * (1 + vatRate) },
+                margin: {
+                    net: totalOrderedNet - totalCostNet,
+                    gross: (totalOrderedNet - totalCostNet) * (1 + vatRate),
+                    percent: totalOrderedNet > 0 ? parseFloat(((totalOrderedNet - totalCostNet) / totalOrderedNet * 100).toFixed(1)) : 0
+                }
             },
             metrics: metrics,
             documents: docs,

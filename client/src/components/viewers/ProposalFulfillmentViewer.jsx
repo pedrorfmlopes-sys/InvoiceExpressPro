@@ -164,27 +164,41 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                         {/* FILTERS & CONTROLS (Top) */}
                         <div className="p-4 border-b border-[#222] flex items-center justify-between">
                             <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider">Detalhes de Linha</h3>
-                            {/* Filter Buttons */}
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 items-center">
+                                <button onClick={() => setFilterStatus('all')} className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'all' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>Todos</button>
+                                <button onClick={() => setFilterStatus('pending')} className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'pending' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>Pendentes</button>
+                                <button onClick={() => setFilterStatus('partial')} className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'partial' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>Parciais</button>
+                                <button onClick={() => setFilterStatus('completed')} className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'completed' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>Concluídos</button>
+                                <div className="w-px h-5 bg-[#333] mx-1"></div>
                                 <button
-                                    onClick={() => setFilterStatus('all')}
-                                    className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'all' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>
-                                    Todos
-                                </button>
-                                <button
-                                    onClick={() => setFilterStatus('pending')}
-                                    className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'pending' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>
-                                    Pendentes
-                                </button>
-                                <button
-                                    onClick={() => setFilterStatus('partial')}
-                                    className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'partial' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>
-                                    Parciais
-                                </button>
-                                <button
-                                    onClick={() => setFilterStatus('completed')}
-                                    className={`px-3 py-1 border border-[#333] rounded text-[10px] transition-colors ${filterStatus === 'completed' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700' : 'bg-[#1a1a1a] text-gray-500 hover:text-gray-300'}`}>
-                                    Concluídos
+                                    onClick={() => {
+                                        if (!data?.lines) return;
+                                        const propNum = data.proposal?.number || 'proposta';
+                                        const confirmDate = data.proposal?.order_confirmation_date
+                                            ? new Date(data.proposal.order_confirmation_date).toLocaleDateString('pt-PT') : '';
+                                        const headers = ['Nº Proforma', 'SKU', 'Descrição', 'Data Confirmação', 'Data Prevista', 'Qtd Pedida', 'Qtd Servida', 'Qtd Pendente', 'Estado', 'Nº Documentos', 'Documentos'];
+                                        const rows = (data.lines || []).map(l => [
+                                            propNum, l.sku || '',
+                                            '"' + (l.description || '').replace(/"/g, '""') + '"',
+                                            confirmDate,
+                                            l.predicted_ship_date ? new Date(l.predicted_ship_date).toLocaleDateString('pt-PT') : '',
+                                            l.qty_ordered, l.qty_fulfilled, l.qty_remaining,
+                                            l.status === 'completed' ? 'Concluído' : l.status === 'partial' ? 'Parcial' : 'Pendente',
+                                            l.history.length,
+                                            '"' + l.history.map(h => h.doc_number).join(', ') + '"'
+                                        ]);
+                                        const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+                                        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `fulfillment_${propNum.replace(/\//g, '-')}.csv`;
+                                        a.click();
+                                        URL.revokeObjectURL(url);
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1 border border-green-800/50 rounded text-[10px] bg-green-900/20 text-green-400 hover:bg-green-900/40 transition-colors font-bold"
+                                    title="Exportar para Excel (CSV)">
+                                    📊 Exportar XLS
                                 </button>
                             </div>
                         </div>
@@ -194,17 +208,34 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-[#111] text-[9px] uppercase text-gray-500 font-bold sticky top-0 z-10 shadow-sm">
                                     <tr>
-                                        <th className="p-3 w-10 text-center border-b border-[#333]">#</th>
-                                        <th className="p-3 w-32 border-b border-[#333]">SKU</th>
-                                        <th className="p-3 border-b border-[#333]">Descrição</th>
-                                        <th className="p-3 w-20 text-center border-b border-[#333]">Cat.</th>
-                                        <th className="p-3 w-20 text-center border-b border-[#333]">Prazo</th>
-                                        <th className="p-3 w-20 text-center border-b border-[#333]">Prev.</th>
-                                        <th className="p-3 w-24 text-right border-b border-[#333]">Pedido</th>
-                                        <th className="p-3 w-24 text-right border-b border-[#333] bg-[#1a2333]/30">Entregue</th>
-                                        <th className="p-3 w-24 text-right border-b border-[#333]">Pendente</th>
-                                        <th className="p-3 w-24 text-center border-b border-[#333]">Estado</th>
-                                        <th className="p-3 w-[20%] border-b border-[#333]">Histórico (Docs)</th>
+                                        <th className="px-2 py-2 w-8 text-center border-b border-[#333]">#</th>
+                                        <th className="px-2 py-2 w-28 border-b border-[#333]">SKU</th>
+                                        <th className="px-2 py-2 border-b border-[#333]">Descrição</th>
+                                        <th className="px-2 py-2 w-16 text-center border-b border-[#333]">Cat.</th>
+                                        {/* Merged: Prazo + Prev */}
+                                        <th className="px-2 py-2 w-24 text-center border-b border-[#333]">
+                                            <div>Prazo</div>
+                                            <div className="text-[8px] text-gray-600 font-normal normal-case">Previsto</div>
+                                        </th>
+                                        {/* Qty ordered */}
+                                        <th className="px-2 py-2 w-16 text-right border-b border-[#333]">Ped.</th>
+                                        {/* Merged: Entregue + Pendente */}
+                                        <th className="px-2 py-2 w-20 text-right border-b border-[#333] bg-[#1a2333]/30">
+                                            <div className="text-blue-400/80">Entr.</div>
+                                            <div className="text-gray-500/80 font-normal normal-case">Pend.</div>
+                                        </th>
+                                        {/* Merged: Custo + Venda */}
+                                        <th className="px-2 py-2 w-24 text-right border-b border-[#333] bg-[#1a1a0a]/40">
+                                            <div className="text-amber-500/80">Custo</div>
+                                            <div className="text-green-600/70 font-normal normal-case">Venda</div>
+                                        </th>
+                                        {/* Merged: Lucro + Margem */}
+                                        <th className="px-2 py-2 w-24 text-right border-b border-[#333] bg-[#0a1a0a]/40">
+                                            <div className="text-green-400/80">Lucro €</div>
+                                            <div className="text-green-600/60 font-normal normal-case">Margem %</div>
+                                        </th>
+                                        <th className="px-2 py-2 w-20 text-center border-b border-[#333]">Estado</th>
+                                        <th className="px-2 py-2 w-[16%] border-b border-[#333]">Histórico</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#222]">
@@ -212,54 +243,81 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                                         let rowBg = 'hover:bg-[#1a1a1a]';
                                         if (line.status === 'completed') rowBg = 'bg-green-900/5 hover:bg-green-900/10';
                                         if (line.status === 'partial') rowBg = 'bg-yellow-900/5 hover:bg-yellow-900/10';
-
                                         const isOverDelivered = line.qty_fulfilled > line.qty_ordered;
+                                        const hasMargin = line.unit_price_factory > 0 || line.margin_percent !== 0;
 
                                         return (
                                             <tr key={idx} className={`transition-colors ${rowBg}`}>
-                                                <td className="p-3 text-center text-gray-600 font-mono text-[10px]">{idx + 1}</td>
-                                                <td className="p-3 font-mono font-bold text-gray-300 text-[11px]">{line.sku}</td>
-                                                <td className="p-3 text-gray-400 text-[11px]">{line.description}</td>
+                                                <td className="px-2 py-1.5 text-center text-gray-600 font-mono text-[10px]">{idx + 1}</td>
+                                                <td className="px-2 py-1.5 font-mono font-bold text-gray-300 text-[10px]">{line.sku}</td>
+                                                <td className="px-2 py-1.5 text-gray-400 text-[11px]">{line.description}</td>
 
-                                                {/* LOGISTICS */}
-                                                <td className="p-3 text-center">
-                                                    {line.production_category ? (
-                                                        <span className="px-1 py-0.5 rounded bg-[#222] text-[9px] text-gray-400 border border-[#333] uppercase">
-                                                            {line.production_category?.replace('_', ' ')}
-                                                        </span>
-                                                    ) : '-'}
-                                                </td>
-                                                <td className="p-3 text-center text-[10px] text-gray-500">
-                                                    {line.lead_time_weeks ? `${line.lead_time_weeks}sem` : '-'}
-                                                </td>
-                                                <td className="p-3 text-center text-[10px] font-mono">
-                                                    {renderPrevDate(line.predicted_ship_date)}
+                                                {/* Cat */}
+                                                <td className="px-2 py-1.5 text-center">
+                                                    {line.production_category
+                                                        ? <span className="px-1 py-0.5 rounded bg-[#222] text-[8px] text-gray-400 border border-[#333] uppercase">{line.production_category.replace('_', ' ')}</span>
+                                                        : <span className="opacity-20">-</span>}
                                                 </td>
 
-                                                {/* QUANTITIES */}
-                                                <td className="p-3 text-right font-mono font-bold text-white text-xs">
-                                                    {line.qty_ordered} <span className="text-[9px] text-gray-600 font-normal">{line.uom}</span>
-                                                </td>
-                                                <td className={`p-3 text-right font-mono font-bold text-xs bg-blue-900/5 ${isOverDelivered ? 'text-yellow-400' : 'text-blue-400'}`}>
-                                                    {line.qty_fulfilled}
-                                                </td>
-                                                <td className="p-3 text-right font-mono font-bold text-gray-500 text-xs">
-                                                    {isOverDelivered ? (
-                                                        <span className="text-yellow-600 text-[9px] uppercase">+{line.qty_fulfilled - line.qty_ordered}</span>
-                                                    ) : (
-                                                        line.qty_remaining > 0 ? line.qty_remaining : <span className="text-green-800">✔</span>
-                                                    )}
+                                                {/* Merged: Prazo + Prev */}
+                                                <td className="px-2 py-1.5 text-center">
+                                                    <div className="text-[10px] text-gray-500">{line.lead_time_weeks ? `${line.lead_time_weeks}s` : '-'}</div>
+                                                    <div className="text-[9px] font-mono mt-0.5">{renderPrevDate(line.predicted_ship_date)}</div>
                                                 </td>
 
-                                                <td className="p-3 text-center">
+                                                {/* Qty Ordered */}
+                                                <td className="px-2 py-1.5 text-right font-mono font-bold text-white text-[11px]">
+                                                    {line.qty_ordered}<span className="text-[8px] text-gray-600 font-normal ml-0.5">{line.uom}</span>
+                                                </td>
+
+                                                {/* Merged: Entregue + Pendente */}
+                                                <td className="px-2 py-1.5 text-right bg-blue-900/5">
+                                                    <div className={`font-mono font-bold text-[11px] ${isOverDelivered ? 'text-yellow-400' : 'text-blue-400'}`}>
+                                                        {line.qty_fulfilled}
+                                                    </div>
+                                                    <div className="font-mono text-[10px] text-gray-500 mt-0.5">
+                                                        {isOverDelivered
+                                                            ? <span className="text-yellow-600">+{line.qty_fulfilled - line.qty_ordered}</span>
+                                                            : line.qty_remaining > 0 ? line.qty_remaining : <span className="text-green-600">✔</span>}
+                                                    </div>
+                                                </td>
+
+                                                {/* Merged: Custo + Venda */}
+                                                <td className="px-2 py-1.5 text-right bg-[#1a1a0a]/20">
+                                                    <div className="font-mono text-[10px] text-amber-500/80">
+                                                        {hasMargin ? fmtEUR(line.unit_price_factory) : <span className="opacity-20">—</span>}
+                                                    </div>
+                                                    <div className="font-mono text-[10px] text-gray-300 mt-0.5">
+                                                        {fmtEUR(line.unit_price_commercial)}
+                                                    </div>
+                                                </td>
+
+                                                {/* Merged: Lucro + Margem */}
+                                                <td className="px-2 py-1.5 text-right bg-[#0a1a0a]/20">
+                                                    {hasMargin ? (
+                                                        <>
+                                                            <div className={`font-mono font-bold text-[11px] ${line.net_margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                                {fmtEUR(line.net_margin)}
+                                                            </div>
+                                                            <div className="mt-0.5">
+                                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${line.margin_percent >= 30 ? 'bg-green-900/50 text-green-300' :
+                                                                    line.margin_percent >= 15 ? 'bg-yellow-900/50 text-yellow-300' :
+                                                                        'bg-red-900/50 text-red-300'
+                                                                    }`}>{line.margin_percent}%</span>
+                                                            </div>
+                                                        </>
+                                                    ) : <span className="opacity-20 text-[10px]">—</span>}
+                                                </td>
+
+                                                <td className="px-2 py-1.5 text-center">
                                                     {renderStatusBadge(line.status)}
                                                 </td>
 
                                                 {/* HISTORY */}
-                                                <td className="p-3">
+                                                <td className="px-2 py-1.5">
                                                     <div className="flex flex-wrap gap-1">
                                                         {line.history.map((h, hIdx) => (
-                                                            <div key={hIdx} className="bg-[#222] border border-[#333] rounded px-1.5 py-0.5 flex items-center gap-2 group hover:border-blue-500/30">
+                                                            <div key={hIdx} className="bg-[#222] border border-[#333] rounded px-1.5 py-0.5 flex items-center gap-1.5">
                                                                 <span className="text-[9px] font-mono text-blue-300 font-bold">{h.doc_number}</span>
                                                                 <span className="text-[9px] font-bold text-white bg-blue-900/50 px-1 rounded-sm">{h.qty}</span>
                                                             </div>
@@ -293,24 +351,35 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                             </div>
                             <div className="bg-[#151515] p-4 rounded-lg border border-[#333]">
                                 <div className="flex justify-between items-start">
-                                    <span className="text-indigo-400 text-[10px] uppercase font-bold tracking-wider">Logística (Métricas)</span>
-                                    <span className="text-[14px]">🚚</span>
+                                    <span className="text-green-400 text-[10px] uppercase font-bold tracking-wider">Margem & Lucro</span>
+                                    <span className="text-[14px]">📈</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2 mt-1">
-                                    <div>
-                                        <div className="text-[14px] text-white font-mono font-bold">
-                                            {data.metrics?.avg_days_to_delivery || '-'} <span className="text-[9px] text-gray-500">Dias</span>
-                                        </div>
-                                        <div className="text-[8px] uppercase text-gray-600 font-bold mt-0.5">Média Faturação</div>
+                                <div className="mt-2 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[9px] text-amber-500/70 uppercase font-bold">Total Compra</span>
+                                        <span className="font-mono text-amber-400 font-bold text-sm">{fmtEUR(data.financial?.cost?.net)}</span>
                                     </div>
-                                    <div>
-                                        <div className="text-[14px] text-green-500 font-mono font-bold">
-                                            {data.metrics?.total_deliveries || 0}
-                                        </div>
-                                        <div className="text-[8px] uppercase text-gray-600 font-bold mt-0.5">Total Entregas</div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[9px] text-gray-400 uppercase font-bold">Total Venda</span>
+                                        <span className="font-mono text-white font-bold text-sm">{fmtEUR(data.financial?.ordered?.net)}</span>
+                                    </div>
+                                    <div className="h-px bg-[#333] my-1"></div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[9px] text-green-400 uppercase font-bold">Lucro Total</span>
+                                        <span className={`font-mono font-bold text-base ${(data.financial?.margin?.net || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {fmtEUR(data.financial?.margin?.net)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[9px] text-green-500/70 uppercase font-bold">Margem</span>
+                                        <span className={`px-2 py-0.5 rounded font-mono font-black text-sm ${(data.financial?.margin?.percent || 0) >= 30 ? 'bg-green-900/40 text-green-300' :
+                                            (data.financial?.margin?.percent || 0) >= 15 ? 'bg-yellow-900/40 text-yellow-300' :
+                                                'bg-red-900/40 text-red-300'
+                                            }`}>
+                                            {data.financial?.margin?.percent ?? '-'}%
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="mt-2 text-[8px] text-blue-500/40 uppercase font-mono italic">Baseado em documentos vinculados</div>
                             </div>
                         </div>
                     </div>
@@ -380,29 +449,34 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                             <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-wider">Documentos Relacionados</h3>
                         </div>
                         <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
-                            {data.documents.map((doc, idx) => (
-                                <div key={idx}
-                                    onClick={() => setViewDoc(doc)}
-                                    className="bg-[#151515] hover:bg-[#1a1a1a] border border-[#333] hover:border-gray-600 transition-colors p-3 rounded-lg cursor-pointer group">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${doc.type === 'source' ? 'bg-indigo-900/20 text-indigo-400 border-indigo-900/30' : 'bg-blue-900/20 text-blue-400 border-blue-900/30'
+                            {[...data.documents]
+                                .sort((a, b) => (a.type === 'source' ? -1 : b.type === 'source' ? 1 : 0))
+                                .map((doc, idx) => (
+                                    <div key={idx}
+                                        onClick={() => setViewDoc(doc)}
+                                        className={`hover:bg-[#1a1a1a] border transition-colors p-3 rounded-lg cursor-pointer group ${doc.type === 'source'
+                                                ? 'bg-indigo-900/10 border-indigo-800/40 hover:border-indigo-700/60'
+                                                : 'bg-[#151515] border-[#333] hover:border-gray-600'
                                             }`}>
-                                            {doc.type === 'source' ? 'Origem' : 'Fatura'}
-                                        </span>
-                                        <span className="text-[9px] text-gray-500">{renderDate(doc.date)}</span>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${doc.type === 'source' ? 'bg-indigo-900/30 text-indigo-300 border-indigo-800/50' : 'bg-blue-900/20 text-blue-400 border-blue-900/30'
+                                                }`}>
+                                                {doc.type === 'source' ? 'Origem' : 'Fatura'}
+                                            </span>
+                                            <span className="text-[9px] text-gray-500">{renderDate(doc.date)}</span>
+                                        </div>
+                                        <div className="font-mono font-bold text-gray-200 group-hover:text-white mb-1">
+                                            {doc.number}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 flex justify-between">
+                                            <span>Total:</span>
+                                            <span className="text-gray-300 font-bold">{fmtEUR(doc.total)}</span>
+                                        </div>
+                                        <div className="mt-2 text-[9px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold text-right">
+                                            Abrir ↗
+                                        </div>
                                     </div>
-                                    <div className="font-mono font-bold text-gray-200 group-hover:text-white mb-1">
-                                        {doc.number}
-                                    </div>
-                                    <div className="text-[10px] text-gray-500 flex justify-between">
-                                        <span>Total:</span>
-                                        <span className="text-gray-300 font-bold">{fmtEUR(doc.total)}</span>
-                                    </div>
-                                    <div className="mt-2 text-[9px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold text-right">
-                                        Abrir ↗
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
 
                             {data.documents.length === 0 && data.potentialMatches?.length === 0 && (
                                 <div className="text-center p-8 text-gray-700 text-[10px] italic">
