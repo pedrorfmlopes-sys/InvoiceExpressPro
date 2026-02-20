@@ -34,7 +34,7 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
     }, []);
 
     // Grouping
-    const primaryTabsRaw = tabs.filter(t => !['health', 'config', 'labels', 'assets', 'extraction', 'proposals', 'customers', 'reports', 'corev2', 'catalog_mgmt'].includes(t.id)); // Exclude manually placed items
+    const primaryTabsRaw = tabs.filter(t => !['health', 'config', 'labels', 'assets', 'extraction', 'proposals', 'reconciliation', 'customers', 'reports', 'corev2', 'catalog_mgmt'].includes(t.id)); // Exclude manually placed items
     const systemTabs = tabs.filter(t => ['health', 'config', 'labels', 'assets', 'extraction'].includes(t.id));
 
     // Sort Primary Tabs
@@ -99,7 +99,7 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
     };
 
     // Manual Sidebar Item for custom links not in TABS array or handled differently
-    const SidebarItem = ({ icon, label, active, onClick }) => (
+    const SidebarItem = ({ icon, label, active, onClick, extraClass = "" }) => (
         <button
             onClick={onClick}
             className={`
@@ -107,6 +107,7 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
                 ${active
                     ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] shadow-sm ring-1 ring-[var(--accent-primary)]/20'
                     : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-main)]'}
+                ${extraClass}
             `}
         >
             {active && (
@@ -150,12 +151,35 @@ export function Sidebar({ tabs, activeTab, onTabChange }) {
                     expanded={groupsState.menu}
                     onToggle={() => toggleGroup('menu')}
                 >
-                    <SidebarItem
-                        icon={<FiBriefcase />}
-                        label="Estúdio Propostas"
-                        active={activeTab === 'proposals'}
-                        onClick={() => onTabChange('proposals')}
-                    />
+                    {/* --- PROPOSAL STUDIO GROUP (SUB-MENU) --- */}
+                    <div className="mb-2">
+                        <button
+                            onClick={() => toggleGroup('proposals')}
+                            className="flex items-center gap-3 px-4 py-2 mx-2 text-sm font-bold text-[var(--text-main)] hover:text-[var(--accent-primary)] transition-colors w-full text-left opacity-90"
+                        >
+                            <span className="text-lg"><FiBriefcase /></span>
+                            <span>Estúdio Propostas</span>
+                            <span className={`ml-auto text-xs opacity-50 transform transition-transform ${groupsState.proposals ? 'rotate-180' : ''}`}>▼</span>
+                        </button>
+
+                        <div className={`overflow-hidden transition-all duration-300 flex flex-col gap-1 ${groupsState.proposals ? 'max-h-[200px] opacity-100 pl-4 mt-1' : 'max-h-0 opacity-0'}`}>
+                            <SidebarItem
+                                icon={<span className="text-xs">📄</span>}
+                                label="Gerir Propostas"
+                                active={activeTab === 'proposals'}
+                                onClick={() => onTabChange('proposals')}
+                                extraClass="!py-1.5 !text-xs"
+                            />
+                            <SidebarItem
+                                icon={<span className="text-xs">🔗</span>}
+                                label="Reconciliação (Faturas)"
+                                active={activeTab === 'reconciliation'}
+                                onClick={() => onTabChange('reconciliation')}
+                                extraClass="!py-1.5 !text-xs"
+                            />
+                        </div>
+                    </div>
+
                     <SidebarItem
                         icon={<FiUsers />}
                         label="Clientes"

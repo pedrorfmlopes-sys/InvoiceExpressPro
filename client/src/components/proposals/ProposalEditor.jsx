@@ -9,6 +9,7 @@ import CatalogSearchModal from '../catalog/CatalogSearchModal';
 import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus, FiSettings } from 'react-icons/fi';
 import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
 import PresetManagementModal from './PresetManagementModal';
+import LogisticsManager from '../logistics/LogisticsManager';
 
 const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
@@ -34,6 +35,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
     const [visibleCollections, setVisibleCollections] = useState(null); // Null means not loaded yet (show all)
     const [collectionsLoaded, setCollectionsLoaded] = useState(false);
     const [showPresetManagement, setShowPresetManagement] = useState(null); // category name or null
+    const [showLogistics, setShowLogistics] = useState(false);
 
     useEffect(() => { loadData(); }, [proposalId]);
 
@@ -583,6 +585,13 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                             {saving ? 'A Guardar...' : 'Guardar'}
                         </button>
                         <button
+                            onClick={() => setShowLogistics(true)}
+                            className="bg-white/5 hover:bg-white/10 text-white w-10 h-10 flex items-center justify-center rounded-lg transition-all text-xs font-bold border border-white/10"
+                            title="Gestão Logística"
+                        >
+                            🚚
+                        </button>
+                        <button
                             onClick={onClose}
                             className="w-10 h-10 flex items-center justify-center hover:bg-red-500/20 text-white rounded-full transition-all text-xl"
                         >
@@ -685,8 +694,17 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                         initialSku={createItemSku}
                         initialDescription={proposal.lines[resolutionIndex]?.description}
                         onCreated={(newSku) => {
-                            alert(`Artigo ${newSku} criado com sucesso! Pode selecioná-lo agora.`);
                             setShowCreateItemModal(false);
+                        }}
+                    />
+                )}
+
+                {showLogistics && (
+                    <LogisticsManager
+                        proposalId={proposalId}
+                        onClose={() => {
+                            setShowLogistics(false);
+                            loadData();
                         }}
                     />
                 )}

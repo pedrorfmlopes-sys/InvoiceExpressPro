@@ -160,7 +160,7 @@ export default function NicolazziProformaViewer({
     );
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[5000] bg-black/90 flex flex-col font-sans text-xs w-screen h-screen">
+        <div className="fixed inset-0 z-[7000] bg-black/90 flex flex-col font-sans text-xs w-screen h-screen">
             <div className="flex flex-col h-full w-full relative overflow-hidden">
 
                 {/* Header */}

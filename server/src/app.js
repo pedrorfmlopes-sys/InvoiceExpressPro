@@ -105,6 +105,7 @@ app.use('/api/node-labels', nodeLabelsRouter);
 app.use('/api/dossiers', require('./modules/dossiers'));
 app.use('/api/extraction', require('./modules/extraction'));
 app.use('/api/proposals', require('./modules/proposalStudio/router'));
+app.use('/api/nicolazzi', require('./modules/nicolazziReconciliation/router')); // Nicolazzi specific reconciliation
 app.use('/api/crm', require('./modules/crm/router'));
 app.use('/api/catalog', require('./modules/catalog/routes'));
 

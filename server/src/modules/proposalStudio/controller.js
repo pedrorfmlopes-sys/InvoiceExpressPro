@@ -1,5 +1,6 @@
 const service = require('./service');
 const presetService = require('./ProposalPresetService');
+const logisticsService = require('./logisticsService');
 
 class ProposalStudioController {
     async cloneToProposal(req, res) {
@@ -30,8 +31,12 @@ class ProposalStudioController {
     async getProposal(req, res) {
         try {
             const { id } = req.params;
+            console.log(`[ProposalController] Fetching proposal ID: ${id}`);
             const proposal = await service.getProposal(id);
-            if (!proposal) return res.status(404).json({ error: 'Proposta não encontrada' });
+            if (!proposal) {
+                console.warn(`[ProposalController] Proposal NOT FOUND: ${id}`);
+                return res.status(404).json({ error: 'Proposta não encontrada' });
+            }
             res.json(proposal);
         } catch (e) {
             res.status(500).json({ error: e.message });
@@ -147,6 +152,48 @@ class ProposalStudioController {
             const { id } = req.params;
             await presetService.updatePreset(project, id, req.body);
             res.json({ ok: true });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    // --- LOGISTICS (Phase 1) ---
+    async updateLogisticsHeader(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await logisticsService.updateProposalLogistics(id, req.body);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async updateLogisticsLines(req, res) {
+        try {
+            const { id } = req.params;
+            const { lineIds, updates } = req.body;
+            await logisticsService.updateLineLogistics(id, lineIds, updates);
+            res.json({ ok: true });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async recalculateLogistics(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await logisticsService.recalculateShipDates(id);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async autoCategorizeLogistics(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await logisticsService.autoCategorizeLines(id);
+            res.json(result);
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

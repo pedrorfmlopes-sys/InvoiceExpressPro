@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/ui/GlassCard';
-import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiCheckSquare, FiSquare, FiCheck } from 'react-icons/fi';
+import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiCheckSquare, FiSquare, FiCheck, FiCalendar, FiSettings } from 'react-icons/fi';
 import api from '../api/apiClient';
+import CalendarManager from '../components/logistics/CalendarManager';
 
 const BRANDS_CONFIG = [
     { id: 'nicolazzi', name: 'Nicolazzi', color: 'amber' },
@@ -248,20 +249,36 @@ const CatalogManagementTab = ({ project }) => {
         if (file) handleInspect(file);
     };
 
+    // Calendar State
+    const [calendarBrand, setCalendarBrand] = useState(null);
+
+    // ...
+
     const BrandCard = ({ brandConfig }) => {
         const bStats = getBrandStats(brandConfig.id);
         const isSelected = selectedBrand?.id === brandConfig.id;
 
         return (
             <GlassCard
-                className={`cursor-pointer transition-all duration-300 border-2 ${isSelected ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-transparent'}`}
+                className={`group relative cursor-pointer transition-all duration-300 border-2 ${isSelected ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-transparent'}`}
                 onClick={() => {
                     setSelectedBrand({ ...brandConfig, ...bStats });
                     setInspectData(null);
-                    // Trigger load in effect or here
                     setTimeout(() => loadStoredCollections(), 0);
                 }}
             >
+                {/* SETTINGS HOVER BUTTON */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setCalendarBrand(brandConfig);
+                    }}
+                    className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/20 rounded-lg text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-all z-20"
+                    title="Configurar Calendário Fabril"
+                >
+                    <FiCalendar size={16} />
+                </button>
+
                 <div className="flex flex-col gap-4">
                     <div className="flex justify-between items-start">
                         <div className={`w-12 h-12 rounded-2xl bg-${brandConfig.color}-500/10 flex items-center justify-center text-${brandConfig.color}-500 text-xl font-bold`}>
@@ -660,6 +677,14 @@ const CatalogManagementTab = ({ project }) => {
                     <h3 className="text-xl font-bold">Selecione uma marca para gerir</h3>
                     <p className="text-sm">Os catálogos estão organizados de forma isolada por fabricante.</p>
                 </div>
+            )}
+
+            {/* Calendar Manager Overlay */}
+            {calendarBrand && (
+                <CalendarManager
+                    brand={calendarBrand}
+                    onClose={() => setCalendarBrand(null)}
+                />
             )}
         </div>
     );

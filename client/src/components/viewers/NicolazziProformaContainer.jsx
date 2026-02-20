@@ -28,10 +28,9 @@ export default function NicolazziProformaContainer(props) {
                 setLoading(true);
                 const project = doc.project || 'default';
 
-                // Parallel load: PDF and Data
                 const [pdfRes, dataRes] = await Promise.all([
-                    api.get(`/api/corev2/docs/${doc.id}/view?project=${project}`, { responseType: 'blob' }),
-                    api.get(`/api/corev2/extraction-data/nicolazzi_proformas/${doc.id}?project=${project}`)
+                    api.get(`/api/corev2/docs/${doc.id}/view?project=${project || 'all'}`, { responseType: 'blob' }),
+                    api.get(`/api/corev2/extraction-data/nicolazzi_proformas/${doc.id}?project=${project || 'all'}`)
                 ]);
 
                 if (!isMounted) return;

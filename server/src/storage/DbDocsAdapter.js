@@ -46,6 +46,33 @@ class DbDocsAdapter {
                 if (!proposalsMap[p.original_doc_id]) proposalsMap[p.original_doc_id] = [];
                 proposalsMap[p.original_doc_id].push(p);
             });
+
+            // Enrichment: Calculate progress for each proposal
+            const proposalIds = allProposals.map(p => p.id);
+            if (proposalIds.length > 0) {
+                const linesStats = await db('proposal_lines')
+                    .whereIn('proposal_id', proposalIds)
+                    .groupBy('proposal_id')
+                    .select('proposal_id', db.raw('SUM(quantity) as total_qty'));
+
+                const fulfillStats = await db('proposal_fulfillments')
+                    .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
+                    .whereIn('proposal_lines.proposal_id', proposalIds)
+                    .groupBy('proposal_lines.proposal_id')
+                    .select('proposal_lines.proposal_id', db.raw('SUM(proposal_fulfillments.quantity_fulfilled) as fulfilled_qty'));
+
+                const linesMap = {};
+                linesStats.forEach(s => linesMap[s.proposal_id] = parseFloat(s.total_qty || 0));
+
+                const fulfillMap = {};
+                fulfillStats.forEach(s => fulfillMap[s.proposal_id] = parseFloat(s.fulfilled_qty || 0));
+
+                allProposals.forEach(p => {
+                    const total = linesMap[p.id] || 0;
+                    const fulfilled = fulfillMap[p.id] || 0;
+                    p.progress = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
+                });
+            }
         }
 
         return {

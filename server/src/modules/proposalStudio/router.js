@@ -23,4 +23,10 @@ router.post('/presets', (req, res) => controller.createPreset(req, res));
 router.put('/presets/:id', (req, res) => controller.updatePreset(req, res));
 router.delete('/presets/:id', (req, res) => controller.deletePreset(req, res));
 
+// Logistics (Phase 1)
+router.put('/:id/logistics', (req, res) => controller.updateLogisticsHeader(req, res));
+router.post('/:id/logistics/lines', (req, res) => controller.updateLogisticsLines(req, res));
+router.post('/:id/logistics/calculate', (req, res) => controller.recalculateLogistics(req, res));
+router.post('/:id/logistics/auto-categorize', (req, res) => controller.autoCategorizeLogistics(req, res));
+
 module.exports = router;

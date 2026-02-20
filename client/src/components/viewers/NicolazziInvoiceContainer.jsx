@@ -34,9 +34,9 @@ export default function NicolazziInvoiceContainer({ doc, onClose, updateRow, onF
                 // Note: We use the logic from the old viewer here, but cleaner.
                 // Try Satellite first, if fail, rely on Main Doc.
 
-                const pPdf = api.get(`/api/corev2/docs/${doc.id}/view?project=${project}`, { responseType: 'blob' });
-                const pSat = api.get(`/api/corev2/extraction-data/nicolazzi_invoices/${doc.id}?project=${project}`).catch(() => ({ data: null }));
-                const pMain = api.get(`/api/corev2/docs/${doc.id}/json?project=${project}`).catch(() => ({ data: {} }));
+                const pPdf = api.get(`/api/corev2/docs/${doc.id}/view?project=${project || 'all'}`, { responseType: 'blob' });
+                const pSat = api.get(`/api/corev2/extraction-data/nicolazzi_invoices/${doc.id}?project=${project || 'all'}`).catch(() => ({ data: null }));
+                const pMain = api.get(`/api/corev2/docs/${doc.id}/json?project=${project || 'all'}`).catch(() => ({ data: {} }));
 
                 const [pdfRes, satRes, mainRes] = await Promise.all([pPdf, pSat, pMain]);
 

@@ -12,25 +12,36 @@ const getSupplierName = (doc) => {
     return '';
 };
 
+import SimpleDocViewer from './SimpleDocViewer';
+
 // Rule-based registry
 const viewers = [
     {
         name: 'Nicolazzi Invoice',
         match: (doc) => {
-            const supplier = getSupplierName(doc);
-            const type = (doc.docType || '').toLowerCase();
-            return supplier.includes('NICOLAZZI') && (type === 'fatura' || type === 'invoice');
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isNicolazzi = supplier.includes('NICOLAZZI') || doc.supplier === 'NICOLAZZI';
+            const isInvoice = type.includes('fatura') || type.includes('invoice') || type.includes('fattura') || type.includes('ft') || doc.type === 'invoice';
+            return isNicolazzi && isInvoice;
         },
-        Component: NicolazziInvoiceContainer // Now points to Container
+        Component: NicolazziInvoiceContainer
     },
     {
         name: 'Nicolazzi Proforma (Gold)',
         match: (doc) => {
-            const supplier = getSupplierName(doc);
-            const type = (doc.docType || '').toLowerCase();
-            return supplier.includes('NICOLAZZI') && type === 'proforma';
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isNicolazzi = supplier.includes('NICOLAZZI') || doc.supplier === 'NICOLAZZI';
+            const isProforma = type.includes('proforma') || type.includes('pro-forma') || doc.type === 'source';
+            return isNicolazzi && isProforma;
         },
         Component: NicolazziProformaContainer
+    },
+    {
+        name: 'Simple PDF Viewer',
+        match: () => true, // Fallback for everything else
+        Component: SimpleDocViewer
     }
 ];
 

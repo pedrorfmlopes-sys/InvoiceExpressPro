@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import api from '../../api/apiClient'; // Still needed for Reprocess logic? Or move to Container?
 import { normalizeInvoiceData } from './nicolazziInvoiceUtils'; // For reprocess normalization
+import NicolazziReconciliationViewer from './NicolazziReconciliationViewer';
 
 /**
  * NicolazziInvoiceViewer (Pure Presenter)
@@ -24,6 +25,8 @@ export default function NicolazziInvoiceViewer({
     // Local UI State
     const [showPdf, setShowPdf] = useState(true);
     const [reprocessing, setReprocessing] = useState(false);
+    const [reconciling, setReconciling] = useState(false); // [NEW] Reconciliation state
+    const [showReconViewer, setShowReconViewer] = useState(false); // [NEW] Detail Viewer
     const [itemFilter, setItemFilter] = useState('');
 
     // --- Actions (Delegated to Container via onDataChange) ---
@@ -94,6 +97,32 @@ export default function NicolazziInvoiceViewer({
         }
     };
 
+    // Reconcile Logic
+    const handleReconcile = async () => {
+        if (!data.shippingMarks) {
+            alert("Erro: Não existe 'Shipping Marks' nesta fatura para ligar à Proposta.");
+            return;
+        }
+        if (!confirm(`Tentar reconciliar com a Proposta nº "${data.shippingMarks}"?`)) return;
+
+        try {
+            setReconciling(true);
+            const res = await api.post(`/api/nicolazzi/reconcile/${doc.id}`);
+            const result = res.data;
+
+            if (result.success) {
+                alert(`Sucesso! Ligado à Proposta: ${result.proposal}.\nLinhas Abatidas: ${result.matched_lines}/${result.total_lines}`);
+            } else {
+                alert(`Aviso: ${result.reason}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao reconciliar: " + (err.response?.data?.error || err.message));
+        } finally {
+            setReconciling(false);
+        }
+    };
+
     // --- Render ---
     if (!doc) return null;
 
@@ -106,7 +135,7 @@ export default function NicolazziInvoiceViewer({
     );
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[5000] bg-black/90 flex flex-col font-sans text-xs w-screen h-screen">
+        <div className="fixed inset-0 z-[7000] bg-black/90 flex flex-col font-sans text-xs w-screen h-screen">
 
             {/* 1. TOP TOOLBAR */}
             <div className="h-10 bg-[#1e1e1e] border-b border-[#333] flex items-center justify-between px-4 select-none shrink-0">
@@ -126,6 +155,9 @@ export default function NicolazziInvoiceViewer({
                     )}
                     <button onClick={() => setShowPdf(!showPdf)} className={`px-3 py-1 rounded border border-gray-600 transition-colors ${showPdf ? 'bg-blue-900/30 text-blue-400 border-blue-800' : 'bg-gray-800 text-gray-400'}`}>
                         {showPdf ? 'Ocultar PDF' : 'Mostrar PDF'}
+                    </button>
+                    <button onClick={() => setShowReconViewer(true)} className="px-3 py-1 bg-indigo-900/40 text-indigo-400 border border-indigo-800/50 rounded hover:bg-indigo-900/60 transition-colors flex items-center gap-2">
+                        📋 Ver Reconciliação
                     </button>
                     <button onClick={onClose} className="px-3 py-1 bg-red-900/20 hover:bg-red-900/40 text-red-500 border border-red-900/50 rounded transition-colors">
                         ✕ Fechar
@@ -348,12 +380,21 @@ export default function NicolazziInvoiceViewer({
                                 </button>
 
                                 {mode === 'staging' && (
-                                    <button
-                                        className="bg-green-700 hover:bg-green-600 text-white font-bold px-6 py-2 rounded shadow-lg transition-transform active:scale-95 flex items-center gap-2"
-                                        onClick={() => onFinalize(safeData)}
-                                    >
-                                        <span>✔</span> FINALIZAR
-                                    </button>
+                                    <>
+                                        <button
+                                            className="bg-yellow-700 hover:bg-yellow-600 text-white font-bold px-4 py-2 rounded shadow-lg transition-transform active:scale-95 flex items-center gap-2"
+                                            onClick={handleReconcile}
+                                            disabled={reconciling}
+                                        >
+                                            <span>{reconciling ? '⏳' : '🔗'}</span> {reconciling ? 'A Ligar...' : 'Ligar Proposta'}
+                                        </button>
+                                        <button
+                                            className="bg-green-700 hover:bg-green-600 text-white font-bold px-6 py-2 rounded shadow-lg transition-transform active:scale-95 flex items-center gap-2"
+                                            onClick={() => onFinalize(safeData)}
+                                        >
+                                            <span>✔</span> FINALIZAR
+                                        </button>
+                                    </>
                                 )}
 
                                 {mode === 'archive' && (
@@ -370,6 +411,13 @@ export default function NicolazziInvoiceViewer({
                 </div>
             </div>
             <style dangerouslySetInnerHTML={{ __html: styles }} />
+
+            {showReconViewer && (
+                <NicolazziReconciliationViewer
+                    invoiceId={doc.id}
+                    onClose={() => setShowReconViewer(false)}
+                />
+            )}
         </div>,
         document.body
     );

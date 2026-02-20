@@ -50,6 +50,7 @@ class ProposalStudioService {
 
         const proposal = {
             id: proposalId,
+            proposal_number: sourceData.docNumber || doc.docNumber || sourceData.shippingMarks,
             name: `Proposta: ${doc.docNumber || 'Sem Número'} - ${doc.customer || 'Consumidor Final'}`,
             brand_id: doc.supplier && /NICOLAZZI/i.test(doc.supplier) ? 'nicolazzi' : 'other',
             client_ref: doc.customer || cust.name || sourceData.customer,
@@ -111,12 +112,18 @@ class ProposalStudioService {
             .whereRaw('proposal_id = custom_proposals.id')
             .as('total_amount');
 
+        const shipDateQuery = knex('proposal_lines')
+            .max('predicted_ship_date')
+            .whereRaw('proposal_id = custom_proposals.id')
+            .as('max_ship_date');
+
         const q = knex('custom_proposals')
             .leftJoin('documents', 'custom_proposals.original_doc_id', 'documents.id')
             .select(
                 'custom_proposals.*',
                 'documents.docNumber as source_doc_number',
-                subquery
+                subquery,
+                shipDateQuery
             )
             .orderBy('custom_proposals.updated_at', 'desc');
 
@@ -244,17 +251,37 @@ class ProposalStudioService {
 
     async handleAcceptedStatus(proposalId) {
         const proposal = await knex('custom_proposals').where({ id: proposalId }).first();
-        if (!proposal || !proposal.project_ref) return;
+        if (!proposal) return;
 
-        // Mark siblings in the same project as 'closed_other'
-        await knex('custom_proposals')
-            .where({ project_ref: proposal.project_ref })
+        const metadata = typeof proposal.metadata === 'string' ? JSON.parse(proposal.metadata) : (proposal.metadata || {});
+        const projectRef = proposal.project_ref; // General Project/Workspace (e.g. 'Proj_2026')
+        const brandId = proposal.brand_id;
+        const subProject = metadata.our_ref || ''; // Specific Proposal Project (displayed as "Referência")
+
+        // Mark siblings as 'closed_other' only if they belong to the same Workspace, same Brand,
+        // AND share the same specific Proposal Project (Sub-Project).
+        let query = knex('custom_proposals')
+            .where({
+                project_ref: projectRef,
+                brand_id: brandId
+            })
             .whereNot({ id: proposalId })
-            .whereNot({ status: 'accepted' })
-            .update({
-                status: 'closed_other',
-                updated_at: new Date()
-            });
+            .whereNot({ status: 'accepted' });
+
+        if (subProject) {
+            // Match the same sub-project exactly
+            query = query.whereRaw("metadata->>'our_ref' = ?", [subProject]);
+        } else {
+            // If the accepted proposal has no specific project reference,
+            // only close others that also have no specific project reference.
+            // This prevents "empty" ones from closing proposals that actually have a project assigned.
+            query = query.whereRaw("(metadata->>'our_ref' IS NULL OR metadata->>'our_ref' = '')");
+        }
+
+        await query.update({
+            status: 'closed_other',
+            updated_at: new Date()
+        });
     }
 
     async generatePdf(id) {

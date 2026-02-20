@@ -26,6 +26,7 @@ import ProposalsTab from './tabs/ProposalsTab' // Phase 34
 import CustomersTab from './tabs/CustomersTab' // Phase 36 (User Request)
 import CatalogManagementTab from './tabs/CatalogManagementTab'; // Phase 28
 import ProposalEditor from './components/proposals/ProposalEditor'; // Phase 33
+import ReconciliationTab from './tabs/ReconciliationTab'; // Phase 42 (Recon)
 
 import Login from './components/Login'
 import { AppShell } from './components/layout/AppShell' // New Layout
@@ -187,6 +188,7 @@ export default function App() {
     { id: 'process_v2', label: t('sidebar.process'), Component: ProcessV2Tab }, // Process V2
     { id: 'reports_v2', label: 'Reports V2', Component: ReportsTab },
     { id: 'proposals', label: 'Estúdio Propostas', Component: ProposalsTab },
+    { id: 'reconciliation', label: 'Reconciliação (Faturas)', Component: ReconciliationTab },
     { id: 'customers', label: 'Clientes', Component: CustomersTab },
     { id: 'catalog_mgmt', label: 'Biblioteca', Component: CatalogManagementTab },
     { id: 'corev2', label: 'Core V2', Component: CoreV2Tab },

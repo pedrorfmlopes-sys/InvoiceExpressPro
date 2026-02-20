@@ -321,7 +321,23 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
             key: 'shipTo',
             label: 'Entrega',
             width: 200,
-            render: (r) => r.entities?.shipTo?.name || r.shipTo?.name || '-'
+            render: (r) => {
+                const isProforma = (r.docType || '').toLowerCase().includes('proforma');
+                if (isProforma) {
+                    const avgProgress = r.associatedProposals?.length > 0
+                        ? Math.round(r.associatedProposals.reduce((sum, p) => sum + (p.progress || 0), 0) / r.associatedProposals.length)
+                        : 0;
+                    return (
+                        <div className="w-full flex items-center pr-4">
+                            <span className={`text-[10px] font-black w-8 text-right mr-2 ${avgProgress >= 100 ? 'text-green-500' : 'text-gray-400'}`}>{avgProgress}%</span>
+                            <div className="flex-1 h-1.5 bg-[#333] rounded-full overflow-hidden" title={`${avgProgress}% Faturado / Expedido`}>
+                                <div className={`h-full transition-all duration-500 ease-out ${avgProgress >= 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${avgProgress}%` }}></div>
+                            </div>
+                        </div>
+                    );
+                }
+                return r.entities?.shipTo?.name || r.shipTo?.name || '-';
+            }
         },
         // RIGHT ALIGN TOTAL
         { key: 'total', label: 'Total', width: 100, editable: true, align: 'right', format: (v) => v ? `${parseFloat(parseFloat(v) || 0).toFixed(2)} €` : '-' },
@@ -585,39 +601,69 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)]">
-                        {docs.map(row => (
-                            <tr key={row.id} className={`group hover:bg-[var(--surface-hover)] transition-colors ${row.archived ? 'opacity-60 bg-gray-50/5' : ''}`}>
-                                <td className="p-2 border-r border-[var(--border)] text-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedIds.has(row.id)}
-                                        onChange={() => {
-                                            const s = new Set(selectedIds);
-                                            s.has(row.id) ? s.delete(row.id) : s.add(row.id);
-                                            setSelectedIds(s);
-                                        }}
-                                    />
-                                </td>
-                                {activeColumns.filter(c => c.key !== 'actions').map(c => (
-                                    <td key={c.key} className="p-2 border-r border-[var(--border)] last:border-0 relative overflow-hidden text-ellipsis whitespace-nowrap">
-                                        {renderCell(row, c)}
+                        {(() => {
+                            const renderRow = (row) => (
+                                <tr key={row.id} className={`group hover:bg-[var(--surface-hover)] transition-colors ${row.archived ? 'opacity-60 bg-gray-50/5' : ''}`}>
+                                    <td className="p-2 border-r border-[var(--border)] text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(row.id)}
+                                            onChange={() => {
+                                                const s = new Set(selectedIds);
+                                                s.has(row.id) ? s.delete(row.id) : s.add(row.id);
+                                                setSelectedIds(s);
+                                            }}
+                                        />
                                     </td>
-                                ))}
-                                {/* Sticky Actions Column */}
-                                <td className="p-2 border-l border-[var(--border)] sticky right-0 bg-[var(--surface)] z-20 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] group-hover:bg-[var(--surface-hover)]">
-                                    <div className="flex gap-2 justify-center">
-                                        <button className="btn-icon text-xs text-blue-500 hover:scale-110 transition-transform" onClick={() => viewRowPdf(row)} title="View"><IconEye /></button>
-                                        <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => handleLinkClick([row])} title="Link"><IconLink /></button>
-                                        <button className="btn-icon text-xs text-amber-500 hover:scale-110 transition-transform" onClick={() => setViewBackupsDoc(row)} title="History/Backups">🕒</button>
-                                        <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => updateDoc(row.id, { archived: !row.archived })} title={row.archived ? "Restore" : "Archive"}>
-                                            {row.archived ? <IconUnarchive /> : <IconArchive />}
-                                        </button>
-                                        <button className="btn-icon text-xs text-red-500 hover:scale-110 transition-transform" onClick={() => deleteRow(row.id)} title="Delete"><IconTrash /></button>
-                                        <button className="btn-icon text-xs text-green-500 hover:scale-110 transition-transform" onClick={() => handleCreateProposal(row)} title="Criar Proposta">📝</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                                    {activeColumns.filter(c => c.key !== 'actions').map(c => (
+                                        <td key={c.key} className="p-2 border-r border-[var(--border)] last:border-0 relative overflow-hidden text-ellipsis whitespace-nowrap">
+                                            {renderCell(row, c)}
+                                        </td>
+                                    ))}
+                                    {/* Sticky Actions Column */}
+                                    <td className="p-2 border-l border-[var(--border)] sticky right-0 bg-[var(--surface)] z-20 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] group-hover:bg-[var(--surface-hover)]">
+                                        <div className="flex gap-2 justify-center">
+                                            <button className="btn-icon text-xs text-blue-500 hover:scale-110 transition-transform" onClick={() => viewRowPdf(row)} title="View"><IconEye /></button>
+                                            <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => handleLinkClick([row])} title="Link"><IconLink /></button>
+                                            <button className="btn-icon text-xs text-amber-500 hover:scale-110 transition-transform" onClick={() => setViewBackupsDoc(row)} title="History/Backups">🕒</button>
+                                            <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => updateDoc(row.id, { archived: !row.archived })} title={row.archived ? "Restore" : "Archive"}>
+                                                {row.archived ? <IconUnarchive /> : <IconArchive />}
+                                            </button>
+                                            <button className="btn-icon text-xs text-red-500 hover:scale-110 transition-transform" onClick={() => deleteRow(row.id)} title="Delete"><IconTrash /></button>
+                                            <button className="btn-icon text-xs text-green-500 hover:scale-110 transition-transform" onClick={() => handleCreateProposal(row)} title="Criar Proposta">📝</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+
+                            const proformaDocs = docs.filter(d => (d.docType || '').toLowerCase().includes('proforma'));
+                            const otherDocs = docs.filter(d => !(d.docType || '').toLowerCase().includes('proforma'));
+
+                            return (
+                                <>
+                                    {proformaDocs.length > 0 && (
+                                        <>
+                                            <tr className="bg-[var(--surface-hover)]">
+                                                <td colSpan={100} className="px-5 py-3 text-[11px] font-black tracking-widest text-[#00E5FF] uppercase border-y border-[#333] shadow-md bg-[#0a0f12]">
+                                                    Proformas & Encomendas Em Curso
+                                                </td>
+                                            </tr>
+                                            {proformaDocs.map(row => renderRow(row))}
+                                        </>
+                                    )}
+                                    {otherDocs.length > 0 && (
+                                        <>
+                                            <tr className="bg-[var(--surface-hover)]">
+                                                <td colSpan={100} className="px-5 py-3 text-[11px] font-black tracking-widest text-gray-400 uppercase border-y border-[#333] shadow-inner bg-[#101010]">
+                                                    Restantes Documentos (Faturas, Recibos, Etc)
+                                                </td>
+                                            </tr>
+                                            {otherDocs.map(row => renderRow(row))}
+                                        </>
+                                    )}
+                                </>
+                            );
+                        })()}
                     </tbody>
                 </table>
                 {loading && <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center backdrop-blur-sm z-50">Loading...</div>}

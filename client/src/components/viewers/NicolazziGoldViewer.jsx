@@ -135,7 +135,7 @@ export default function NicolazziGoldViewer({
     );
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[5000] bg-black/90 flex flex-col font-sans text-xs w-screen h-screen">
+        <div className="fixed inset-0 z-[7000] bg-black/90 flex flex-col font-sans text-xs w-screen h-screen">
             <div className="h-10 bg-[#1e1e1e] border-b border-[#333] flex items-center justify-between px-4 select-none shrink-0">
                 <div className="flex items-center gap-4">
                     <h2 className="text-gray-300 font-bold tracking-wider flex items-center gap-2">
