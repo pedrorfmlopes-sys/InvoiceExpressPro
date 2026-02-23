@@ -267,7 +267,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                         finish_code: res.finishCode,
                         finish_note: finish?.note_pt,
                         original_it: item.description_it,
-                        original_description: originalFormatted,
+                        original_description: line.extra_attributes?.original_description || originalFormatted,
                         collection: res.series || item.series
                     };
 
@@ -336,7 +336,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                 manual_resolution: true,
                 collection: item.series,
                 series: item.series,
-                original_description: originalFormatted,
+                original_description: line.extra_attributes?.original_description || originalFormatted,
                 catalog_price: item.price,
                 price_match: isMatch
             },

@@ -92,7 +92,8 @@ class ProposalStudioService {
             sort_order: index,
             extra_attributes: JSON.stringify({
                 original_index: index,
-                brand_meta: l.extra || {}
+                brand_meta: l.extra || {},
+                original_description: l.description || '' // Preserving extracted description
             }),
             created_at: new Date(),
             updated_at: new Date()

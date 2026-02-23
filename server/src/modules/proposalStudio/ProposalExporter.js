@@ -283,6 +283,7 @@ class ProposalPdfEngine {
                 const extra = line.extra_attributes || {};
                 if (extra.finish_code) extraLines.push(`Acabamento: ${extra.finish_code}`);
                 if (extra.finish_note) extraLines.push(`Spec: ${extra.finish_note}`);
+                if (extra.original_description) extraLines.push(`Desc. Original: ${extra.original_description}`);
                 if (extra.collection || extra.series) extraLines.push(`Serie: ${extra.collection || extra.series}`);
             }
 
@@ -311,12 +312,13 @@ class ProposalPdfEngine {
                         this.drawText(dl, lx, 9, this.font, rgb(0, 0, 0));
                         dy += 10;
                     });
+                    const topY = this.y;
                     this.y -= dy;
                     detailLines.forEach(dl => {
                         this.drawText(dl, lx + 2, 7, this.font, rgb(0.4, 0.4, 0.4));
                         this.y -= 8;
                     });
-                    this.y += dy + (detailLines.length * 8); // Reset Y to top for next columns
+                    this.y = topY; // Reset Y to top for next columns
                 } else {
                     this.drawText(text, lx, 9, this.font, rgb(0, 0, 0));
                 }
@@ -344,7 +346,7 @@ class ProposalPdfEngine {
         drawTotalLine('Embalagem', fmtEUR(0));
         drawTotalLine('Portes', fmtEUR(0));
 
-        const iva = totalSiva * 0.23; // TODO: Calculate from lines if mixed rates
+        const iva = totalSiva * 0.23;
         drawTotalLine('IVA (23%)', fmtEUR(iva));
 
         this.y -= 5;
@@ -352,6 +354,47 @@ class ProposalPdfEngine {
         this.y -= 5;
 
         drawTotalLine('Total (c/IVA)', fmtEUR(totalSiva + iva), true);
+
+        // --- TECHNICAL ANNEX (Server Side) ---
+        const uniqueFinishes = [];
+        const finishCheck = new Set();
+        this.proposal.lines.forEach(line => {
+            const extra = line.extra_attributes || {};
+            const note = extra.finish_note;
+            const code = extra.finish_code || '';
+            const key = `${code}|${note}`;
+            if (note && !finishCheck.has(key)) {
+                finishCheck.add(key);
+                uniqueFinishes.push({ code, note });
+            }
+        });
+
+        if (uniqueFinishes.length > 0) {
+            this.drawFooter();
+            this.addNewPage();
+            this.y = this.height - this.margin;
+            this.drawContinuationHeader();
+            this.y -= 20;
+
+            this.drawText('ANEXO: ESPECIFICAÇÕES TÉCNICAS DE ACABAMENTOS', this.margin, 12, this.fontB, rgb(0, 0, 0));
+            this.y -= 25;
+
+            uniqueFinishes.forEach(f => {
+                const title = f.code ? `Acabamento: ${f.code}` : 'Especificação Técnica';
+                const noteLines = this.splitTextToLines(f.note, 9, this.width - (this.margin * 2) - 20);
+                const blockHeight = (noteLines.length * 12) + 30;
+
+                this.checkSpace(blockHeight);
+
+                this.drawText(title, this.margin, 10, this.fontB, rgb(0.1, 0.1, 0.1));
+                this.y -= 14;
+                noteLines.forEach(ln => {
+                    this.drawText(ln, this.margin + 5, 8.5, this.font, rgb(0.3, 0.3, 0.3));
+                    this.y -= 11;
+                });
+                this.y -= 15;
+            });
+        }
 
         // Final Footer
         this.drawFooter();

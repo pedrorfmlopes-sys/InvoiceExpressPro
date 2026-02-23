@@ -501,42 +501,6 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     ) : null}
                 </View>
 
-                {/* Technical Finishes Annex */}
-                {(() => {
-                    const uniqueFinishes = [];
-                    const finishCheck = new Set();
-                    lines.forEach(line => {
-                        const note = line.extra_attributes?.finish_note;
-                        if (note && !finishCheck.has(note)) {
-                            finishCheck.add(note);
-                            uniqueFinishes.push({
-                                code: line.extra_attributes?.finish_code || '',
-                                note: note
-                            });
-                        }
-                    });
-
-                    if (uniqueFinishes.length === 0) return null;
-
-                    return (
-                        <View style={{ marginTop: 10, break: 'before' }}>
-                            <View style={{ backgroundColor: '#F3F4F6', padding: 8, marginBottom: 10 }}>
-                                <Text style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                    Especificações Técnicas de Acabamentos
-                                </Text>
-                            </View>
-                            {uniqueFinishes.map((f, i) => (
-                                <View key={i} style={{ marginBottom: 10 }}>
-                                    {f.code ? (
-                                        <Text style={{ fontSize: 9, fontWeight: 'bold', marginBottom: 2 }}>{f.code}</Text>
-                                    ) : null}
-                                    <Text style={{ fontSize: 8, color: '#4B5563', textAlign: 'justify' }}>{f.note}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    );
-                })()}
-
                 {/* Fixed Footer */}
                 <View style={styles.footer} fixed>
                     <View style={{ flexDirection: 'column', gap: 2 }}>
@@ -548,6 +512,46 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                         render={({ pageNumber, totalPages }) => `Página ${pageNumber} / ${totalPages}`}
                     />
                 </View>
+
+                {/* Technical Finishes Annex - Now integrated with proper break */}
+                {(() => {
+                    const uniqueFinishes = [];
+                    const finishCheck = new Set();
+                    lines.forEach(line => {
+                        const note = line.extra_attributes?.finish_note;
+                        const code = line.extra_attributes?.finish_code || '';
+                        const key = `${code}|${note}`;
+                        if (note && !finishCheck.has(key)) {
+                            finishCheck.add(key);
+                            uniqueFinishes.push({
+                                code: code,
+                                note: note
+                            });
+                        }
+                    });
+
+                    if (uniqueFinishes.length === 0) return null;
+
+                    return (
+                        <View break style={{ marginTop: 20 }}>
+                            <View style={{ backgroundColor: '#F3F4F6', padding: 8, marginBottom: 15 }}>
+                                <Text style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', color: '#111827' }}>
+                                    Anexo: Especificações Técnicas de Acabamentos
+                                </Text>
+                            </View>
+                            {uniqueFinishes.map((f, i) => (
+                                <View key={i} style={{ marginBottom: 15, paddingHorizontal: 5 }} wrap={false}>
+                                    {f.code ? (
+                                        <Text style={{ fontSize: 9, fontWeight: 'bold', marginBottom: 4, color: '#374151', borderBottomWidth: 0.5, borderBottomColor: '#E5E7EB', paddingBottom: 2 }}>
+                                            Acabamento: {f.code}
+                                        </Text>
+                                    ) : null}
+                                    <Text style={{ fontSize: 8, color: '#4B5563', textAlign: 'justify', lineHeight: 1.4 }}>{f.note}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    );
+                })()}
 
             </Page>
         </Document >
