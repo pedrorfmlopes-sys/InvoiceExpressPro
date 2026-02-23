@@ -285,6 +285,7 @@ class ProposalPdfEngine {
                 const finishNote = extra.finish_note || extra.brand_meta?.finishNote;
 
                 if (finishCode) extraLines.push(`Acabamento: ${finishCode}`);
+                if (finishNote) extraLines.push(`Spec: ${finishNote}`);
                 if (extra.original_description) extraLines.push(`Desc. Original: ${extra.original_description}`);
                 if (extra.collection || extra.series) extraLines.push(`Serie: ${extra.collection || extra.series}`);
             }

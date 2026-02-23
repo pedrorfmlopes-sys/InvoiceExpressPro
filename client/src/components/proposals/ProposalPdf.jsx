@@ -408,6 +408,11 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                                                 Série/Coleção: {line.extra_attributes.collection}
                                             </Text>
                                         )}
+                                        {(line.extra_attributes?.finish_note || line.extra_attributes?.brand_meta?.finishNote) && (
+                                            <Text style={{ fontSize: 6, color: '#3B82F6', marginTop: 2, fontWeight: 'bold' }}>
+                                                Especificação Técnica: {(line.extra_attributes.finish_note || line.extra_attributes.brand_meta.finishNote)}
+                                            </Text>
+                                        )}
                                     </View>
                                 )}
                             </View>

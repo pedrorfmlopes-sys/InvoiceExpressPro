@@ -68,6 +68,7 @@ class ProposalStudioService {
                 billing_address: billingAddress,
                 shipping_address: deliveryAddress,
                 shipping_is_billing: !deliveryAddress || deliveryAddress === billingAddress,
+                show_technical_details: true,
                 notes: ''
             }),
             created_at: new Date(),
