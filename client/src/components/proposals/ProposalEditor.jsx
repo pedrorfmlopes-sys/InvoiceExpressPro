@@ -797,9 +797,17 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                         ({line.extra_attributes.original_description})
                                                     </div>
                                                 )}
-                                                {shouldShowCollectionDynamic(line.extra_attributes?.collection) && (
-                                                    <div className="text-[9px] font-bold text-amber-500/60 uppercase tracking-tighter leading-none mt-0.5">
-                                                        Coleção {line.extra_attributes.collection}
+                                                {shouldShow(line.extra_attributes?.collection) && (
+                                                    <div className="text-[9px] text-gray-500 uppercase tracking-tighter mt-1 line-clamp-1">
+                                                        {line.extra_attributes.collection}
+                                                    </div>
+                                                )}
+
+                                                {/* Tech Spec Indicator */}
+                                                {(line.extra_attributes?.finish_note || line.extra_attributes?.brand_meta?.finishNote) && (
+                                                    <div className="mt-1 flex items-center gap-1.5 text-[8px] bg-blue-500/5 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/10 w-fit">
+                                                        <span className="font-bold uppercase">📋 Spec Técnica:</span>
+                                                        <span className="line-clamp-1 opacity-70">{(line.extra_attributes.finish_note || line.extra_attributes.brand_meta.finishNote).substring(0, 30)}...</span>
                                                     </div>
                                                 )}
 

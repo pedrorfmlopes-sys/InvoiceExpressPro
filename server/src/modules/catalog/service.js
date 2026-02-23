@@ -437,7 +437,7 @@ class CatalogService {
                 // Guess finish from remainder
                 const possibleFinish = await knex('catalog_finishes')
                     .where({ brand: 'nicolazzi' })
-                    .whereRaw('? LIKE CONCAT(\'%\', finish_code)', [remainder])
+                    .whereRaw('? LIKE CONCAT(\'%\', finish_code, \'%\')', [remainder])
                     .first();
 
                 return {

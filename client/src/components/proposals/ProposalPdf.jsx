@@ -398,16 +398,6 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
                                 {proposal.metadata?.show_technical_details && (
                                     <View style={{ marginTop: 3, borderTopWidth: 0.2, borderTopColor: '#E5E7EB', paddingTop: 2 }}>
-                                        {line.extra_attributes?.finish_code && (
-                                            <Text style={{ fontSize: 6.5, color: '#374151', fontWeight: 'bold', marginBottom: 1 }}>
-                                                Acabamento: {line.extra_attributes.finish_code}
-                                            </Text>
-                                        )}
-                                        {line.extra_attributes?.finish_note && (
-                                            <Text style={{ fontSize: 6, color: '#6B7280', marginBottom: 2, textAlign: 'justify' }}>
-                                                {line.extra_attributes.finish_note}
-                                            </Text>
-                                        )}
                                         {line.extra_attributes?.original_description && (
                                             <Text style={{ fontSize: 6, color: '#9CA3AF', fontFamily: 'Helvetica-Oblique' }}>
                                                 Desc. Original: {line.extra_attributes.original_description}
@@ -518,8 +508,9 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     const uniqueFinishes = [];
                     const finishCheck = new Set();
                     lines.forEach(line => {
-                        const note = line.extra_attributes?.finish_note;
-                        const code = line.extra_attributes?.finish_code || '';
+                        const extra = line.extra_attributes || {};
+                        const note = extra.finish_note || extra.brand_meta?.finishNote;
+                        const code = extra.finish_code || extra.brand_meta?.finishCode || '';
                         const key = `${code}|${note}`;
                         if (note && !finishCheck.has(key)) {
                             finishCheck.add(key);
