@@ -693,8 +693,8 @@ const ProposalEditor = (props) => {
                 {showCatalogModal && (
                     <CatalogSearchModal
                         brand={proposal.brand_id}
-                        initialSku={proposal.lines[resolutionIndex]?.sku}
-                        onClose={() => { setShowCatalogModal(false); setResolutionIndex(null); }}
+                        initialSku={createItemSku}
+                        onClose={() => { setShowCatalogModal(false); setResolutionIndex(null); setCreateItemSku(''); }}
                         onSelect={(item) => selectCatalogItem(resolutionIndex, item)}
                         onCreateNew={(sku) => {
                             setCreateItemSku(sku);
@@ -768,7 +768,15 @@ const ProposalEditor = (props) => {
                                         <td className="py-2 text-[10px] font-mono text-amber-500/70">
                                             <div className="flex items-center gap-1.5">
                                                 {line.enrichment_status === 'match' && (
-                                                    <button onClick={() => { setResolutionIndex(idx); setShowCatalogModal(true); }} className="text-[10px] hover:scale-125 transition-transform" title="Correspondência Exata (Clique para alterar)">✅</button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setResolutionIndex(idx);
+                                                            setCreateItemSku(line.sku);
+                                                            setShowCatalogModal(true);
+                                                        }}
+                                                        className="text-[10px] hover:scale-125 transition-transform"
+                                                        title="Correspondência Exata (Clique para alterar)"
+                                                    >✅</button>
                                                 )}
                                                 {line.enrichment_status === 'fuzzy' && (
                                                     <div className="flex items-center gap-1">
