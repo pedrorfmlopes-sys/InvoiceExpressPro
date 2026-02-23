@@ -1089,20 +1089,25 @@ const ProposalEditor = (props) => {
                     <CatalogSearchModal
                         onClose={() => setShowCatalogModal(false)}
                         onSelect={(item) => selectCatalogItem(resolutionIndex, item)}
-                        brandId={proposal.brand_id}
-                        initialQuery={createItemSku}
+                        brand={proposal.brand_id}
+                        initialSku={createItemSku}
+                        onCreateNew={(sku) => {
+                            setCreateItemSku(sku);
+                            setShowCatalogModal(false);
+                            setShowCreateItemModal(true);
+                        }}
                     />
                 )}
 
                 {showCreateItemModal && (
                     <CreateCatalogItemModal
+                        isOpen={showCreateItemModal}
                         onClose={() => setShowCreateItemModal(false)}
                         onCreated={() => {
                             setShowCreateItemModal(false);
                             handleEnrich(); // Retry enrichment
                         }}
                         initialSku={createItemSku}
-                        brandId={proposal.brand_id}
                     />
                 )}
 
@@ -1116,6 +1121,7 @@ const ProposalEditor = (props) => {
                 {showPresetManagement && (
                     <PresetManagementModal
                         category={showPresetManagement}
+                        presets={presets.filter(x => x.category === showPresetManagement)}
                         onClose={() => setShowPresetManagement(null)}
                         onRefresh={() => api.get(`/api/proposals/presets/list`).then(res => setPresets(res.data || []))}
                     />
