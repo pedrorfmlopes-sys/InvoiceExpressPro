@@ -408,9 +408,9 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                                                 Série/Coleção: {line.extra_attributes.collection}
                                             </Text>
                                         )}
-                                        {(line.extra_attributes?.finish_note || line.extra_attributes?.brand_meta?.finishNote) && (
-                                            <Text style={{ fontSize: 6, color: '#3B82F6', marginTop: 2, fontWeight: 'bold' }}>
-                                                Especificação Técnica: {(line.extra_attributes.finish_note || line.extra_attributes.brand_meta.finishNote)}
+                                        {(line.extra_attributes?.finish_note || line.extra_attributes?.finishNote || line.extra_attributes?.note_pt || line.extra_attributes?.brand_meta?.finishNote || line.extra_attributes?.brand_meta?.note_pt) && (
+                                            <Text style={{ fontSize: 6, color: '#1D4ED8', marginTop: 2, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                                Especificação Técnica: {line.extra_attributes.finish_note || line.extra_attributes.finishNote || line.extra_attributes.note_pt || line.extra_attributes.brand_meta?.finishNote || line.extra_attributes.brand_meta?.note_pt}
                                             </Text>
                                         )}
                                     </View>
@@ -514,8 +514,8 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     const finishCheck = new Set();
                     lines.forEach(line => {
                         const extra = line.extra_attributes || {};
-                        const note = extra.finish_note || extra.brand_meta?.finishNote;
-                        const code = extra.finish_code || extra.brand_meta?.finishCode || '';
+                        const note = extra.finish_note || extra.finishNote || extra.note_pt || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
+                        const code = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode || '';
                         const key = `${code}|${note}`;
                         if (note && !finishCheck.has(key)) {
                             finishCheck.add(key);

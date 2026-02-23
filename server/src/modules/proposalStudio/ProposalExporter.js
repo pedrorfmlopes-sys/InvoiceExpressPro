@@ -281,8 +281,8 @@ class ProposalPdfEngine {
 
             if (this.proposal.metadata?.show_technical_details) {
                 const extra = line.extra_attributes || {};
-                const finishCode = extra.finish_code || extra.brand_meta?.finishCode;
-                const finishNote = extra.finish_note || extra.brand_meta?.finishNote;
+                const finishNote = extra.finish_note || extra.finishNote || extra.note_pt || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
+                const finishCode = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode;
 
                 if (finishCode) extraLines.push(`Acabamento: ${finishCode}`);
                 if (finishNote) extraLines.push(`Spec: ${finishNote}`);
@@ -363,8 +363,8 @@ class ProposalPdfEngine {
         const finishCheck = new Set();
         this.proposal.lines.forEach(line => {
             const extra = line.extra_attributes || {};
-            const note = extra.finish_note || extra.brand_meta?.finishNote;
-            const code = extra.finish_code || extra.brand_meta?.finishCode || '';
+            const note = extra.finish_note || extra.finishNote || extra.note_pt || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
+            const code = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode || '';
             const key = `${code}|${note}`;
             if (note && !finishCheck.has(key)) {
                 finishCheck.add(key);
