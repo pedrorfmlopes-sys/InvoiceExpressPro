@@ -311,46 +311,58 @@ const ProposalEditor = (props) => {
         }
     };
 
-    const selectCatalogItem = (index, item) => {
+    const selectCatalogItem = async (index, item) => {
         const newLines = [...proposal.lines];
         const line = newLines[index];
 
-        // Format original description (Sentence case)
-        const rawOriginal = item.description_it || item.description_en || '';
-        const originalFormatted = rawOriginal ? (rawOriginal.charAt(0).toUpperCase() + rawOriginal.slice(1).toLowerCase()) : '';
+        setSaving(true);
+        try {
+            // Fetch extra details (finish notes, etc.) for this item
+            const res = await api.post('/api/catalog/resolve', {
+                brand: proposal.brand_id,
+                sku: line.sku // Use the current SKU which has the finish code
+            });
 
-        // Price Safety: Do not overwrite current price, but set mismatch if needed
-        const currentPrice = parseFloat(line.unit_price_commercial || 0);
-        const catalogPrice = parseFloat(item.price || 0);
-        const priceDiff = Math.abs(currentPrice - catalogPrice);
-        const isMatch = priceDiff < 0.01;
+            const extraDetails = res.data?.success ? res.data : null;
 
-        // Update with catalog data
-        newLines[index] = {
-            ...line,
-            // SKU REMAIN UNCHANGED BY USER REQUEST
-            description: item.description_pt || item.description_it || line.description,
-            unit_price_commercial: line.unit_price_commercial,
-            extra_attributes: {
-                ...line.extra_attributes,
-                catalog_match: true,
-                catalog_sku: item.sku,
-                finish_code: item.finish_code || line.extra_attributes.finish_code,
-                finish_group: item.finish_group,
-                finish_note: item.finish_note || line.extra_attributes.finish_note,
-                manual_resolution: true,
-                collection: item.series,
-                series: item.series,
-                original_description: line.extra_attributes?.original_description || originalFormatted,
-                catalog_price: item.price,
-                price_match: isMatch
-            },
-            enrichment_status: 'match'
-        };
+            // Format original description (Sentence case)
+            const rawOriginal = item.description_it || item.description_en || '';
+            const originalFormatted = rawOriginal ? (rawOriginal.charAt(0).toUpperCase() + rawOriginal.slice(1).toLowerCase()) : '';
 
-        setProposal({ ...proposal, lines: newLines });
-        setShowCatalogModal(false);
-        setResolutionIndex(null);
+            // Price Safety
+            const catalogPrice = parseFloat(item.price || 0);
+            const currentPrice = parseFloat(line.unit_price_commercial || 0);
+            const isMatch = Math.abs(currentPrice - catalogPrice) < 0.01;
+
+            // Update with catalog data
+            newLines[index] = {
+                ...line,
+                description: item.description_pt || item.description_it || line.description,
+                extra_attributes: {
+                    ...line.extra_attributes,
+                    catalog_match: true,
+                    catalog_sku: item.sku,
+                    finish_code: extraDetails?.finishCode || line.extra_attributes.finish_code,
+                    finish_group: item.finish_group,
+                    finish_note: extraDetails?.finish?.note_pt || line.extra_attributes.finish_note,
+                    manual_resolution: true,
+                    collection: item.series,
+                    series: item.series,
+                    original_description: line.extra_attributes?.original_description || originalFormatted,
+                    catalog_price: item.price,
+                    price_match: isMatch
+                },
+                enrichment_status: 'match'
+            };
+
+            setProposal({ ...proposal, lines: newLines });
+            setShowCatalogModal(false);
+            setResolutionIndex(null);
+        } catch (e) {
+            console.error("Error in selectCatalogItem:", e);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const confirmFuzzyMatch = (index) => {

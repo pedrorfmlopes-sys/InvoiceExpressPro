@@ -361,6 +361,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
                 {/* Table Rows (Auto Pagination!) */}
                 {lines.map((line, idx) => {
+                    const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
                     const qty = parseFloat(line.quantity || 0);
                     const price = parseFloat(line.unit_price_commercial || 0);
                     const disc = parseFloat(line.discount_commercial_percent || 0);
@@ -398,19 +399,19 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
                                 {proposal.metadata?.show_technical_details && (
                                     <View style={{ marginTop: 3, borderTopWidth: 0.2, borderTopColor: '#E5E7EB', paddingTop: 2 }}>
-                                        {line.extra_attributes?.original_description && (
+                                        {extra.original_description && (
                                             <Text style={{ fontSize: 6, color: '#9CA3AF', fontFamily: 'Helvetica-Oblique' }}>
-                                                Desc. Original: {line.extra_attributes.original_description}
+                                                Desc. Original: {extra.original_description}
                                             </Text>
                                         )}
-                                        {shouldShow(line.extra_attributes?.collection) && (
+                                        {shouldShow(extra.collection) && (
                                             <Text style={{ fontSize: 6, color: '#6B7280', marginTop: 1, textTransform: 'uppercase', fontWeight: 'bold' }}>
-                                                Série/Coleção: {line.extra_attributes.collection}
+                                                Série/Coleção: {extra.collection}
                                             </Text>
                                         )}
-                                        {(line.extra_attributes?.finish_note || line.extra_attributes?.finishNote || line.extra_attributes?.note_pt || line.extra_attributes?.brand_meta?.finishNote || line.extra_attributes?.brand_meta?.note_pt) && (
-                                            <Text style={{ fontSize: 6, color: '#1D4ED8', marginTop: 2, fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                                Especificação Técnica: {line.extra_attributes.finish_note || line.extra_attributes.finishNote || line.extra_attributes.note_pt || line.extra_attributes.brand_meta?.finishNote || line.extra_attributes.brand_meta?.note_pt}
+                                        {extra.finish_code && (
+                                            <Text style={{ fontSize: 6, color: '#374151', marginTop: 1, fontWeight: 'bold' }}>
+                                                Acabamento: {extra.finish_code}
                                             </Text>
                                         )}
                                     </View>
@@ -513,9 +514,15 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     const uniqueFinishes = [];
                     const finishCheck = new Set();
                     lines.forEach(line => {
-                        const extra = line.extra_attributes || {};
-                        const note = extra.finish_note || extra.finishNote || extra.note_pt || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
-                        const code = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode || '';
+                        const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
+                        const note = extra.finish_note || extra.finishNote || extra.note_pt || extra.note || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
+                        let code = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode || '';
+
+                        // Filter: NEM and BIM belong to CL
+                        if (code === 'NEM' || code === 'BIM') {
+                            code = `CL (${code})`;
+                        }
+
                         const key = `${code}|${note}`;
                         if (note && !finishCheck.has(key)) {
                             finishCheck.add(key);

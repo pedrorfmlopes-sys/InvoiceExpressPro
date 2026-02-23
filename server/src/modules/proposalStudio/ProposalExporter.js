@@ -280,12 +280,10 @@ class ProposalPdfEngine {
             }
 
             if (this.proposal.metadata?.show_technical_details) {
-                const extra = line.extra_attributes || {};
-                const finishNote = extra.finish_note || extra.finishNote || extra.note_pt || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
+                const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
                 const finishCode = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode;
 
                 if (finishCode) extraLines.push(`Acabamento: ${finishCode}`);
-                if (finishNote) extraLines.push(`Spec: ${finishNote}`);
                 if (extra.original_description) extraLines.push(`Desc. Original: ${extra.original_description}`);
                 if (extra.collection || extra.series) extraLines.push(`Serie: ${extra.collection || extra.series}`);
             }
@@ -362,9 +360,15 @@ class ProposalPdfEngine {
         const uniqueFinishes = [];
         const finishCheck = new Set();
         this.proposal.lines.forEach(line => {
-            const extra = line.extra_attributes || {};
-            const note = extra.finish_note || extra.finishNote || extra.note_pt || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
-            const code = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode || '';
+            const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
+            const note = extra.finish_note || extra.finishNote || extra.note_pt || extra.note || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
+            let code = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode || '';
+
+            // Filter: NEM and BIM belong to CL
+            if (code === 'NEM' || code === 'BIM') {
+                code = `CL (${code})`;
+            }
+
             const key = `${code}|${note}`;
             if (note && !finishCheck.has(key)) {
                 finishCheck.add(key);
