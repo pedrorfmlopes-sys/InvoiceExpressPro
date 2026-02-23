@@ -26,7 +26,7 @@ export default function NicolazziReconciliationViewer({ invoiceId, onClose }) {
     if (!invoiceId) return null;
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[6000] bg-black/95 flex flex-col font-sans text-xs w-screen h-screen">
+        <div className="fixed inset-0 z-[8000] bg-black/95 flex flex-col font-sans text-xs w-screen h-screen">
 
             {/* TOOLBAR */}
             <div className="h-12 bg-[#1e1e1e] border-b border-[#333] flex items-center justify-between px-6 select-none shrink-0">
