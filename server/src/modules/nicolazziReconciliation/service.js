@@ -207,7 +207,12 @@ async function getReconciliationDetails(invoiceId) {
                 date: invoiceData.date,
                 total: invoiceData.totals?.gross
             },
-            lines: []
+            lines: [],
+            stats: {
+                total_inv: 0,
+                matched: 0,
+                potential: 0
+            }
         };
     }
 

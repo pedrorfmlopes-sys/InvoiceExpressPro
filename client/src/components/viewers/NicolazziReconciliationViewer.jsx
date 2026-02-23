@@ -66,22 +66,22 @@ export default function NicolazziReconciliationViewer({ invoiceId, onClose }) {
                         <div className="grid grid-cols-4 gap-4">
                             <div className="bg-[#1a1a1a] p-4 rounded border border-[#333] flex flex-col relative overflow-hidden">
                                 <span className="text-[10px] uppercase text-gray-500 font-bold">Total Fatura (Linhas)</span>
-                                <span className="text-2xl font-bold text-white mt-1">{data.stats.total_inv}</span>
+                                <span className="text-2xl font-bold text-white mt-1">{data?.stats?.total_inv || 0}</span>
                                 <div className="absolute top-0 right-0 p-2 opacity-10 text-4xl font-black">#</div>
                             </div>
                             <div className="bg-[#1a1a1a] p-4 rounded border border-[#333] flex flex-col relative overflow-hidden">
                                 <span className="text-[10px] uppercase text-green-500 font-bold">Matches (100%)</span>
-                                <span className="text-2xl font-bold text-green-400 mt-1">{data.stats.matched}</span>
+                                <span className="text-2xl font-bold text-green-400 mt-1">{data?.stats?.matched || 0}</span>
                                 <div className="absolute top-0 right-0 p-2 opacity-10 bg-green-500 rounded-full w-12 h-12 -mr-4 -mt-4"></div>
                             </div>
                             <div className="bg-[#1a1a1a] p-4 rounded border border-[#333] flex flex-col relative overflow-hidden">
                                 <span className="text-[10px] uppercase text-yellow-500 font-bold">Potenciais (Soft Match)</span>
-                                <span className="text-2xl font-bold text-yellow-400 mt-1">{data.stats.potential || 0}</span>
+                                <span className="text-2xl font-bold text-yellow-400 mt-1">{data?.stats?.potential || 0}</span>
                             </div>
                             <div className="bg-[#1a1a1a] p-4 rounded border border-[#333] flex flex-col relative overflow-hidden">
                                 <span className="text-[10px] uppercase text-red-500 font-bold">Não Encontrados</span>
                                 <span className="text-2xl font-bold text-red-400 mt-1">
-                                    {(data.stats.total_inv - data.stats.matched - (data.stats.potential || 0))}
+                                    {((data?.stats?.total_inv || 0) - (data?.stats?.matched || 0) - (data?.stats?.potential || 0))}
                                 </span>
                             </div>
                         </div>
