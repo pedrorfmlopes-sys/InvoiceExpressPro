@@ -802,6 +802,32 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                         Coleção {line.extra_attributes.collection}
                                                     </div>
                                                 )}
+
+                                                {/* Ship Date Indicator */}
+                                                {(() => {
+                                                    const effLead = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
+                                                    let pDate = line.predicted_ship_date;
+                                                    if (!pDate && effLead > 0) {
+                                                        const bDate = proposal.order_confirmation_date
+                                                            ? new Date(proposal.order_confirmation_date)
+                                                            : (proposal.metadata?.doc_date ? new Date(proposal.metadata.doc_date) : null);
+                                                        if (bDate) {
+                                                            bDate.setDate(bDate.getDate() + (effLead * 7));
+                                                            pDate = bDate.getTime();
+                                                        }
+                                                    }
+                                                    if (!pDate) return null;
+                                                    const date = new Date(pDate);
+                                                    const isOverdue = date < new Date();
+
+                                                    return (
+                                                        <div className={`text-[8px] font-black uppercase mt-1 flex items-center gap-1.5 ${isOverdue ? 'text-red-500' : 'text-green-500'}`}>
+                                                            <FiClock className="shrink-0" />
+                                                            <span>Previsto: {date.toLocaleDateString('pt-PT')}</span>
+                                                            {isOverdue && <span className="px-1 bg-red-500/10 rounded animate-pulse">Atraso</span>}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </td>
                                         <td className="py-2">

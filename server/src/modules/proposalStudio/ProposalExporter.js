@@ -257,34 +257,73 @@ class ProposalPdfEngine {
             const lineTotal = (line.quantity || 0) * (line.unit_price_commercial || 0);
             totalSiva += lineTotal;
 
+            // Description and Extra Details
+            let fullDescription = line.description || '';
+            const extraLines = [];
+
+            // Dynamic Predicted Date Calculation
+            const effectiveLeadWeeks = line.lead_time_weeks || this.proposal.general_lead_time_weeks || 0;
+            let predictedDateDisplay = line.predicted_ship_date ? new Date(line.predicted_ship_date).toLocaleDateString('pt-PT') : '';
+            if (!predictedDateDisplay && effectiveLeadWeeks > 0) {
+                const baseDate = this.proposal.order_confirmation_date
+                    ? new Date(this.proposal.order_confirmation_date)
+                    : (this.proposal.metadata?.doc_date ? new Date(this.proposal.metadata.doc_date) : null);
+
+                if (baseDate) {
+                    baseDate.setDate(baseDate.getDate() + (effectiveLeadWeeks * 7));
+                    predictedDateDisplay = baseDate.toLocaleDateString('pt-PT');
+                }
+            }
+
+            if (predictedDateDisplay) {
+                extraLines.push(`PRAZO PREVISTO: ${predictedDateDisplay}`);
+            }
+
+            if (this.proposal.metadata?.show_technical_details) {
+                const extra = line.extra_attributes || {};
+                if (extra.finish_code) extraLines.push(`Acabamento: ${extra.finish_code}`);
+                if (extra.finish_note) extraLines.push(`Spec: ${extra.finish_note}`);
+                if (extra.collection || extra.series) extraLines.push(`Serie: ${extra.collection || extra.series}`);
+            }
+
+            const mainDescLines = this.splitTextToLines(fullDescription, 9, this.colWidths[2] - 10);
+            const detailLines = extraLines.flatMap(el => this.splitTextToLines(el, 7, this.colWidths[2] - 15));
+
+            const rowHeight = Math.max(15, (mainDescLines.length * 10) + (detailLines.length * 8) + 10);
+
+            this.checkSpace(rowHeight);
+
             const row = [
                 line.sku,
                 String(line.quantity),
-                line.description,
+                '', // Description (handled specially)
                 '', // Obs
                 'UN',
                 fmtEUR(line.unit_price_commercial).replace('€', ''),
                 fmtEUR(lineTotal).replace('€', '')
             ];
 
-            const descLines = this.splitTextToLines(line.description || '', 9, this.colWidths[2] - 10);
-            const rowHeight = Math.max(15, descLines.length * 10 + 10); // +10 for padding
-
-            this.checkSpace(rowHeight);
-
             let lx = this.margin;
             row.forEach((text, i) => {
-                if (i === 2) { // Description multiline
-                    descLines.forEach((dl, di) => {
+                if (i === 2) {
+                    let dy = 0;
+                    mainDescLines.forEach(dl => {
                         this.drawText(dl, lx, 9, this.font, rgb(0, 0, 0));
+                        dy += 10;
                     });
+                    this.y -= dy;
+                    detailLines.forEach(dl => {
+                        this.drawText(dl, lx + 2, 7, this.font, rgb(0.4, 0.4, 0.4));
+                        this.y -= 8;
+                    });
+                    this.y += dy + (detailLines.length * 8); // Reset Y to top for next columns
                 } else {
                     this.drawText(text, lx, 9, this.font, rgb(0, 0, 0));
                 }
                 lx += this.colWidths[i];
             });
 
-            this.y -= (rowHeight + 5); // Added 5px padding between rows
+            this.y -= (rowHeight + 5);
         });
 
         // Totals Block
@@ -346,18 +385,39 @@ class ProposalExporter {
 
     // Kept existing Excel logic unchanged for safety
     async generateExcel(proposal) {
-        const rows = proposal.lines.map(l => ({
-            'Projeto': proposal.metadata?.client_project_name || '',
-            'NIF': proposal.metadata?.client_vat || '',
-            'Morada Faturação': proposal.metadata?.billing_address || '',
-            'Morada Entrega': proposal.metadata?.shipping_is_billing ? 'Igual à faturação' : (proposal.metadata?.shipping_address || ''),
-            'Codigo': l.sku,
-            'Descrição': l.description,
-            'Quantidade': l.quantity,
-            'Preço Unitário': l.unit_price_commercial,
-            'Desconto %': l.discount_commercial_percent,
-            'Subtotal': l.quantity * l.unit_price_commercial * (1 - (l.discount_commercial_percent / 100))
-        }));
+        const rows = proposal.lines.map(l => {
+            const extra = l.extra_attributes || {};
+
+            // Dynamic Predicted Date Calculation
+            const effectiveLeadWeeks = l.lead_time_weeks || proposal.general_lead_time_weeks || 0;
+            let predictedDateDisplay = l.predicted_ship_date ? new Date(l.predicted_ship_date).toLocaleDateString('pt-PT') : '';
+
+            if (!predictedDateDisplay && effectiveLeadWeeks > 0) {
+                const baseDate = proposal.order_confirmation_date
+                    ? new Date(proposal.order_confirmation_date)
+                    : (proposal.metadata?.doc_date ? new Date(proposal.metadata.doc_date) : null);
+
+                if (baseDate) {
+                    baseDate.setDate(baseDate.getDate() + (effectiveLeadWeeks * 7));
+                    predictedDateDisplay = baseDate.toLocaleDateString('pt-PT');
+                }
+            }
+
+            return {
+                'Projeto': proposal.metadata?.client_project_name || '',
+                'NIF': proposal.metadata?.client_vat || '',
+                'Morada Faturação': proposal.metadata?.billing_address || '',
+                'Morada Entrega': proposal.metadata?.shipping_is_billing ? 'Igual à faturação' : (proposal.metadata?.shipping_address || ''),
+                'Codigo': l.sku,
+                'Descrição': l.description,
+                'Coleção': extra.collection || extra.series || '',
+                'Quantidade': l.quantity,
+                'Previsão Entrega': predictedDateDisplay,
+                'Preço Unitário': l.unit_price_commercial,
+                'Desconto %': l.discount_commercial_percent,
+                'Subtotal': l.quantity * l.unit_price_commercial * (1 - (l.discount_commercial_percent / 100))
+            };
+        });
 
         const wb = xlsx.utils.book_new();
         const ws = xlsx.utils.json_to_sheet(rows);
@@ -365,10 +425,10 @@ class ProposalExporter {
         const rowCount = rows.length;
         for (let i = 0; i < rowCount; i++) {
             const rowIdx = i + 2;
-            const qtyCell = xlsx.utils.encode_cell({ c: 2, r: rowIdx - 1 });
-            const priceCell = xlsx.utils.encode_cell({ c: 3, r: rowIdx - 1 });
-            const discCell = xlsx.utils.encode_cell({ c: 4, r: rowIdx - 1 });
-            const subtotalCell = xlsx.utils.encode_cell({ c: 5, r: rowIdx - 1 });
+            const qtyCell = xlsx.utils.encode_cell({ c: 7, r: rowIdx - 1 });
+            const priceCell = xlsx.utils.encode_cell({ c: 9, r: rowIdx - 1 });
+            const discCell = xlsx.utils.encode_cell({ c: 10, r: rowIdx - 1 });
+            const subtotalCell = xlsx.utils.encode_cell({ c: 11, r: rowIdx - 1 });
 
             ws[subtotalCell] = { f: `${qtyCell}*${priceCell}*(1-${discCell}/100)`, t: 'n' };
         }

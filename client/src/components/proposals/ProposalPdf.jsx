@@ -366,24 +366,59 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     const disc = parseFloat(line.discount_commercial_percent || 0);
                     const total = qty * price * (1 - disc / 100);
 
+                    // Dynamic Predicted Date Calculation (Same as in Reconciliation Service)
+                    const effectiveLeadWeeks = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
+                    let predictedDate = line.predicted_ship_date;
+                    if (!predictedDate && effectiveLeadWeeks > 0) {
+                        const baseDate = proposal.order_confirmation_date
+                            ? new Date(proposal.order_confirmation_date)
+                            : (proposal.metadata?.doc_date ? new Date(proposal.metadata.doc_date) : null);
+
+                        if (baseDate) {
+                            baseDate.setDate(baseDate.getDate() + (effectiveLeadWeeks * 7));
+                            predictedDate = baseDate.getTime();
+                        }
+                    }
+
                     return (
                         <View key={idx} style={styles.tableRow} wrap={false}>
                             <Text style={[styles.colCode, styles.skuText]}>{line.sku}</Text>
                             <View style={[styles.colDesc]}>
                                 <Text style={styles.descText}>{line.description}</Text>
+
+                                {/* Predicted Ship Date - Requested per line if defined or calculated */}
+                                {predictedDate && (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                        <Text style={{ fontSize: 7, color: '#6B7280', fontWeight: 'bold' }}>PRAZO PREVISTO: </Text>
+                                        <Text style={{ fontSize: 7, color: '#374151', fontWeight: 'bold' }}>
+                                            {new Date(predictedDate).toLocaleDateString('pt-PT')}
+                                        </Text>
+                                    </View>
+                                )}
+
                                 {proposal.metadata?.show_technical_details && (
-                                    <>
+                                    <View style={{ marginTop: 3, borderTopWidth: 0.2, borderTopColor: '#E5E7EB', paddingTop: 2 }}>
+                                        {line.extra_attributes?.finish_code && (
+                                            <Text style={{ fontSize: 6.5, color: '#374151', fontWeight: 'bold', marginBottom: 1 }}>
+                                                Acabamento: {line.extra_attributes.finish_code}
+                                            </Text>
+                                        )}
+                                        {line.extra_attributes?.finish_note && (
+                                            <Text style={{ fontSize: 6, color: '#6B7280', marginBottom: 2, textAlign: 'justify' }}>
+                                                {line.extra_attributes.finish_note}
+                                            </Text>
+                                        )}
                                         {line.extra_attributes?.original_description && (
-                                            <Text style={{ fontSize: 6, color: '#6B7280', marginTop: 1, fontFamily: 'Helvetica-Oblique' }}>
-                                                ({line.extra_attributes.original_description})
+                                            <Text style={{ fontSize: 6, color: '#9CA3AF', fontFamily: 'Helvetica-Oblique' }}>
+                                                Desc. Original: {line.extra_attributes.original_description}
                                             </Text>
                                         )}
                                         {shouldShow(line.extra_attributes?.collection) && (
                                             <Text style={{ fontSize: 6, color: '#6B7280', marginTop: 1, textTransform: 'uppercase', fontWeight: 'bold' }}>
-                                                Coleção {line.extra_attributes.collection}
+                                                Série/Coleção: {line.extra_attributes.collection}
                                             </Text>
                                         )}
-                                    </>
+                                    </View>
                                 )}
                             </View>
                             <Text style={styles.colQty}>{line.quantity}</Text>
