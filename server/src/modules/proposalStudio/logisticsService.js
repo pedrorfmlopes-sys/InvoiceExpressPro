@@ -171,7 +171,9 @@ async function autoCategorizeLines(proposalId) {
     for (const u of updates) {
         await knex('proposal_lines').where({ id: u.id }).update({
             production_category: u.production_category,
-            extra_attributes: u.extra_attributes
+            extra_attributes: typeof u.extra_attributes === 'string'
+                ? u.extra_attributes
+                : JSON.stringify(u.extra_attributes || {})
         });
     }
 
