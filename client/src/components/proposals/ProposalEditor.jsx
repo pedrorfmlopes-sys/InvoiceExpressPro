@@ -761,7 +761,11 @@ const ProposalEditor = (props) => {
                                                 {line.enrichment_status === 'fuzzy' && (
                                                     <div className="flex items-center gap-1">
                                                         <button
-                                                            onClick={() => { setResolutionIndex(idx); setShowCatalogModal(true); }}
+                                                            onClick={() => {
+                                                                setResolutionIndex(idx);
+                                                                setCreateItemSku(line.sku);
+                                                                setShowCatalogModal(true);
+                                                            }}
                                                             className="text-[10px] hover:scale-125 transition-transform"
                                                             title="Correspondência Aproximada (Clique para pesquisar manual)"
                                                         >🟡</button>
@@ -774,7 +778,11 @@ const ProposalEditor = (props) => {
                                                 )}
                                                 {(line.enrichment_status === 'miss' || !line.enrichment_status) && (
                                                     <button
-                                                        onClick={() => { setResolutionIndex(idx); setShowCatalogModal(true); }}
+                                                        onClick={() => {
+                                                            setResolutionIndex(idx);
+                                                            setCreateItemSku(line.sku);
+                                                            setShowCatalogModal(true);
+                                                        }}
                                                         className={`text-[12px] transition-all hover:scale-125 ${line.enrichment_status === 'miss' ? 'text-red-500' : 'text-gray-600 hover:text-amber-500'}`}
                                                         title={line.enrichment_status === 'miss' ? "Não encontrado na Biblioteca (Clique para pesquisar manual)" : "Pesquisa Manual na Biblioteca"}
                                                     >
