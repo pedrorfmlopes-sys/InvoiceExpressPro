@@ -17,7 +17,12 @@ const PRESET_CATEGORIES = {
     PAYMENT: 'payment'
 };
 
-const ProposalEditor = ({ proposalId, onClose }) => {
+const ProposalEditor = (props) => {
+    if (!props) {
+        console.warn("[ProposalEditor] Props are undefined! Redirecting or returning null.");
+        return null;
+    }
+    const { proposalId, onClose } = props;
     const [proposal, setProposal] = useState(null);
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -797,7 +802,7 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                                                         ({line.extra_attributes.original_description})
                                                     </div>
                                                 )}
-                                                {shouldShow(line.extra_attributes?.collection) && (
+                                                {shouldShowCollectionDynamic(line.extra_attributes?.collection) && (
                                                     <div className="text-[9px] text-gray-500 uppercase tracking-tighter mt-1 line-clamp-1">
                                                         {line.extra_attributes.collection}
                                                     </div>
@@ -1061,6 +1066,60 @@ const ProposalEditor = ({ proposalId, onClose }) => {
                     </div>
                 </div>
 
+                {/* Modals & Overlays */}
+                {showEntityModal && (
+                    <EntityDataModal
+                        proposal={proposal}
+                        onClose={() => setShowEntityModal(false)}
+                        updateHeader={updateHeader}
+                        updateMetadata={updateMetadata}
+                        searchCRM={searchCRM}
+                        searchResults={searchResults}
+                        searching={searching}
+                        selectCustomer={selectCustomer}
+                        saveToCrm={saveToCrm}
+                        activeSearchField={activeSearchField}
+                        setActiveSearchField={setActiveSearchField}
+                        showResults={showResults}
+                        setShowResults={setShowResults}
+                    />
+                )}
+
+                {showCatalogModal && (
+                    <CatalogSearchModal
+                        onClose={() => setShowCatalogModal(false)}
+                        onSelect={(item) => selectCatalogItem(resolutionIndex, item)}
+                        brandId={proposal.brand_id}
+                        initialQuery={createItemSku}
+                    />
+                )}
+
+                {showCreateItemModal && (
+                    <CreateCatalogItemModal
+                        onClose={() => setShowCreateItemModal(false)}
+                        onCreated={() => {
+                            setShowCreateItemModal(false);
+                            handleEnrich(); // Retry enrichment
+                        }}
+                        initialSku={createItemSku}
+                        brandId={proposal.brand_id}
+                    />
+                )}
+
+                {showLogistics && (
+                    <LogisticsManager
+                        proposalId={proposalId}
+                        onClose={() => setShowLogistics(false)}
+                    />
+                )}
+
+                {showPresetManagement && (
+                    <PresetManagementModal
+                        category={showPresetManagement}
+                        onClose={() => setShowPresetManagement(null)}
+                        onRefresh={() => api.get(`/api/proposals/presets/list`).then(res => setPresets(res.data || []))}
+                    />
+                )}
             </div>
         </div>
     );
