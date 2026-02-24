@@ -2,7 +2,7 @@ const jsonAdapter = require('./JsonDocsAdapter');
 const dbAdapter = require('./DbDocsAdapter');
 
 module.exports = (() => {
-    let client = (process.env.DB_CLIENT || '').trim().toLowerCase();
+    let client = (process.env.DB_CLIENT || 'sqlite').trim().toLowerCase(); // Default to sqlite
 
     // Normalize aliases
     if (client === 'sqlite3') client = 'sqlite';
