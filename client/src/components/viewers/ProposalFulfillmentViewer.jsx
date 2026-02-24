@@ -54,6 +54,32 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
         }
     };
 
+    const handleUnlink = async (docId, ev) => {
+        ev.stopPropagation(); // prevent opening doc
+        if (!confirm('Tem a certeza que deseja desassociar esta fatura da proposta? As linhas serão repostas em Pendente.')) return;
+        try {
+            await api.post(`/api/nicolazzi/reconcile/${docId}/unlink`);
+            fetchData(); // Reload
+        } catch (err) {
+            alert('Falha ao desassociar: ' + err.message);
+        }
+    };
+
+    const handleExportPdf = async () => {
+        try {
+            const res = await api.get(`/api/nicolazzi/proposals/${proposalId}/fulfillment/pdf`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `status_encomenda_${data?.proposal?.number || 'nicolazzi'}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (err) {
+            alert('Falha ao exportar PDF: ' + err.message);
+        }
+    };
+
     const handleViewDoc = async (id) => {
         try {
             // Use /json suffix and try without strict project filter first (or use 'all')
@@ -199,6 +225,12 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                                     className="flex items-center gap-1.5 px-3 py-1 border border-green-800/50 rounded text-[10px] bg-green-900/20 text-green-400 hover:bg-green-900/40 transition-colors font-bold"
                                     title="Exportar para Excel (CSV)">
                                     📊 Exportar XLS
+                                </button>
+                                <button
+                                    onClick={handleExportPdf}
+                                    className="flex items-center gap-1.5 px-3 py-1 border border-red-800/50 rounded text-[10px] bg-red-900/20 text-red-400 hover:bg-red-900/40 transition-colors font-bold"
+                                    title="Exportar Ponto de Situação PDF (Cliente)">
+                                    📄 PDF Cliente
                                 </button>
                             </div>
                         </div>
@@ -455,8 +487,8 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                                     <div key={idx}
                                         onClick={() => setViewDoc(doc)}
                                         className={`hover:bg-[#1a1a1a] border transition-colors p-3 rounded-lg cursor-pointer group ${doc.type === 'source'
-                                                ? 'bg-indigo-900/10 border-indigo-800/40 hover:border-indigo-700/60'
-                                                : 'bg-[#151515] border-[#333] hover:border-gray-600'
+                                            ? 'bg-indigo-900/10 border-indigo-800/40 hover:border-indigo-700/60'
+                                            : 'bg-[#151515] border-[#333] hover:border-gray-600'
                                             }`}>
                                         <div className="flex items-center justify-between mb-2">
                                             <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${doc.type === 'source' ? 'bg-indigo-900/30 text-indigo-300 border-indigo-800/50' : 'bg-blue-900/20 text-blue-400 border-blue-900/30'
@@ -472,8 +504,18 @@ export default function ProposalFulfillmentViewer({ proposalId, onClose, project
                                             <span>Total:</span>
                                             <span className="text-gray-300 font-bold">{fmtEUR(doc.total)}</span>
                                         </div>
-                                        <div className="mt-2 text-[9px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold text-right">
-                                            Abrir ↗
+                                        <div className="mt-3 flex items-center justify-between">
+                                            {doc.type === 'invoice' ? (
+                                                <button
+                                                    onClick={(e) => handleUnlink(doc.id, e)}
+                                                    className="px-2 py-1 bg-red-900/30 hover:bg-red-600 text-red-500 hover:text-white rounded text-[9px] font-bold uppercase transition-colors"
+                                                >
+                                                    Desfazer
+                                                </button>
+                                            ) : <div></div>}
+                                            <div className="text-[9px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold text-right py-1">
+                                                Abrir ↗
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

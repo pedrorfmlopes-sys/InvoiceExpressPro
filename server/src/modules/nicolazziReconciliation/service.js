@@ -34,8 +34,10 @@ async function reconcileInvoice(invoiceId) {
 
     // 2. Find Proposal
     // Logic: Shipping Mark matches Proposal NUMBER (exact match on clean number)
+    // Only look at active/accepted proposals
     const proposal = await knex('custom_proposals')
         .where('proposal_number', shippingMark)
+        .whereIn('status', ['accepted', 'em_fornecimento'])
         .first();
 
     if (!proposal) {
@@ -120,7 +122,9 @@ async function reconcileInvoice(invoiceId) {
  */
 async function getReconciliationReport() {
     // 1. Get all proposals
+    // Only load active proposals for reconciliation report to avoid noise
     const proposals = await knex('custom_proposals')
+        .whereIn('status', ['accepted', 'em_fornecimento'])
         .select('id', 'name', 'proposal_number', 'client_ref', 'created_at', 'status');
 
     const report = [];
@@ -129,9 +133,12 @@ async function getReconciliationReport() {
         // 2. Calculate Totals (Proposal Lines)
         const pLines = await knex('proposal_lines')
             .where({ proposal_id: p.id })
-            .select('quantity');
+            .select('quantity', 'sku', 'description');
 
         const totalItems = pLines.reduce((acc, l) => acc + parseFloat(l.quantity || 0), 0);
+
+        // Also extract a searchable string of SKUs and descriptions
+        const searchableItems = pLines.map(l => `${l.sku} ${l.description}`).join(' ').toLowerCase();
 
         // 3. Calculate Fulfilled (Fulfillments)
         const fulfilled = await knex('proposal_fulfillments')
@@ -161,7 +168,8 @@ async function getReconciliationReport() {
             fulfilled_items: totalFulfilled,
             progress: parseFloat(progress.toFixed(1)),
             status: status,
-            created_at: p.created_at
+            created_at: p.created_at,
+            search_blob: `${p.proposal_number || ''} ${p.client_ref || ''} ${searchableItems}`.toLowerCase()
         });
     }
 
@@ -190,7 +198,10 @@ async function getReconciliationDetails(invoiceId) {
 
     // If no fulfillments yet, try to guess via Shipping Mark to show "Potential Match"
     if (!proposalId && invoiceData.shippingMarks) {
-        const potential = await knex('custom_proposals').where('proposal_number', invoiceData.shippingMarks).first();
+        const potential = await knex('custom_proposals')
+            .where('proposal_number', invoiceData.shippingMarks)
+            .whereIn('status', ['accepted', 'em_fornecimento'])
+            .first();
         if (potential) {
             proposalId = potential.id;
             proposal = potential;
@@ -577,9 +588,300 @@ async function getProposalFulfillmentDetails(proposalId) {
     }
 }
 
+/**
+ * Unlinks an invoice from its proposal by deleting its fulfillment records and document lines.
+ */
+async function unlinkInvoice(invoiceId) {
+    return await knex.transaction(async (trx) => {
+        await trx('proposal_fulfillments').where({ document_id: invoiceId }).del();
+        await trx('document_lines').where({ document_id: invoiceId }).del();
+        return { success: true };
+    });
+}
+
+/**
+ * Discovers unmatched invoices and suggests potential proposal matches.
+ */
+async function discoverMatches() {
+    // 1. Get all invoices that are NOT in proposal_fulfillments
+    const linkedDocIdsQuery = knex('proposal_fulfillments').select('document_id').distinct();
+
+    const unlinkedInvoices = await knex('documents')
+        .where(function () {
+            this.where('supplier', 'like', '%NICOLAZZI%')
+                .orWhere('supplier', 'like', '%Nicolazzi%');
+        })
+        .whereIn('docType', ['invoice', 'fatura', 'packing_list'])
+        .whereNotIn('id', linkedDocIdsQuery)
+        .orderBy('created_at', 'desc');
+
+    const matches = [];
+
+    // 2. Try to match each unlinked invoice to an active proposal
+    for (const inv of unlinkedInvoices) {
+        const data = safeParse(inv.rawJson);
+        const marks = (data.shippingMarks || inv.docNumber || '').trim();
+
+        let match = null;
+
+        if (marks && marks.length > 2) {
+            match = await knex('custom_proposals')
+                .where('proposal_number', marks)
+                .whereIn('status', ['accepted', 'em_fornecimento'])
+                .first();
+        }
+
+        matches.push({
+            invoice: {
+                id: inv.id,
+                date: data.date || inv.date,
+                number: data.docNumber || inv.docNumber || 'Sem Nº',
+                shipping_mark: marks,
+                total: data.totals?.gross || inv.total || 0,
+                project: inv.project
+            },
+            proposal: match ? {
+                id: match.id,
+                number: match.proposal_number,
+                client_ref: match.client_ref,
+                name: match.name
+            } : null
+        });
+    }
+
+    // Sort: Matches first
+    matches.sort((a, b) => {
+        if (a.proposal && !b.proposal) return -1;
+        if (!a.proposal && b.proposal) return 1;
+        return 0;
+    });
+
+    return matches;
+}
+
+/**
+ * Exports the detailed line statuses of multiple proposals to a consolidated Excel file.
+ */
+async function exportReconciliationExcel(proposalIds) {
+    const XLSX = require('xlsx');
+
+    const workbook = XLSX.utils.book_new();
+    const rows = [];
+
+    // Header row
+    rows.push([
+        'Nº Proposta',
+        'Ref Cliente',
+        'SKU',
+        'Descrição',
+        'Data Pedido',
+        'Prazo Entrega Previsto',
+        'Qtd Pedida',
+        'Qtd Entregue',
+        'Qtd Pendente',
+        'Estado (Linha)',
+        'Docs (Faturas)'
+    ]);
+
+    for (const pid of proposalIds) {
+        // We reuse the existing details logic which already calculates everything.
+        const details = await getProposalFulfillmentDetails(pid);
+        if (!details || details.error || !details.lines) continue;
+
+        const propNum = details.proposal?.number || 'Desconhecida';
+        const clientRef = details.proposal?.client_ref || '';
+        const defaultDate = details.proposal?.date || details.proposal?.order_confirmation_date;
+        const fmtDate = defaultDate ? new Date(defaultDate).toLocaleDateString('pt-PT') : '';
+
+        for (const line of details.lines) {
+            const shipDate = line.predicted_ship_date
+                ? new Date(line.predicted_ship_date).toLocaleDateString('pt-PT')
+                : '';
+
+            let statusPt = 'Pendente';
+            if (line.status === 'completed') statusPt = 'Concluído';
+            if (line.status === 'partial') statusPt = 'Parcial';
+
+            const docsLinked = line.history ? line.history.map(h => h.doc_number).join(', ') : '';
+
+            rows.push([
+                propNum,
+                clientRef,
+                line.sku,
+                line.description,
+                fmtDate,
+                shipDate,
+                line.qty_ordered,
+                line.qty_fulfilled,
+                line.qty_remaining,
+                statusPt,
+                docsLinked
+            ]);
+        }
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    // Auto-size columns roughly
+    const colWidths = [
+        { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 45 }, { wch: 12 },
+        { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 25 }
+    ];
+    worksheet['!cols'] = colWidths;
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Status_Encomendas');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer;
+}
+
+
+async function getAnalytics() {
+    // We get all lines for all active nicolazzi proposals to calculate stats
+    const proposals = await knex('custom_proposals')
+        .whereIn('status', ['accepted', 'em_fornecimento'])
+        .select('id', 'name', 'proposal_number', 'client_ref');
+
+    let totalOrderedNet = 0;
+    let totalCostNet = 0;
+    let lateItemsCount = 0;
+    let totalItemsPending = 0;
+
+    // For lead time tracking
+    let totalLeadTimeDays = 0;
+    let deliveredDocsCount = 0;
+
+    const today = new Date();
+
+    for (const p of proposals) {
+        const details = await getProposalFulfillmentDetails(p.id);
+        if (!details || details.error) continue;
+
+        totalOrderedNet += parseFloat(details.financial?.ordered?.net || 0);
+        totalCostNet += parseFloat(details.financial?.cost?.net || 0);
+
+        for (const line of details.lines) {
+            if (line.qty_remaining > 0) {
+                totalItemsPending += line.qty_remaining;
+                if (line.predicted_ship_date) {
+                    const pDate = new Date(line.predicted_ship_date);
+                    if (pDate < today) {
+                        lateItemsCount += line.qty_remaining; // Count as late
+                    }
+                }
+            }
+        }
+
+        // Aggregate average lead time from documents
+        for (const doc of details.documents) {
+            if (doc.type === 'invoice' && doc.lead_time_days > 0) {
+                totalLeadTimeDays += doc.lead_time_days;
+                deliveredDocsCount++;
+            }
+        }
+    }
+
+    const marginNet = totalOrderedNet - totalCostNet;
+    const marginPercent = totalOrderedNet > 0 ? (marginNet / totalOrderedNet) * 100 : 0;
+    const avgLeadTime = deliveredDocsCount > 0 ? Math.round(totalLeadTimeDays / deliveredDocsCount) : 0;
+
+    return {
+        financial: {
+            revenue: totalOrderedNet,
+            cost: totalCostNet,
+            margin: marginNet,
+            marginPercent: parseFloat(marginPercent.toFixed(1))
+        },
+        logistics: {
+            avgLeadTimeDays: avgLeadTime,
+            lateItemsCurrent: lateItemsCount,
+            totalItemsPending: totalItemsPending,
+            latePercentage: totalItemsPending > 0 ? ((lateItemsCount / totalItemsPending) * 100).toFixed(1) : 0
+        }
+    };
+}
+
+async function exportLateItemsExcel() {
+    const XLSX = require('xlsx');
+
+    // Get all lines for all active nicolazzi proposals
+    const proposals = await knex('custom_proposals')
+        .whereIn('status', ['accepted', 'em_fornecimento'])
+        .select('id', 'name', 'proposal_number', 'client_ref');
+
+    const rows = [];
+    const today = new Date();
+
+    // Header 
+    rows.push([
+        'Nº Proposta',
+        'Ref Cliente',
+        'Modelo/SKU',
+        'Descrição',
+        'Data Pedido',
+        'Lim. Previsto',
+        'Atraso (Dias)',
+        'Qtd Encomendada',
+        'Qtd Pendente'
+    ]);
+
+    for (const p of proposals) {
+        const details = await getProposalFulfillmentDetails(p.id);
+        if (!details || details.error) continue;
+
+        const propNum = details.proposal?.number || p.proposal_number || p.name;
+        const clientRef = details.proposal?.client_ref || p.client_ref || '';
+        const orderDate = details.proposal?.order_confirmation_date
+            ? new Date(details.proposal.order_confirmation_date).toLocaleDateString('pt-PT')
+            : '';
+
+        for (const line of details.lines) {
+            if (line.qty_remaining > 0 && line.predicted_ship_date) {
+                const pDate = new Date(line.predicted_ship_date);
+                if (pDate < today) {
+                    const diffTime = Math.abs(today - pDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    rows.push([
+                        propNum,
+                        clientRef,
+                        line.sku,
+                        line.description,
+                        orderDate,
+                        pDate.toLocaleDateString('pt-PT'),
+                        diffDays,
+                        line.qty_ordered,
+                        line.qty_remaining
+                    ]);
+                }
+            }
+        }
+    }
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    const colWidths = [
+        { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 45 },
+        { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 16 }, { wch: 16 }
+    ];
+    worksheet['!cols'] = colWidths;
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Artigos_Em_Atraso');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer;
+}
+
+
 module.exports = {
     reconcileInvoice,
     getReconciliationReport,
     getReconciliationDetails,
-    getProposalFulfillmentDetails
+    getProposalFulfillmentDetails,
+    unlinkInvoice,
+    discoverMatches,
+    exportReconciliationExcel,
+    getAnalytics,
+    exportLateItemsExcel
 };

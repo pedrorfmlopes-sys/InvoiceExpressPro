@@ -367,6 +367,15 @@ class ProposalStudioService {
 
         return await ProposalExporter.generateExcel(proposal);
     }
+
+    async deleteProposal(id) {
+        await knex.transaction(async trx => {
+            // Cascade delete manually (SQLite without PRAGMA foreign_keys = ON might orphan records)
+            await trx('proposal_fulfillments').where({ proposal_id: id }).del();
+            await trx('proposal_lines').where({ proposal_id: id }).del();
+            await trx('custom_proposals').where({ id }).del();
+        });
+    }
 }
 
 module.exports = new ProposalStudioService();
