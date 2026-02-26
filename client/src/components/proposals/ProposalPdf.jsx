@@ -319,9 +319,10 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <Text style={styles.label}>Nº Proposta:</Text>
                                     <Text style={styles.value}>
-                                        {proposal.proposal_number ||
-                                            proposal.metadata?.doc_number ||
-                                            proposal.name?.replace(/Proposta Manual:\s*/i, '').replace(/Proposta:\s*/i, '').split('-')[0].trim()}
+                                        {(() => {
+                                            const raw = proposal.proposal_number || proposal.metadata?.doc_number || proposal.name || '';
+                                            return raw.replace(/Proposta Manual:\s*/i, '').replace(/Proposta:\s*/i, '').split('-')[0].trim() || 'PROP-2026-XXX';
+                                        })()}
                                     </Text>
                                 </View>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -514,13 +515,18 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                 </View>
 
                 {/* Technical Finishes Annex - Now integrated with proper break */}
-                {(() => {
+                {proposal.metadata?.show_technical_details && (() => {
                     const uniqueFinishes = [];
                     const finishCheck = new Set();
                     lines.forEach(line => {
                         const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
-                        const note = extra.finish_note || extra.finishNote || extra.note_pt || extra.note || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
+                        let note = extra.finish_note || extra.finishNote || extra.note_pt || extra.note || extra.brand_meta?.finishNote || extra.brand_meta?.note_pt;
                         let code = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode || '';
+
+                        if (note) {
+                            // Clean JSON from notes (Ritmonio fix)
+                            note = note.replace(/\{.*?\}/g, '').trim();
+                        }
 
                         // Filter: NEM and BIM belong to CL
                         if (code === 'NEM' || code === 'BIM') {
