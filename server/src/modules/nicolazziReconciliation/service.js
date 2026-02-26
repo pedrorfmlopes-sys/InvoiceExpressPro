@@ -620,10 +620,7 @@ async function discoverMatches() {
     const unlinkedInvoices = await knex('documents')
         .where(function () {
             this.where('supplier', 'like', '%NICOLAZZI%')
-                .orWhere('supplier', 'like', '%Nicolazzi%')
-                .orWhere('supplier', 'like', '%RITMONIO%')
-                .orWhere('supplier', 'like', '%Ritmonio%')
-                .orWhere('supplier', 'like', '%Rubinetteri%');
+                .orWhere('supplier', 'like', '%Nicolazzi%');
         })
         .whereIn('docType', ['invoice', 'fatura', 'packing_list'])
         .whereNotIn('id', linkedDocIdsQuery)
