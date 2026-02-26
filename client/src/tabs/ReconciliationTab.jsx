@@ -21,18 +21,24 @@ const RotatingAnalyticsCard = ({ label, project, realized }) => {
         if (view === 'sale') return {
             title: 'Venda (Net)',
             val: realized.sale.net,
+            iva: realized.sale.iva,
+            gross: realized.sale.gross,
             sub: `Proj. Total: ${fmtEUR(project.sale.net)}`,
             color: 'text-white'
         };
         if (view === 'cost') return {
             title: 'Custo (Net)',
             val: realized.cost.net,
+            iva: realized.cost.iva,
+            gross: realized.cost.gross,
             sub: `Proj. Total: ${fmtEUR(project.cost.net)}`,
             color: 'text-amber-500'
         };
         return {
             title: 'Margem (Net)',
             val: realized.margin.net,
+            iva: realized.margin.iva,
+            gross: realized.margin.gross,
             sub: `${realized.margin.percent.toFixed(1)}% Margem Real`,
             color: 'text-green-400'
         };
@@ -45,16 +51,23 @@ const RotatingAnalyticsCard = ({ label, project, realized }) => {
             onClick={cycleView}
             className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center cursor-pointer hover:border-indigo-500/50 transition-all select-none group"
         >
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{label}</span>
                 <span className="text-[9px] text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-black">Alternar Vista</span>
             </div>
-            <div className="flex items-baseline gap-2 mt-1">
-                <span className={`text-2xl font-bold font-mono ${d.color}`}>{fmtEUR(d.val)}</span>
+
+            <div className="flex flex-col">
+                <span className={`text-2xl font-black font-mono leading-none ${d.color}`}>{fmtEUR(d.val)}</span>
+                <div className="flex gap-2 mt-1.5 items-center">
+                    <span className="text-[10px] text-gray-500 font-mono">IVA: {fmtEUR(d.iva)}</span>
+                    <div className="w-1 h-1 rounded-full bg-gray-700" />
+                    <span className="text-[10px] text-gray-400 font-bold font-mono">Total: {fmtEUR(d.gross)}</span>
+                </div>
             </div>
-            <div className="flex justify-between items-end mt-1">
-                <span className="text-[10px] text-gray-400 font-bold">{d.title}</span>
-                <span className="text-[10px] text-gray-600 italic">{d.sub}</span>
+
+            <div className="flex justify-between items-end mt-3 pt-2 border-t border-[#222]">
+                <span className="text-[10px] text-gray-500 font-bold uppercase">{d.title}</span>
+                <span className="text-[10px] text-gray-600 italic font-medium">{d.sub}</span>
             </div>
         </div>
     );

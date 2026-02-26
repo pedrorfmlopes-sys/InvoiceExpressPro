@@ -56,19 +56,22 @@ export default function LogisticsManager({ proposalId, onClose }) {
             setLines(data.lines || []);
             setPendingChanges({});
 
-            // Load Collections for the brands present in the proposal
+            // Load Collections for ALL brands present in the lines
             const safeLines = Array.isArray(data.lines) ? data.lines : [];
-            let uniqueBrands = [...new Set([data.brand_id, ...safeLines.map(l => l.brand_id)].filter(Boolean))];
+            const lineBrands = safeLines.map(l => {
+                const m = l.extra_attributes ? (typeof l.extra_attributes === 'string' ? JSON.parse(l.extra_attributes) : l.extra_attributes) : {};
+                return m.brand_id || m.brand;
+            });
+            let uniqueBrands = [...new Set([data.brand_id, ...lineBrands].filter(Boolean))];
 
-            // If MULTIMARCAS, ensure we load the standard brands for the dropdowns
             if (uniqueBrands.includes('MULTIMARCAS')) {
                 uniqueBrands = uniqueBrands.filter(b => b !== 'MULTIMARCAS');
-                if (!uniqueBrands.includes('nicolazzi')) uniqueBrands.push('nicolazzi');
-                if (!uniqueBrands.includes('ritmonio')) uniqueBrands.push('ritmonio');
+                // Ensure we at least have nicolazzi/ritmonio if it was multimarca but lines are empty
+                if (uniqueBrands.length === 0) uniqueBrands = ['nicolazzi', 'ritmonio'];
             }
 
             if (uniqueBrands.length > 0) {
-                const collsRes = await Promise.all(uniqueBrands.map(b => api.get(`/api/catalog/collections?brand=${b}`)));
+                const collsRes = await Promise.all(uniqueBrands.map(b => api.get(`/api/catalog/collections?brand=${b.toLowerCase()}`).catch(() => ({ data: [] }))));
                 const allColls = collsRes.map(res => res.data || []).flat();
                 // Deduplicate by name
                 const dedup = Array.from(new Map(allColls.map(c => [c.name, c])).values());
@@ -165,51 +168,87 @@ export default function LogisticsManager({ proposalId, onClose }) {
     const RuleCollectionSelector = ({ index, currentTarget }) => {
         const [search, setSearch] = useState('');
 
-        const filtered = useMemo(() => {
-            const list = [{ name: 'GLOBAL (Tudo)', target: 'global' }, ...collections.map(c => ({ name: c.name, target: `collection:${c.name}` }))];
-            if (!search) return list;
-            return list.filter(l => l.name.toLowerCase().includes(search.toLowerCase()));
-        }, [search]);
+        const availableData = useMemo(() => {
+            const list = [
+                { name: 'GLOBAL (Tudo)', target: 'global', group: 'Geral' },
+                { name: 'CATEGORIA: Corpos Interiores', target: 'category:rough_parts', group: 'Categorias' },
+                { name: 'CATEGORIA: Acabamentos (Externa)', target: 'category:finishings', group: 'Categorias' },
+                { name: 'CATEGORIA: Standard / Acessórios', target: 'category:standard', group: 'Categorias' }
+            ];
 
-        const selectedLabel = filtered.find(f => f.target === currentTarget)?.name || (currentTarget === 'global' ? 'GLOBAL (Tudo)' : currentTarget.replace('collection:', ''));
+            // Add Collections
+            collections.forEach(c => {
+                list.push({ name: `COLEÇÃO: ${c.name}`, target: `collection:${c.name}`, group: 'Coleções' });
+            });
+
+            // Add unique finishes present in lines
+            const lineFinishes = new Set();
+            lines.forEach(l => {
+                const m = l.extra_attributes ? (typeof l.extra_attributes === 'string' ? JSON.parse(l.extra_attributes) : l.extra_attributes) : {};
+                const f = m.finish_code || m.finishCode || m.brand_meta?.finishCode;
+                if (f) lineFinishes.add(f);
+            });
+            lineFinishes.forEach(f => {
+                list.push({ name: `ACABAMENTO: ${f}`, target: `finish:${f}`, group: 'Acabamentos' });
+            });
+
+            return list;
+        }, [collections, lines]);
+
+        const filtered = useMemo(() => {
+            if (!search) return availableData;
+            return availableData.filter(l => l.name.toLowerCase().includes(search.toLowerCase()) || l.group.toLowerCase().includes(search.toLowerCase()));
+        }, [search, availableData]);
+
+        const selectedItem = availableData.find(f => f.target === currentTarget);
+        const selectedLabel = selectedItem ? selectedItem.name : (currentTarget === 'global' ? 'GLOBAL (Tudo)' : currentTarget);
 
         return (
             <div className="relative">
                 <button
                     onClick={() => setShowCollectionSearch(showCollectionSearch === index ? null : index)}
-                    className="w-full bg-[#0a0a0a] border border-[#333] rounded px-3 py-2 text-white text-xs text-left flex justify-between items-center hover:border-orange-500 transition-colors"
+                    className="w-full bg-[#0a0a0a] border border-[#333] rounded px-3 py-2 text-white text-[11px] text-left flex justify-between items-center hover:border-orange-500 transition-colors"
                 >
-                    <span className="truncate">{selectedLabel}</span>
+                    <span className="truncate font-bold">{selectedLabel}</span>
                     <FiChevronDown />
                 </button>
 
                 {showCollectionSearch === index && (
-                    <div className="absolute top-full left-0 right-0 z-[13000] mt-1 bg-[#111] border border-[#333] shadow-2xl rounded-lg overflow-hidden flex flex-col max-h-[250px]">
-                        <div className="p-2 border-b border-[#222]">
+                    <div className="absolute top-full left-0 right-0 z-[13000] mt-1 bg-[#111] border border-[#333] shadow-2xl rounded-lg overflow-hidden flex flex-col max-h-[350px]">
+                        <div className="p-2 border-b border-[#222] bg-[#0e0e0e]">
                             <div className="relative">
                                 <FiSearch className="absolute left-2 top-2.5 text-gray-500" />
                                 <input
                                     autoFocus
                                     className="w-full bg-[#050505] border border-[#222] rounded px-8 py-1.5 text-xs text-white outline-none focus:border-orange-500"
-                                    placeholder="Procurar coleção..."
+                                    placeholder="Procurar (Coleção, Acabamento, Categoria)..."
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
                                 />
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                            {filtered.map(f => (
-                                <button
-                                    key={f.target}
-                                    onClick={() => {
-                                        updateRule(index, 'target', f.target);
-                                        setShowCollectionSearch(null);
-                                    }}
-                                    className={`w-full text-left px-4 py-2 text-xs hover:bg-orange-500/10 transition-colors ${f.target === currentTarget ? 'bg-orange-500/20 text-orange-400 font-bold' : 'text-gray-400'}`}
-                                >
-                                    {f.name}
-                                </button>
-                            ))}
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-1">
+                            {['Geral', 'Categorias', 'Acabamentos', 'Coleções'].map(group => {
+                                const groupItems = filtered.filter(f => f.group === group);
+                                if (groupItems.length === 0) return null;
+                                return (
+                                    <div key={group} className="mb-2">
+                                        <div className="px-3 py-1 text-[8px] font-black uppercase text-gray-600 tracking-widest">{group}</div>
+                                        {groupItems.map(f => (
+                                            <button
+                                                key={f.target}
+                                                onClick={() => {
+                                                    updateRule(index, 'target', f.target);
+                                                    setShowCollectionSearch(null);
+                                                }}
+                                                className={`w-full text-left px-3 py-1.5 text-[10px] rounded hover:bg-orange-500/10 transition-colors ${f.target === currentTarget ? 'bg-orange-500/20 text-orange-400 font-bold' : 'text-gray-400'}`}
+                                            >
+                                                {f.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}

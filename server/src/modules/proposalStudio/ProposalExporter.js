@@ -131,7 +131,9 @@ class ProposalPdfEngine {
         this.y -= 24;
 
         this.currentPage.drawText('Nº Proposta:', { x: rightX, y: this.y - 10, size: 9, font: this.fontB });
-        this.currentPage.drawText(proposal.name.split('-')[0].replace('Proposta:', '').trim() || 'PROP-2026-XXX', { x: rightX + 65, y: this.y - 10, size: 9, font: this.font });
+
+        let displayNum = proposal.proposal_number || proposal.name.replace(/Proposta Manual:\s*/i, '').replace(/Proposta:\s*/i, '').split('-')[0].trim();
+        this.currentPage.drawText(displayNum || 'PROP-2026-XXX', { x: rightX + 65, y: this.y - 10, size: 9, font: this.font });
         this.y -= 14;
 
         this.currentPage.drawText('Cliente:', { x: rightX, y: this.y - 10, size: 9, font: this.fontB });

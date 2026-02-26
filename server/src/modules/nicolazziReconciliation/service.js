@@ -787,99 +787,132 @@ async function exportReconciliationExcel(proposalIds) {
 
 
 /**
- * Calculates high-level analytics.
+ * Calculates high-level analytics using optimized SQL aggregations.
  * Supports filtering by a set of proposal IDs.
  */
 async function getAnalytics(proposalIds = null) {
-    // 1. Get Proposals
-    let pQuery = knex('custom_proposals')
-        .whereIn('status', ['accepted', 'em_fornecimento']);
+    const vatRate = 0.22;
 
+    // 1. Filter Proposals
+    let baseQuery = knex('custom_proposals').whereIn('status', ['accepted', 'em_fornecimento']);
     if (proposalIds && Array.isArray(proposalIds) && proposalIds.length > 0) {
-        pQuery = pQuery.whereIn('id', proposalIds);
+        baseQuery = baseQuery.whereIn('id', proposalIds);
+    }
+    const filteredProposals = await baseQuery.select('id');
+    const ids = filteredProposals.map(p => p.id);
+
+    if (ids.length === 0) {
+        return {
+            project: { sale: { net: 0, iva: 0, gross: 0 }, cost: { net: 0, iva: 0, gross: 0 }, margin: { net: 0, percent: 0 } },
+            realized: { sale: { net: 0, iva: 0, gross: 0 }, cost: { net: 0, iva: 0, gross: 0 }, margin: { net: 0, percent: 0 } },
+            logistics: { avgLeadTimeDays: 0, lateItemsCurrent: 0, totalItemsPending: 0, latePercentage: 0 }
+        };
     }
 
-    const proposals = await pQuery.select('id', 'name', 'proposal_number', 'client_ref');
-
-    // MÉTTRICAS DE PROJETO (ESTIMADO)
+    // --- PROJECTED (ESTIMATED) ---
+    // We sum from proposal_lines
+    // SQL can handle basic sale net, but cost factory multiplier "50+5" needs JS logic
     let totalProjectSaleNet = 0;
     let totalProjectCostNet = 0;
 
-    // MÉTRICAS REALIZADAS (MATCHED)
-    let totalRealSaleNet = 0;
-    let totalRealCostNet = 0;
+    // Fetch lines for projected cost calculation (complex multiplier)
+    const pLines = await knex('proposal_lines')
+        .whereIn('proposal_id', ids)
+        .select('unit_price_commercial', 'discount_commercial_percent', 'unit_price_factory', 'discount_factory', 'quantity');
 
-    let lateItemsCount = 0;
-    let totalItemsPending = 0;
-    let totalLeadTimeDays = 0;
-    let deliveredDocsCount = 0;
+    pLines.forEach(l => {
+        const qty = parseFloat(l.quantity || 0);
 
-    const today = new Date();
-    const vatRate = 0.22;
+        // Sale
+        const discComm = parseFloat(l.discount_commercial_percent || 0);
+        totalProjectSaleNet += qty * parseFloat(l.unit_price_commercial || 0) * (1 - discComm / 100);
 
-    for (const p of proposals) {
-        const details = await getProposalFulfillmentDetails(p.id);
-        if (!details || details.error) continue;
+        // Cost
+        const unitPriceFact = parseFloat(l.unit_price_factory || 0);
+        const discFactStr = l.discount_factory || '';
+        let factMult = 1;
+        discFactStr.split('+').forEach(d => {
+            const p = parseFloat(d);
+            if (!isNaN(p)) factMult *= (1 - p / 100);
+        });
+        totalProjectCostNet += qty * unitPriceFact * factMult;
+    });
 
-        // Project: O que foi orçamentado (Venda vs Custo "Factory Price")
-        totalProjectSaleNet += parseFloat(details.financial?.ordered?.net || 0);
-        totalProjectCostNet += parseFloat(details.financial?.cost?.net || 0);
+    // --- REALIZED (MATCHED) ---
+    // Sale Realized: Proposal price * fulfilled qty
+    // Cost Realized: Document line price (already cost per user) * fulfilled qty
 
-        // Realized: O que já foi faturado
-        totalRealSaleNet += parseFloat(details.financial?.fulfilled?.net || 0);
+    // 1. Total Realized Sale
+    const saleRealizedRes = await knex('proposal_fulfillments as pf')
+        .join('proposal_lines as pl', 'pf.proposal_line_id', 'pl.id')
+        .whereIn('pf.proposal_id', ids)
+        .select(
+            knex.raw('SUM(pf.quantity_fulfilled * pl.unit_price_commercial * (1 - COALESCE(pl.discount_commercial_percent, 0)/100)) as net')
+        ).first();
+    const totalRealSaleNet = parseFloat(saleRealizedRes.net || 0);
 
-        // Custo Real: Precisamos somar o total das linhas de fatura que deram origem a este fulfillment
-        // Mas o getProposalFulfillmentDetails já nos dá os documentos. 
-        // Vamos percorrer as linhas para ser mais preciso
-        for (const line of details.lines) {
-            // Venda real para esta linha
-            // (Já incluído no totalRealSaleNet acima)
+    // 2. Total Realized Cost (From extractions)
+    // The user states extractions are already COST prices.
+    const costRealizedRes = await knex('proposal_fulfillments as pf')
+        .join('document_lines as dl', 'pf.doc_line_id', 'dl.id')
+        .whereIn('pf.proposal_id', ids)
+        .select(
+            knex.raw('SUM(pf.quantity_fulfilled * dl.unit_price) as net')
+        ).first();
+    const totalRealCostNet = parseFloat(costRealizedRes.net || 0);
 
-            if (line.qty_remaining > 0) {
-                totalItemsPending += line.qty_remaining;
-                if (line.predicted_ship_date) {
-                    if (new Date(line.predicted_ship_date) < today) {
-                        lateItemsCount += line.qty_remaining;
-                    }
-                }
-            }
-        }
+    // --- LOGISTICS ---
+    // We still need to count late items and pending
+    const lateStats = await knex('proposal_lines as pl')
+        .leftJoin(
+            knex('proposal_fulfillments').groupBy('proposal_line_id').select('proposal_line_id', knex.raw('SUM(quantity_fulfilled) as fulfilled')).as('f'),
+            'pl.id', 'f.proposal_line_id'
+        )
+        .whereIn('pl.proposal_id', ids)
+        .select(
+            knex.raw('SUM(pl.quantity) as total_qty'),
+            knex.raw('SUM(COALESCE(f.fulfilled, 0)) as total_fulfilled'),
+            knex.raw(`SUM(CASE WHEN pl.predicted_ship_date < ${Date.now()} AND (pl.quantity - COALESCE(f.fulfilled, 0)) > 0 THEN (pl.quantity - COALESCE(f.fulfilled, 0)) ELSE 0 END) as late_qty`)
+        ).first();
 
-        // Aggregate average lead time and Real Cost from documents linked as 'invoice'
-        for (const doc of details.documents) {
-            if (doc.type === 'invoice') {
-                if (doc.lead_time_days > 0) {
-                    totalLeadTimeDays += doc.lead_time_days;
-                    deliveredDocsCount++;
-                }
+    const totalItemsPending = Math.max(0, (parseFloat(lateStats.total_qty || 0) - parseFloat(lateStats.total_fulfilled || 0)));
+    const lateItemsCount = parseFloat(lateStats.late_qty || 0);
 
-                // Custo Real da Fatura (Net)
-                // Nota: O doc.total costuma ser GROSS. Vamos assumir que precisamos do NET.
-                // Se o PDF extractor guardou totais com/sem IVA, usamos.
-                // Atualmente simplificamos: doc.total / 1.22 se for Gross.
-                // TODO: Melhorar extração para guardar document_lines.total_net
-                const docTotal = parseFloat(doc.total || 0);
-                totalRealCostNet += (docTotal / (1 + vatRate));
-            }
-        }
-    }
+    // Lead Time
+    const leadTimeRes = await knex('proposal_fulfillments as pf')
+        .join('documents as d', 'pf.document_id', 'd.id')
+        .join('custom_proposals as cp', 'pf.proposal_id', 'cp.id')
+        .whereIn('pf.proposal_id', ids)
+        .whereNotNull('d.date')
+        .select(
+            knex.raw('AVG(ABS(JULIANDAY(d.date) - JULIANDAY(COALESCE(cp.order_confirmation_date, cp.created_at)))) as avg_days')
+        ).first();
+
+    const avgLeadTime = Math.round(parseFloat(leadTimeRes.avg_days || 0));
+
+    // Formatting helper
+    const fmt = (net) => ({
+        net: net,
+        iva: net * vatRate,
+        gross: net * (1 + vatRate)
+    });
 
     const projectMarginNet = totalProjectSaleNet - totalProjectCostNet;
     const realMarginNet = totalRealSaleNet - totalRealCostNet;
 
     return {
         project: {
-            sale: { net: totalProjectSaleNet, gross: totalProjectSaleNet * (1 + vatRate) },
-            cost: { net: totalProjectCostNet, gross: totalProjectCostNet * (1 + vatRate) },
+            sale: fmt(totalProjectSaleNet),
+            cost: fmt(totalProjectCostNet),
             margin: { net: projectMarginNet, percent: totalProjectSaleNet > 0 ? (projectMarginNet / totalProjectSaleNet) * 100 : 0 }
         },
         realized: {
-            sale: { net: totalRealSaleNet, gross: totalRealSaleNet * (1 + vatRate) },
-            cost: { net: totalRealCostNet, gross: totalRealCostNet * (1 + vatRate) },
+            sale: fmt(totalRealSaleNet),
+            cost: fmt(totalRealCostNet),
             margin: { net: realMarginNet, percent: totalRealSaleNet > 0 ? (realMarginNet / totalRealSaleNet) * 100 : 0 }
         },
         logistics: {
-            avgLeadTimeDays: deliveredDocsCount > 0 ? Math.round(totalLeadTimeDays / deliveredDocsCount) : 0,
+            avgLeadTimeDays: avgLeadTime,
             lateItemsCurrent: lateItemsCount,
             totalItemsPending: totalItemsPending,
             latePercentage: totalItemsPending > 0 ? ((lateItemsCount / totalItemsPending) * 100).toFixed(1) : 0

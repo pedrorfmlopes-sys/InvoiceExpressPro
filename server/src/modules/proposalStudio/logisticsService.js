@@ -86,9 +86,14 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
         // 1. Line-level Brand Override
         const lineBrandId = meta.brand_id || meta.brand || proposal.brand_id || 'nicolazzi';
 
-        // 2. Determine Rule
-        const series = meta.brand_meta?.series || '';
-        let rule = rules.find(r => r.target === `collection:${series}`) ||
+        // 2. Determine Rule (Priority: Finish > Category > Collection > Global)
+        const series = (meta.brand_meta?.series || meta.series || '').trim();
+        const finish = (meta.finish_code || meta.finishCode || meta.brand_meta?.finishCode || '').trim();
+        const cat = (line.production_category || '').trim();
+
+        let rule = rules.find(r => finish && r.target === `finish:${finish}`) ||
+            rules.find(r => cat && r.target === `category:${cat}`) ||
+            rules.find(r => series && r.target === `collection:${series}`) ||
             rules.find(r => r.target === 'global');
 
         let leadTime;
