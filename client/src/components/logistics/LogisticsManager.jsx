@@ -21,6 +21,12 @@ export default function LogisticsManager({ proposalId, onClose }) {
     const [collections, setCollections] = useState([]);
     const [showCollectionSearch, setShowCollectionSearch] = useState(null); // rule index or null
 
+    // Workbench State
+    const [selectedLineIds, setSelectedLineIds] = useState([]);
+    const [brandFilter, setBrandFilter] = useState('all');
+    const [collectionFilter, setCollectionFilter] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
+
     // Changes Tracking (for lines)
     const [pendingChanges, setPendingChanges] = useState({}); // { lineId: { field: value } }
 
@@ -119,7 +125,22 @@ export default function LogisticsManager({ proposalId, onClose }) {
         }
     };
 
-    // --- ACTIONS ---
+    const handleBulkUpdate = async (weeks) => {
+        if (selectedLineIds.length === 0) return;
+        try {
+            setSaving(true);
+            await api.post(`/api/proposals/${proposalId}/logistics/lines`, {
+                lineIds: selectedLineIds,
+                updates: { lead_time_weeks: weeks }
+            });
+            setSelectedLineIds([]);
+            await fetchData();
+        } catch (err) {
+            alert('Erro no update em massa: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const runAutoCategorize = async () => {
         try {
@@ -143,13 +164,16 @@ export default function LogisticsManager({ proposalId, onClose }) {
         if (lineIds.length === 0) return;
         try {
             setSaving(true);
-            const promises = lineIds.map(lid => api.post(`/api/proposals/${proposalId}/logistics/lines`, {
-                lineIds: [lid],
-                updates: {
-                    category: pendingChanges[lid].production_category,
-                    lead_time_weeks: pendingChanges[lid].lead_time_weeks
-                }
-            }));
+            const promises = lineIds.map(lid => {
+                const changes = pendingChanges[lid];
+                return api.post(`/api/proposals/${proposalId}/logistics/lines`, {
+                    lineIds: [lid],
+                    updates: {
+                        category: changes.production_category,
+                        lead_time_weeks: changes.lead_time_weeks
+                    }
+                });
+            });
             await Promise.all(promises);
             setPendingChanges({});
             await fetchData();
@@ -160,7 +184,38 @@ export default function LogisticsManager({ proposalId, onClose }) {
         }
     };
 
+    const toggleSelectLine = (id) => {
+        setSelectedLineIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    const toggleSelectAllVisible = (filteredLines) => {
+        const visibleIds = filteredLines.map(l => l.id);
+        const allSelected = visibleIds.every(id => selectedLineIds.includes(id));
+        if (allSelected) {
+            setSelectedLineIds(prev => prev.filter(id => !visibleIds.includes(id)));
+        } else {
+            setSelectedLineIds(prev => [...new Set([...prev, ...visibleIds])]);
+        }
+    };
+
     // --- HELPERS ---
+
+    const memoLines = useMemo(() => {
+        return lines.filter(l => {
+            const meta = l.extra_attributes ? (typeof l.extra_attributes === 'string' ? JSON.parse(l.extra_attributes) : l.extra_attributes) : {};
+            const lineBrand = (meta.brand_id || meta.brand || proposal?.brand_id || 'Ritmonio').toUpperCase();
+            const series = meta.series || meta.collection || meta.brand_meta?.series || 'Outros';
+
+            if (brandFilter !== 'all' && lineBrand !== brandFilter) return false;
+            if (collectionFilter !== 'all' && series !== collectionFilter) return false;
+
+            if (searchTerm) {
+                const s = searchTerm.toLowerCase();
+                return (l.sku || '').toLowerCase().includes(s) || (l.description || '').toLowerCase().includes(s);
+            }
+            return true;
+        });
+    }, [lines, brandFilter, collectionFilter, searchTerm, proposal]);
 
     const renderDate = (d) => d ? new Date(d).toLocaleDateString() : '-';
 
@@ -386,44 +441,138 @@ export default function LogisticsManager({ proposalId, onClose }) {
                         </div>
                     </div>
 
-                    {/* 3. EXCEPTIONS DISPLAY (Simplified Table) */}
-                    <div className="bg-[#181818] border border-[#333] rounded-xl p-5 shadow-lg flex flex-col h-[500px]">
+                    {/* 3. WORKBENCH (Table with Filters) */}
+                    <div className="bg-[#181818] border border-[#333] rounded-xl p-5 shadow-lg flex flex-col min-h-[500px]">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[2px]">Previsões Individuais (Checklist)</h3>
-                            {Object.keys(pendingChanges).length > 0 && (
+                            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[2px]">Logistics Workbench</h3>
+                            <div className="flex gap-2">
                                 <button
-                                    onClick={saveLineChanges}
-                                    className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-[9px] uppercase font-black animate-pulse"
+                                    onClick={runAutoCategorize}
+                                    disabled={calculating}
+                                    className="px-3 py-1 bg-orange-500/10 text-orange-500 border border-orange-500/30 rounded-lg text-[9px] uppercase font-black"
                                 >
-                                    Salvar Alterações
+                                    Auto-Detectar Coleções
                                 </button>
-                            )}
+                                {Object.keys(pendingChanges).length > 0 && (
+                                    <button
+                                        onClick={saveLineChanges}
+                                        className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-[9px] uppercase font-black"
+                                    >
+                                        Guardar Editados
+                                    </button>
+                                )}
+                            </div>
                         </div>
+
+                        {/* FILTER BAR */}
+                        <div className="grid grid-cols-4 gap-3 mb-4 bg-[#0a0a0a] p-3 rounded-lg border border-[#222]">
+                            <div>
+                                <label className="block text-[8px] text-gray-500 uppercase font-black mb-1">Marca</label>
+                                <select
+                                    value={brandFilter}
+                                    onChange={e => setBrandFilter(e.target.value)}
+                                    className="w-full bg-[#111] border border-[#333] text-gray-300 text-[10px] rounded px-2 py-1.5 outline-none focus:border-orange-500"
+                                >
+                                    <option value="all">Todas as Marcas</option>
+                                    {[...new Set(lines.map(l => {
+                                        const m = l.extra_attributes ? (typeof l.extra_attributes === 'string' ? JSON.parse(l.extra_attributes) : l.extra_attributes) : {};
+                                        return (m.brand_id || m.brand || proposal.brand_id || 'Ritmonio').toUpperCase();
+                                    }))].map(b => <option key={b} value={b}>{b}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[8px] text-gray-500 uppercase font-black mb-1">Coleção</label>
+                                <select
+                                    value={collectionFilter}
+                                    onChange={e => setCollectionFilter(e.target.value)}
+                                    className="w-full bg-[#111] border border-[#333] text-gray-300 text-[10px] rounded px-2 py-1.5 outline-none focus:border-orange-500"
+                                >
+                                    <option value="all">Todas as Coleções</option>
+                                    {[...new Set(lines.map(l => {
+                                        const m = l.extra_attributes ? (typeof l.extra_attributes === 'string' ? JSON.parse(l.extra_attributes) : l.extra_attributes) : {};
+                                        return m.series || m.collection || m.brand_meta?.series || 'Outros';
+                                    }))].sort().map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-[8px] text-gray-500 uppercase font-black mb-1">Pesquisa Direta</label>
+                                <div className="relative">
+                                    <FiSearch className="absolute left-2 top-2 text-gray-600" size={10} />
+                                    <input
+                                        type="text"
+                                        placeholder="Pesquisar SKU, Descrição..."
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        className="w-full bg-[#111] border border-[#333] text-gray-300 text-[10px] rounded pl-7 pr-2 py-1.5 outline-none focus:border-orange-500 placeholder-gray-700"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* BULK ACTION BAR */}
+                        {selectedLineIds.length > 0 && (
+                            <div className="mb-4 bg-indigo-950/20 border border-indigo-500/30 p-3 rounded-lg flex items-center justify-between animate-pulse">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-wider">{selectedLineIds.length} Itens Selecionados</span>
+                                    <div className="h-4 w-px bg-indigo-500/20" />
+                                    <span className="text-[9px] text-gray-400 font-bold uppercase">Atribuir Prazo:</span>
+                                    <div className="flex gap-1">
+                                        {[2, 4, 8, 12].map(w => (
+                                            <button
+                                                key={w}
+                                                onClick={() => handleBulkUpdate(w)}
+                                                className="px-2 py-1 bg-[#111] border border-indigo-500/50 rounded text-[9px] text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all font-bold"
+                                            >
+                                                {w} Sem.
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button onClick={() => setSelectedLineIds([])} className="text-[9px] text-gray-500 hover:text-white uppercase font-black">Limpar Seleção</button>
+                            </div>
+                        )}
 
                         <div className="flex-1 overflow-auto custom-scrollbar border border-[#222] rounded bg-[#0a0a0a]">
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-[#111] text-[9px] uppercase text-gray-500 font-bold sticky top-0 z-20">
                                     <tr>
+                                        <th className="p-3 border-b border-[#222] w-10 text-center">
+                                            <input
+                                                type="checkbox"
+                                                className="accent-orange-500"
+                                                onChange={() => toggleSelectAllVisible(memoLines)}
+                                                checked={memoLines.length > 0 && memoLines.every(l => selectedLineIds.includes(l.id))}
+                                            />
+                                        </th>
                                         <th className="p-3 border-b border-[#222] w-12 text-center">SKU</th>
                                         <th className="p-3 border-b border-[#222]">Artigo</th>
                                         <th className="p-3 border-b border-[#222] w-24 text-center">Marca</th>
                                         <th className="p-3 border-b border-[#222] w-32">Coleção</th>
+                                        <th className="p-3 border-b border-[#222] w-16 text-center">L.T (Sem)</th>
                                         <th className="p-3 border-b border-[#222] w-28 text-center text-orange-400">Entrega Prevista</th>
                                         <th className="p-3 border-b border-[#222] w-10"></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#181818]">
-                                    {lines.map(line => {
+                                    {memoLines.map(line => {
                                         const meta = line.extra_attributes ? (typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes) : line.extra_attributes) : {};
                                         const series = meta.series || meta.collection || meta.brand_meta?.series || '-';
-                                        const lineBrand = meta.brand_id || meta.brand || proposal.brand_id || '-';
+                                        const lineBrand = (meta.brand_id || meta.brand || proposal.brand_id || '-').toUpperCase();
 
                                         return (
-                                            <tr key={line.id} className="hover:bg-white/[0.01] transition-colors group">
+                                            <tr key={line.id} className={`hover:bg-white/[0.01] transition-colors group ${selectedLineIds.includes(line.id) ? 'bg-indigo-500/5' : ''}`}>
+                                                <td className="p-3 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="accent-orange-500"
+                                                        checked={selectedLineIds.includes(line.id)}
+                                                        onChange={() => toggleSelectLine(line.id)}
+                                                    />
+                                                </td>
                                                 <td className="p-3 text-[10px] font-mono text-gray-400">{line.sku}</td>
                                                 <td className="p-3 py-4">
                                                     <div className="text-[10px] text-gray-300 font-bold line-clamp-1">{line.description}</div>
-                                                    <div className="text-[9px] text-gray-500 mt-0.5">{line.production_category}</div>
+                                                    <div className="text-[9px] text-gray-500 mt-0.5 uppercase tracking-tighter">{line.production_category || 'Sem Categoria'}</div>
                                                 </td>
                                                 <td className="p-3 text-center">
                                                     <span className="text-[8px] bg-[#222] text-gray-400 px-2 py-0.5 rounded border border-[#333] uppercase font-mono">
@@ -431,9 +580,17 @@ export default function LogisticsManager({ proposalId, onClose }) {
                                                     </span>
                                                 </td>
                                                 <td className="p-3 text-[10px] text-gray-400">
-                                                    <span className="bg-[#181818] border border-[#333] px-2 py-0.5 rounded text-[9px] uppercase">
+                                                    <span className="bg-[#181818] border border-[#333] px-2 py-1 rounded text-[9px] uppercase font-bold">
                                                         {series}
                                                     </span>
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    <input
+                                                        type="number"
+                                                        value={line.lead_time_weeks || 0}
+                                                        onChange={e => handleLineChange(line.id, 'lead_time_weeks', parseFloat(e.target.value))}
+                                                        className="w-12 bg-[#111] border border-[#333] rounded px-1 py-1 text-[10px] text-center text-white focus:border-orange-500"
+                                                    />
                                                 </td>
                                                 <td className="p-3 text-center text-[10px] font-mono font-bold text-orange-400">
                                                     {renderDate(line.predicted_ship_date)}

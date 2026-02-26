@@ -79,6 +79,7 @@ export default function ReconciliationTab() {
     const [loading, setLoading] = useState(true);
     const [selectedProposalId, setSelectedProposalId] = useState(null);
     const [showGlobalModal, setShowGlobalModal] = useState(false);
+    const [activeBrand, setActiveBrand] = useState('nicolazzi'); // nicolazzi, ritmonio
 
     // Filters and Selection for Export
     const [statusFilter, setStatusFilter] = useState('all'); // all, pending, partial, completed
@@ -88,22 +89,16 @@ export default function ReconciliationTab() {
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportingLateItems, setExportingLateItems] = useState(false);
 
-    // Initial Load
+    // Change brand
     useEffect(() => {
         loadReport();
-    }, []);
-
-    // Selection-based Analytics Update
-    useEffect(() => {
-        loadAnalytics(selectedIds);
-    }, [selectedIds]);
+    }, [activeBrand]);
 
     const loadReport = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/api/nicolazzi/report');
+            const res = await api.get(`/api/${activeBrand}/report`);
             setReport(res.data || []);
-            // loadAnalytics will be triggered by selection reset or initial run
         } catch (err) {
             console.error(err);
             alert('Erro ao carregar relatório');
@@ -115,7 +110,7 @@ export default function ReconciliationTab() {
     const loadAnalytics = async (ids = []) => {
         try {
             const params = ids.length > 0 ? { proposalIds: ids.join(',') } : {};
-            const res = await api.get('/api/nicolazzi/analytics', { params });
+            const res = await api.get(`/api/${activeBrand}/analytics`, { params });
             setAnalytics(res.data);
         } catch (err) {
             console.error('Failed to load analytics', err);
@@ -123,13 +118,13 @@ export default function ReconciliationTab() {
     };
 
     const handleResetAllMatchings = async () => {
-        if (!confirm("⚠️ ATENÇÃO: Esta ação irá APAGAR todos os matchings efetuados e re-processar todas as faturas detetadas. Deseja continuar?")) {
+        if (!confirm("⚠️ ATENÇÃO: Esta ação irá APAGAR todos os matchings efetuados para esta marca e re-processar todas as faturas detetadas. Deseja continuar?")) {
             return;
         }
 
         setLoading(true);
         try {
-            await api.post('/api/nicolazzi/reconciliation/reset');
+            await api.post(`/api/${activeBrand}/reconciliation/reset`);
             alert('Reset concluído com sucesso. O sistema está a atualizar os dados.');
             loadReport();
         } catch (err) {
@@ -186,12 +181,12 @@ export default function ReconciliationTab() {
         if (selectedIds.length === 0) return;
         setExportingExcel(true);
         try {
-            const res = await api.post('/api/nicolazzi/report/export', { proposalIds: selectedIds }, { responseType: 'blob' });
+            const res = await api.post(`/api/${activeBrand}/report/export`, { proposalIds: selectedIds }, { responseType: 'blob' });
 
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `status_encomendas_${new Date().toISOString().split('T')[0]}.xlsx`);
+            link.setAttribute('download', `status_encomendas_${activeBrand}_${new Date().toISOString().split('T')[0]}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -206,12 +201,12 @@ export default function ReconciliationTab() {
         if (selectedIds.length === 0) return;
         setExportingPdf(true);
         try {
-            const res = await api.post('/api/nicolazzi/report/export-pdf', { proposalIds: selectedIds }, { responseType: 'blob' });
+            const res = await api.post(`/api/${activeBrand}/report/export-pdf`, { proposalIds: selectedIds }, { responseType: 'blob' });
 
             const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `relatorio_status_${new Date().toISOString().split('T')[0]}.pdf`);
+            link.setAttribute('download', `relatorio_status_${activeBrand}_${new Date().toISOString().split('T')[0]}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -225,12 +220,12 @@ export default function ReconciliationTab() {
     const handleExportLateItems = async () => {
         setExportingLateItems(true);
         try {
-            const res = await api.get('/api/nicolazzi/analytics/late-export', { responseType: 'blob' });
+            const res = await api.get(`/api/${activeBrand}/analytics/late-export`, { responseType: 'blob' });
 
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `nicolazzi_artigos_atraso.xlsx`);
+            link.setAttribute('download', `${activeBrand}_artigos_atraso.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -245,108 +240,125 @@ export default function ReconciliationTab() {
         <div className="h-full flex flex-col bg-[#121212] text-gray-300 p-6 overflow-hidden">
 
             {/* HEADER */}
-            <div className="flex justify-between items-center mb-6 shrink-0">
+            <div className="flex items-end gap-6">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">Relatório de Reconciliação</h1>
-                    <p className="text-sm text-gray-500 mt-1">Gestão de Fornecimento (Nicolazzi)</p>
+                    <p className="text-sm text-gray-500 mt-1">Gestão de Fornecimento & Analytics</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    {/* Search Input */}
-                    <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
-                        <input
-                            type="text"
-                            placeholder="Proposta, cliente, artigo..."
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setSelectedIds([]); // Reset selection on filter change
-                            }}
-                            className="bg-[#111] border border-[#333] text-gray-300 text-sm rounded pl-9 pr-3 py-2 outline-none focus:border-indigo-500 w-64 placeholder-gray-600 transition-colors"
-                        />
-                    </div>
 
-                    {/* Status Filter */}
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => {
-                            setStatusFilter(e.target.value);
-                            setSelectedIds([]); // Reset selection on filter change
-                        }}
-                        className="bg-[#111] border border-[#333] text-gray-300 text-sm rounded px-3 py-2 outline-none"
-                    >
-                        <option value="all">Todos os Estados</option>
-                        <option value="pending">Pendentes</option>
-                        <option value="partial">Parciais</option>
-                        <option value="completed">Concluídos</option>
-                    </select>
-
-                    <div className="flex border border-[#333] rounded overflow-hidden">
-                        <button disabled={selectedIds.length === 0 || exportingExcel || exportingPdf} onClick={handleExportSelected} className="px-3 py-2 bg-[#222] hover:bg-emerald-900/40 text-emerald-400 font-bold text-xs transition-colors border-r border-[#333] disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span>📊</span> {exportingExcel ? 'A Exportar...' : `Excel`}
-                        </button>
-                        <button disabled={selectedIds.length === 0 || exportingExcel || exportingPdf} onClick={handleExportPdfSelected} className="px-3 py-2 bg-[#222] hover:bg-red-900/40 text-red-400 font-bold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span>📄</span> {exportingPdf ? 'A Exportar...' : `PDF`}
-                        </button>
-                        {selectedIds.length > 0 && (
-                            <div className="px-3 py-2 bg-[#111] text-[10px] text-gray-500 font-mono border-l border-[#333] flex items-center">
-                                {selectedIds.length} sel.
-                            </div>
-                        )}
-                    </div>
-
+                <div className="flex bg-[#1a1a1a] rounded-lg p-1 border border-[#333]">
                     <button
-                        onClick={handleResetAllMatchings}
-                        className="px-3 py-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-500 border border-red-800/40 rounded text-[10px] font-black uppercase transition-all"
-                        title="Apagar e refazer todos os matchings de faturas"
+                        onClick={() => setActiveBrand('nicolazzi')}
+                        className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${activeBrand === 'nicolazzi' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
                     >
-                        Reset Matchings
+                        Nicolazzi
                     </button>
-
-                    <button onClick={() => setShowGlobalModal(true)} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-sm transition-colors shadow shadow-indigo-900/40 flex items-center gap-2">
-                        <span>⚡</span> Total Matching
-                    </button>
-                    <button onClick={loadReport} className="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#444] text-gray-300 font-bold rounded text-sm transition-colors">
-                        ↻ Atualizar
+                    <button
+                        onClick={() => setActiveBrand('ritmonio')}
+                        className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${activeBrand === 'ritmonio' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        Ritmonio
                     </button>
                 </div>
             </div>
-
-            {/* GLOBAL ANALYTICS DASHBOARD */}
-            {analytics && (
-                <div className="grid grid-cols-4 gap-4 mb-6 shrink-0">
-                    <RotatingAnalyticsCard
-                        label="Logística (Atrasos)"
-                        project={{ sale: { net: 0 }, cost: { net: 0 }, margin: { net: 0 } }}
-                        realized={{
-                            sale: { net: analytics.logistics.lateItemsCurrent },
-                            cost: { net: analytics.logistics.totalItemsPending },
-                            margin: { net: 0, percent: parseFloat(analytics.logistics.latePercentage) }
+            <div className="flex items-center gap-3">
+                {/* Search Input */}
+                <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+                    <input
+                        type="text"
+                        placeholder="Proposta, cliente, artigo..."
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setSelectedIds([]); // Reset selection on filter change
                         }}
-                    />
-
-                    <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Lead Time Médio</span>
-                        <div className="flex items-baseline gap-2 mt-1">
-                            <span className="text-2xl font-bold font-mono text-white">{analytics.logistics.avgLeadTimeDays}</span>
-                            <span className="text-xs text-gray-400">dias reais</span>
-                        </div>
-                        <span className="text-[10px] text-gray-500 mt-1">Média até entrega</span>
-                    </div>
-
-                    <RotatingAnalyticsCard
-                        label="Volume do Projeto"
-                        project={analytics.project}
-                        realized={analytics.project}
-                    />
-
-                    <RotatingAnalyticsCard
-                        label="Rentabilidade Real (Matched)"
-                        project={analytics.project}
-                        realized={analytics.realized}
+                        className="bg-[#111] border border-[#333] text-gray-300 text-sm rounded pl-9 pr-3 py-2 outline-none focus:border-indigo-500 w-64 placeholder-gray-600 transition-colors"
                     />
                 </div>
-            )}
+
+                {/* Status Filter */}
+                <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setSelectedIds([]); // Reset selection on filter change
+                    }}
+                    className="bg-[#111] border border-[#333] text-gray-300 text-sm rounded px-3 py-2 outline-none"
+                >
+                    <option value="all">Todos os Estados</option>
+                    <option value="pending">Pendentes</option>
+                    <option value="partial">Parciais</option>
+                    <option value="completed">Concluídos</option>
+                </select>
+
+                <div className="flex border border-[#333] rounded overflow-hidden">
+                    <button disabled={selectedIds.length === 0 || exportingExcel || exportingPdf} onClick={handleExportSelected} className="px-3 py-2 bg-[#222] hover:bg-emerald-900/40 text-emerald-400 font-bold text-xs transition-colors border-r border-[#333] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span>📊</span> {exportingExcel ? 'A Exportar...' : `Excel`}
+                    </button>
+                    <button disabled={selectedIds.length === 0 || exportingExcel || exportingPdf} onClick={handleExportPdfSelected} className="px-3 py-2 bg-[#222] hover:bg-red-900/40 text-red-400 font-bold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span>📄</span> {exportingPdf ? 'A Exportar...' : `PDF`}
+                    </button>
+                    {selectedIds.length > 0 && (
+                        <div className="px-3 py-2 bg-[#111] text-[10px] text-gray-500 font-mono border-l border-[#333] flex items-center">
+                            {selectedIds.length} sel.
+                        </div>
+                    )}
+                </div>
+
+                <button
+                    onClick={handleResetAllMatchings}
+                    className="px-3 py-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-500 border border-red-800/40 rounded text-[10px] font-black uppercase transition-all"
+                    title="Apagar e refazer todos os matchings de faturas"
+                >
+                    Reset Matchings
+                </button>
+
+                <button onClick={() => setShowGlobalModal(true)} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-sm transition-colors shadow shadow-indigo-900/40 flex items-center gap-2">
+                    <span>⚡</span> Total Matching
+                </button>
+                <button onClick={loadReport} className="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#444] text-gray-300 font-bold rounded text-sm transition-colors">
+                    ↻ Atualizar
+                </button>
+            </div>
+
+            {/* GLOBAL ANALYTICS DASHBOARD */}
+            {
+                analytics && (
+                    <div className="grid grid-cols-4 gap-4 mb-6 shrink-0">
+                        <RotatingAnalyticsCard
+                            label="Logística (Atrasos)"
+                            project={{ sale: { net: 0 }, cost: { net: 0 }, margin: { net: 0 } }}
+                            realized={{
+                                sale: { net: analytics.logistics.lateItemsCurrent },
+                                cost: { net: analytics.logistics.totalItemsPending },
+                                margin: { net: 0, percent: parseFloat(analytics.logistics.latePercentage) }
+                            }}
+                        />
+
+                        <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Lead Time Médio</span>
+                            <div className="flex items-baseline gap-2 mt-1">
+                                <span className="text-2xl font-bold font-mono text-white">{analytics.logistics.avgLeadTimeDays}</span>
+                                <span className="text-xs text-gray-400">dias reais</span>
+                            </div>
+                            <span className="text-[10px] text-gray-500 mt-1">Média até entrega</span>
+                        </div>
+
+                        <RotatingAnalyticsCard
+                            label="Volume do Projeto"
+                            project={analytics.project}
+                            realized={analytics.project}
+                        />
+
+                        <RotatingAnalyticsCard
+                            label="Rentabilidade Real (Matched)"
+                            project={analytics.project}
+                            realized={analytics.realized}
+                        />
+                    </div>
+                )
+            }
 
             {/* TABLE CONTAINER */}
             <div className="flex-1 overflow-auto border border-[#333] rounded-lg bg-[#1a1a1a]">
@@ -417,20 +429,24 @@ export default function ReconciliationTab() {
             </div>
 
             {/* VIEWER OVERLAY */}
-            {selectedProposalId && (
-                <ProposalFulfillmentViewer
-                    proposalId={selectedProposalId}
-                    onClose={() => setSelectedProposalId(null)}
-                />
-            )}
+            {
+                selectedProposalId && (
+                    <ProposalFulfillmentViewer
+                        proposalId={selectedProposalId}
+                        onClose={() => setSelectedProposalId(null)}
+                    />
+                )
+            }
 
             {/* GLOBAL RECONCILIATION OVERLAY */}
-            {showGlobalModal && (
-                <GlobalReconciliationModal
-                    onClose={() => setShowGlobalModal(false)}
-                    onReconciled={loadReport} // reload background table when done
-                />
-            )}
-        </div>
+            {
+                showGlobalModal && (
+                    <GlobalReconciliationModal
+                        onClose={() => setShowGlobalModal(false)}
+                        onReconciled={loadReport} // reload background table when done
+                    />
+                )
+            }
+        </div >
     );
 }

@@ -24,105 +24,7 @@ function getReconciliationMark(data) {
  * @param {string} invoiceId 
  */
 async function reconcileInvoice(invoiceId, forceProposalId = null) {
-    console.log(`[Nicolazzi Recon] Starting reconciliation for invoice ${invoiceId}`);
-
-    // 1. Get Invoice Data
-    const invoice = await knex('documents').where({ id: invoiceId }).first();
-    if (!invoice) throw new Error('Invoice not found');
-
-    const data = safeParse(invoice.rawJson);
-    const shippingMark = getReconciliationMark(data);
-
-    let proposal = null;
-
-    if (forceProposalId) {
-        proposal = await knex('custom_proposals').where({ id: forceProposalId }).first();
-        if (!proposal) throw new Error('Forced Proposal not found.');
-    } else {
-        if (!shippingMark) {
-            return { success: false, reason: 'No Proposal/Shipping Mark found in Invoice' };
-        }
-
-        console.log(`[Nicolazzi Recon] Shipping Mark found: ${shippingMark}`);
-
-        // 2. Find Proposal
-        proposal = await knex('custom_proposals')
-            .where('proposal_number', shippingMark)
-            .whereIn('status', ['accepted', 'em_fornecimento'])
-            .first();
-
-        if (!proposal) {
-            return { success: false, reason: `Proposal number '${shippingMark}' not found in 'proposal_number' column.` };
-        }
-    }
-
-    console.log(`[Nicolazzi Recon] Found Proposal: ${proposal.name} (${proposal.id}) [Num: ${proposal.proposal_number}]`);
-
-    // 3. Persist Invoice Lines (Explode JSON to Relational)
-    // Transactional safety would be good here
-    return await knex.transaction(async (trx) => {
-
-        // A. Clear existing relational data for this invoice
-        // Since we didn't use Cascade FKs in the migration, we clean up manually
-        await trx('proposal_fulfillments').where({ document_id: invoiceId }).del();
-        await trx('document_lines').where({ document_id: invoiceId }).del();
-
-        // B. Insert Document Lines
-        const linesToInsert = (data.lines || []).map((l, idx) => ({
-            id: crypto.randomUUID(), // Node 19+ or polyfill. If not available, use knex.raw or import uuid.
-            document_id: invoiceId,
-            sku: (l.code || '').trim(),
-            description: l.description,
-            quantity: parseFloat(l.quantity) || 0,
-            unit_price: parseFloat(l.unitPrice) || 0,
-            total: parseFloat(l.total) || 0,
-            metadata: JSON.stringify({ original_index: idx })
-        }));
-
-        if (linesToInsert.length > 0) {
-            // Batch insert
-            await trx('document_lines').insert(linesToInsert);
-        }
-
-        // C. Match with Proposal Lines
-        const proposalLines = await trx('proposal_lines')
-            .where({ proposal_id: proposal.id });
-
-        const fulfillments = [];
-
-        for (const invLine of linesToInsert) {
-            // Find ALL proposal lines with this SKU
-            // Improved SKU matching: Trim and Case Insensitive
-            const pLine = proposalLines.find(p => {
-                const pSku = (p.sku || '').trim().toUpperCase();
-                const iSku = (invLine.sku || '').trim().toUpperCase();
-                return pSku === iSku && pSku !== '';
-            });
-
-            if (pLine) {
-                fulfillments.push({
-                    id: crypto.randomUUID(),
-                    proposal_line_id: pLine.id,
-                    doc_line_id: invLine.id,
-                    document_id: invoiceId,
-                    proposal_id: proposal.id,
-                    quantity_fulfilled: invLine.quantity
-                });
-            }
-        }
-
-        if (fulfillments.length > 0) {
-            await trx('proposal_fulfillments').insert(fulfillments);
-        }
-
-        return {
-            success: true,
-            proposal: proposal.name,
-            matched_lines: fulfillments.length,
-            total_lines: linesToInsert.length,
-            details: fulfillments.map(f => ({ sku: proposalLines.find(p => p.id === f.proposal_line_id)?.sku, qty: f.quantity_fulfilled }))
-        };
-    });
+    return await reconcileInvoiceInternal(invoiceId, forceProposalId);
 }
 
 // Polyfill removed (crypto already required at top)
@@ -611,42 +513,120 @@ async function unlinkInvoice(invoiceId) {
 
 /**
  * Resets all matching data and re-runs reconciliation for all documents of a brand.
+ * @param {string} brand - filter documents by supplier (e.g. 'NICOLAZZI' or 'RITMONIO')
  */
-async function resetAllMatchings() {
-    console.log('[Nicolazzi Recon] Global Reset Started...');
+async function resetAllMatchings(brand = 'NICOLAZZI') {
+    const brandLabel = (brand || 'NICOLAZZI').toUpperCase();
+    console.log(`[Recon] Global Reset Started for ${brandLabel}...`);
 
     return await knex.transaction(async (trx) => {
-        // 1. Wipe all fulfillment data
-        await trx('proposal_fulfillments').del();
-        await trx('document_lines').del();
-
-        // 2. Identify all relevant invoices/proformas to re-process
+        // 1. Identify all relevant invoices/proformas to re-process for this brand
         const invoices = await trx('documents')
             .where(function () {
-                this.where('supplier', 'like', '%NICOLAZZI%')
-                    .orWhere('supplier', 'like', '%Nicolazzi%');
+                this.where('supplier', 'like', `%${brandLabel}%`)
+                    .orWhere('supplier', 'like', `%${brandLabel.toLowerCase()}%`);
             })
             .whereIn('docType', ['invoice', 'fatura', 'packing_list', 'proforma'])
             .select('id');
 
-        console.log(`[Nicolazzi Recon] Re-processing ${invoices.length} documents...`);
+        const invoiceIds = invoices.map(i => i.id);
 
-        // 3. Re-run reconcileInvoice for each (which rebuilds lines and matching)
+        if (invoiceIds.length > 0) {
+            // 2. Wipe fulfillment and line data ONLY for these documents
+            await trx('proposal_fulfillments').whereIn('document_id', invoiceIds).del();
+            await trx('document_lines').whereIn('document_id', invoiceIds).del();
+        }
+
+        console.log(`[Recon] Re-processing ${invoices.length} documents for ${brandLabel}...`);
+
+        // 3. Re-run reconciliation logic
         let successCount = 0;
         for (const inv of invoices) {
             try {
-                // We call the main logic. Note: it handles its own internal transaction 
-                // but since we are already in one, Knex will use the existing one.
-                await reconcileInvoice(inv.id);
+                // Pass the current transaction to avoid nesting issues
+                await reconcileInvoiceInternal(inv.id, null, trx);
                 successCount++;
             } catch (err) {
-                console.error(`[Nicolazzi Recon] Failed to re-process doc ${inv.id}:`, err.message);
+                console.error(`[Recon] Failed to re-process doc ${inv.id}:`, err.message);
             }
         }
 
-        console.log(`[Nicolazzi Recon] Global Reset Complete. Successful: ${successCount}`);
-        return { success: true, processed: successCount };
+        console.log(`[Recon] Global Reset Complete. Successful: ${successCount}`);
+        return { success: true, processed: successCount, brand: brandLabel };
     });
+}
+
+/**
+ * Internal version of reconcileInvoice that accepts an optional transaction.
+ */
+async function reconcileInvoiceInternal(invoiceId, forceProposalId = null, existingTrx = null) {
+    const action = async (trx) => {
+        // 1. Get Invoice Data
+        const invoice = await trx('documents').where({ id: invoiceId }).first();
+        if (!invoice) throw new Error('Invoice not found');
+
+        const data = safeParse(invoice.rawJson);
+        const shippingMark = getReconciliationMark(data);
+
+        let proposal = null;
+
+        if (forceProposalId) {
+            proposal = await trx('custom_proposals').where({ id: forceProposalId }).first();
+            if (!proposal) throw new Error('Forced Proposal not found.');
+        } else {
+            if (!shippingMark) return { success: false, reason: 'No Proposal/Shipping Mark found in Invoice' };
+
+            proposal = await trx('custom_proposals')
+                .where('proposal_number', shippingMark)
+                .whereIn('status', ['accepted', 'em_fornecimento'])
+                .first();
+
+            if (!proposal) return { success: false, reason: `Proposal '${shippingMark}' not found.` };
+        }
+
+        // Clean existing
+        await trx('proposal_fulfillments').where({ document_id: invoiceId }).del();
+        await trx('document_lines').where({ document_id: invoiceId }).del();
+
+        // Insert Lines
+        const linesToInsert = (data.lines || []).map((l, idx) => ({
+            id: crypto.randomUUID(),
+            document_id: invoiceId,
+            sku: (l.code || '').trim(),
+            description: l.description,
+            quantity: parseFloat(l.quantity) || 0,
+            unit_price: parseFloat(l.unitPrice) || 0,
+            total: parseFloat(l.total) || 0,
+            metadata: JSON.stringify({ original_index: idx })
+        }));
+
+        if (linesToInsert.length > 0) await trx('document_lines').insert(linesToInsert);
+
+        // Match
+        const proposalLines = await trx('proposal_lines').where({ proposal_id: proposal.id });
+        const fulfillments = [];
+
+        for (const invLine of linesToInsert) {
+            const pLine = proposalLines.find(p => (p.sku || '').trim().toUpperCase() === (invLine.sku || '').trim().toUpperCase());
+            if (pLine) {
+                fulfillments.push({
+                    id: crypto.randomUUID(),
+                    proposal_line_id: pLine.id,
+                    doc_line_id: invLine.id,
+                    document_id: invoiceId,
+                    proposal_id: proposal.id,
+                    quantity_fulfilled: invLine.quantity
+                });
+            }
+        }
+
+        if (fulfillments.length > 0) await trx('proposal_fulfillments').insert(fulfillments);
+
+        return { success: true, proposal: proposal.name, matched_lines: fulfillments.length };
+    };
+
+    if (existingTrx) return await action(existingTrx);
+    return await knex.transaction(action);
 }
 
 /**
@@ -790,11 +770,15 @@ async function exportReconciliationExcel(proposalIds) {
  * Calculates high-level analytics using optimized SQL aggregations.
  * Supports filtering by a set of proposal IDs.
  */
-async function getAnalytics(proposalIds = null) {
+async function getAnalytics(proposalIds = null, brand = null) {
     const vatRate = 0.22;
 
     // 1. Filter Proposals
     let baseQuery = knex('custom_proposals').whereIn('status', ['accepted', 'em_fornecimento']);
+
+    if (brand) {
+        baseQuery = baseQuery.where('brand_id', 'like', `%${brand}%`);
+    }
     if (proposalIds && Array.isArray(proposalIds) && proposalIds.length > 0) {
         baseQuery = baseQuery.whereIn('id', proposalIds);
     }

@@ -149,27 +149,22 @@ exports.exportFulfillmentPdfMultiple = async (req, res) => {
 
 exports.getAnalytics = async (req, res) => {
     try {
-        const { proposalIds } = req.query; // Expecting comma-separated string or array
-        let ids = null;
-        if (proposalIds) {
-            ids = typeof proposalIds === 'string' ? proposalIds.split(',') : proposalIds;
-        }
-
-        const data = await service.getAnalytics(ids);
-        res.json(data);
-    } catch (error) {
-        console.error('[Nicolazzi Analytics] Error:', error);
-        res.status(500).json({ error: error.message });
+        const proposalIds = req.query.proposalIds ? req.query.proposalIds.split(',') : null;
+        const result = await service.getAnalytics(proposalIds, 'nicolazzi');
+        res.json(result);
+    } catch (err) {
+        console.error('[Nicolazzi Analytics] Error:', err);
+        res.status(500).json({ error: err.message });
     }
 };
 
 exports.resetAllMatchings = async (req, res) => {
     try {
-        const result = await service.resetAllMatchings();
+        const result = await service.resetAllMatchings('nicolazzi');
         res.json(result);
-    } catch (error) {
-        console.error('[Nicolazzi Reset] Error:', error);
-        res.status(500).json({ error: error.message });
+    } catch (err) {
+        console.error('[Nicolazzi Reset] Error:', err);
+        res.status(500).json({ error: err.message });
     }
 };
 

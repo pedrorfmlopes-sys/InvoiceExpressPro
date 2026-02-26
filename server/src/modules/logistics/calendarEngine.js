@@ -66,14 +66,16 @@ async function calculateShipDate(startDate, leadTime, brandId = 'nicolazzi') {
     // Extend targetDate by any shutdown overlapping the range
     // We do a simple additive logic: if a shutdown is in the middle, push delivery out.
     for (const shutdown of relevantShutdowns) {
-        if (shutdown.start < targetDate && shutdown.end > startDate) {
+        if (shutdown.start <= targetDate && shutdown.end >= startDate) {
             const overlapStart = shutdown.start < startDate ? startDate : shutdown.start;
             const overlapEnd = shutdown.end > targetDate ? targetDate : shutdown.end;
 
             // For factory shutdowns, we usually add the FULL duration of the stop
             // Manufacturer logic: "If we stop for 2 weeks in August, delivery is pushed 2 weeks"
-            const shutdownDuration = (shutdown.end - shutdown.start) / (1000 * 60 * 60 * 24);
-            targetDate.setDate(targetDate.getDate() + Math.ceil(shutdownDuration));
+            // Ensure at least 1 day is added for 1-day holidays
+            const diffTime = Math.abs(shutdown.end - shutdown.start);
+            const shutdownDuration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            targetDate.setDate(targetDate.getDate() + shutdownDuration);
         }
     }
 
@@ -103,12 +105,37 @@ async function seedNicolazziCalendar() {
         country_code: 'IT'
     });
 
-    // Standard Holidays/Shutdowns
-    // August Shutdown (Ferragosto + Weeks): usually 3-4 weeks in August.
-    // e.g., Aug 5th to Aug 26th (Recurring)
-    // Christmas: Dec 23 to Jan 6
+    const events = [
+        {
+            id: crypto.randomUUID(),
+            calendar_id: calId,
+            type: 'shutdown',
+            start_date: '2000-08-05',
+            end_date: '2000-08-26',
+            description: 'Paragem de Verão (Nicolazzi)',
+            is_recurring: true
+        },
+        {
+            id: crypto.randomUUID(),
+            calendar_id: calId,
+            type: 'shutdown',
+            start_date: '2000-12-23',
+            end_date: '2000-12-31',
+            description: 'Natal/Fim de Ano (Nicolazzi)',
+            is_recurring: true
+        },
+        {
+            id: crypto.randomUUID(),
+            calendar_id: calId,
+            type: 'shutdown',
+            start_date: '2000-01-01',
+            end_date: '2000-01-06',
+            description: 'Ano Novo/Reis (Nicolazzi)',
+            is_recurring: true
+        }
+    ];
 
-    await knex('calendar_events').insert([events[0], xmas1, xmas2]);
+    await knex('calendar_events').insert(events);
     console.log('[Logistics] Seeded default events.');
 }
 

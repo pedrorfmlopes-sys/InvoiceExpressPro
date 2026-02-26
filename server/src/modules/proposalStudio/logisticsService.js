@@ -84,7 +84,7 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
         let meta = line.extra_attributes ? (typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes) : line.extra_attributes) : {};
 
         // 1. Line-level Brand Override
-        const lineBrandId = meta.brand_id || meta.brand || proposal.brand_id || 'nicolazzi';
+        const lineBrandId = (meta.brand_id || meta.brand || proposal.brand_id || 'nicolazzi').toLowerCase();
 
         // 2. Determine Rule (Priority: Finish > Category > Collection > Global)
         const series = (meta.brand_meta?.series || meta.series || '').trim();
@@ -107,6 +107,8 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
         // Calculate (using line-specific brand context)
         const shipDate = await calculateShipDate(startDate, leadTime, lineBrandId);
 
+        console.log(`[Logistics] Line ${line.sku}: Brand=${lineBrandId}, Rule=${rule?.target || 'none'}, LT=${leadTime.value} ${leadTime.unit} -> ${shipDate ? shipDate.toISOString().split('T')[0] : 'NULL'}`);
+
         updates.push({
             id: line.id,
             predicted_ship_date: shipDate
@@ -128,8 +130,8 @@ async function autoCategorizeLines(proposalId) {
     const proposal = await knex('custom_proposals').where({ id: proposalId }).first();
     const lines = await knex('proposal_lines').where({ proposal_id: proposalId });
 
-    const ROUGH_KEYWORDS = ['CORPO', 'INCASSO', 'BOX', 'UNIVERSAL', 'GREZZO', 'MESCOLATORE', 'PARTE INCASSO'];
-    const FINISH_KEYWORDS = ['ESTERNA', 'PARTE ESTERNA', 'PLACCA', 'MANIGLIA', 'LEVA'];
+    const ROUGH_KEYWORDS = ['CORPO', 'INCASSO', 'BOX', 'UNIVERSAL', 'GREZZO', 'MESCOLATORE', 'PARTE INCASSO', 'R099', 'CORPO INC'];
+    const FINISH_KEYWORDS = ['ESTERNA', 'PARTE ESTERNA', 'PLACCA', 'MANIGLIA', 'LEVA', 'KIT ESTERNO'];
 
     const updates = [];
 

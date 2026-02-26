@@ -50,3 +50,23 @@ exports.getReconciliationDetails = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+exports.getAnalytics = async (req, res) => {
+    try {
+        const proposalIds = req.query.proposalIds ? req.query.proposalIds.split(',') : null;
+        const result = await service.getAnalytics(proposalIds);
+        res.json(result);
+    } catch (err) {
+        console.error('[Ritmonio Recon API] getAnalytics Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.resetAllMatchings = async (req, res) => {
+    try {
+        const result = await service.resetAllMatchings();
+        res.json(result);
+    } catch (err) {
+        console.error('[Ritmonio Recon API] resetAllMatchings Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};

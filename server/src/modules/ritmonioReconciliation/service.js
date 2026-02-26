@@ -337,9 +337,22 @@ async function getReconciliationDetails(invoiceId) {
     };
 }
 
+async function getAnalytics(proposalIds = null) {
+    // We import from the nicolazzi service as it's the current 'de facto' core for analytics
+    const nicolazziService = require('../nicolazziReconciliation/service');
+    return await nicolazziService.getAnalytics(proposalIds);
+}
+
+async function resetAllMatchings() {
+    const nicolazziService = require('../nicolazziReconciliation/service');
+    return await nicolazziService.resetAllMatchings('RITMONIO');
+}
+
 module.exports = {
     reconcileInvoice,
     discoverMatches,
     getReconciliationReport,
-    getReconciliationDetails
+    getReconciliationDetails,
+    getAnalytics,
+    resetAllMatchings
 };

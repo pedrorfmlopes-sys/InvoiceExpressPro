@@ -162,8 +162,13 @@ class ProposalPdfEngine {
         this.currentPage.drawText('Validade:', { x: rightMetaX + 80, y: this.y - 9, size: 8, font: this.fontB });
         this.currentPage.drawText('15 dias', { x: rightMetaX + 80, y: this.y - 18, size: 8, font: this.font });
 
-        this.currentPage.drawText('Data:', { x: rightMetaX + 150, y: this.y - 9, size: 8, font: this.fontB });
-        this.currentPage.drawText(new Date(proposal.updated_at).toLocaleDateString('pt-PT'), { x: rightMetaX + 150, y: this.y - 18, size: 8, font: this.font });
+        this.currentPage.drawText('Data Doc:', { x: rightMetaX + 130, y: this.y - 9, size: 8, font: this.fontB });
+        this.currentPage.drawText(new Date(proposal.updated_at).toLocaleDateString('pt-PT'), { x: rightMetaX + 130, y: this.y - 18, size: 8, font: this.font });
+
+        if (proposal.order_confirmation_date) {
+            this.currentPage.drawText('Conf. Fábrica:', { x: rightMetaX + 5, y: this.y - 9, size: 8, font: this.fontB });
+            this.currentPage.drawText(new Date(proposal.order_confirmation_date).toLocaleDateString('pt-PT'), { x: rightMetaX + 5, y: this.y - 18, size: 8, font: this.font });
+        }
 
         this.y -= 30;
     }
@@ -246,13 +251,21 @@ class ProposalPdfEngine {
             const extraLines = [];
 
             const effectiveLeadWeeks = line.lead_time_weeks || this.proposal.general_lead_time_weeks || 0;
-            let predictedDateDisplay = line.predicted_ship_date ? new Date(line.predicted_ship_date).toLocaleDateString('pt-PT') : '';
+            let predictedDateDisplay = '';
+
+            if (line.predicted_ship_date) {
+                const d = new Date(line.predicted_ship_date);
+                if (!isNaN(d.getTime())) {
+                    predictedDateDisplay = d.toLocaleDateString('pt-PT');
+                }
+            }
+
             if (!predictedDateDisplay && effectiveLeadWeeks > 0) {
                 const baseDate = this.proposal.order_confirmation_date
                     ? new Date(this.proposal.order_confirmation_date)
                     : (this.proposal.metadata?.doc_date ? new Date(this.proposal.metadata.doc_date) : null);
 
-                if (baseDate) {
+                if (baseDate && !isNaN(baseDate.getTime())) {
                     baseDate.setDate(baseDate.getDate() + (effectiveLeadWeeks * 7));
                     predictedDateDisplay = baseDate.toLocaleDateString('pt-PT');
                 }

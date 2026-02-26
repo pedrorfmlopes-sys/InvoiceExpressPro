@@ -14,4 +14,7 @@ router.post('/reconcile/:invoiceId', controller.reconcileInvoice);
 router.post('/reconcile-manual/:invoiceId', controller.reconcileInvoiceManual);
 router.get('/details/:invoiceId', controller.getReconciliationDetails);
 
+router.get('/analytics', controller.getAnalytics);
+router.post('/reconciliation/reset', controller.resetAllMatchings);
+
 module.exports = router;
