@@ -115,9 +115,11 @@ class ExplorerService {
                 const fulfillMap = {};
                 fulfillStats.forEach(s => { fulfillMap[s.proposal_id] = parseFloat(s.fulfilled_qty || 0); });
 
-                const total = linesMap[p.id] || 0;
-                const fulfilled = fulfillMap[p.id] || 0;
-                p.progress = total > 0 ? Math.min(100, parseFloat(((fulfilled / total) * 100).toFixed(1))) : 0;
+                allProposals.forEach(p => {
+                    const total = linesMap[p.id] || 0;
+                    const fulfilled = fulfillMap[p.id] || 0;
+                    p.progress = total > 0 ? Math.min(100, parseFloat(((fulfilled / total) * 100).toFixed(1))) : 0;
+                });
             }
         }
 
