@@ -129,48 +129,49 @@ async function reconcileInvoice(invoiceId, forceProposalId = null) {
 
 /**
  * Generates a full reconciliation report with progress status per proposal.
+ * Optimized with grouped queries to avoid N+1 performance issues.
  */
 async function getReconciliationReport() {
-    // 1. Get all proposals
-    // Only load active proposals for reconciliation report to avoid noise
+    // 1. Get all active proposals
     const proposals = await knex('custom_proposals')
         .whereIn('status', ['accepted', 'em_fornecimento'])
         .select('id', 'name', 'proposal_number', 'client_ref', 'created_at', 'status');
 
-    const report = [];
+    if (proposals.length === 0) return [];
 
-    for (const p of proposals) {
-        // 2. Calculate Totals (Proposal Lines)
-        const pLines = await knex('proposal_lines')
-            .where({ proposal_id: p.id })
-            .select('quantity', 'sku', 'description');
+    const proposalIds = proposals.map(p => p.id);
 
-        const totalItems = pLines.reduce((acc, l) => acc + parseFloat(l.quantity || 0), 0);
+    // 2. Get Ordered Totals per Proposal
+    const orderedStats = await knex('proposal_lines')
+        .whereIn('proposal_id', proposalIds)
+        .groupBy('proposal_id')
+        .select('proposal_id', knex.raw('SUM(quantity) as total_items'));
 
-        // Also extract a searchable string of SKUs and descriptions
-        const searchableItems = pLines.map(l => `${l.sku} ${l.description}`).join(' ').toLowerCase();
+    const orderedMap = new Map(orderedStats.map(s => [s.proposal_id, parseFloat(s.total_items || 0)]));
 
-        // 3. Calculate Fulfilled (Fulfillments)
-        const fulfilled = await knex('proposal_fulfillments')
-            .where({ proposal_id: p.id })
-            .sum('quantity_fulfilled as qty');
+    // 3. Get Fulfilled Totals per Proposal
+    const fulfilledStats = await knex('proposal_fulfillments')
+        .whereIn('proposal_id', proposalIds)
+        .groupBy('proposal_id')
+        .select('proposal_id', knex.raw('SUM(quantity_fulfilled) as total_fulfilled'));
 
-        const totalFulfilled = parseFloat(fulfilled[0]?.qty || 0);
+    const fulfilledMap = new Map(fulfilledStats.map(s => [s.proposal_id, parseFloat(s.total_fulfilled || 0)]));
 
-        // 4. Determine Status
-        let status = 'pending';
+    // 4. Build Report
+    return proposals.map(p => {
+        const totalItems = orderedMap.get(p.id) || 0;
+        const totalFulfilled = fulfilledMap.get(p.id) || 0;
+
         let progress = 0;
+        let status = 'pending';
 
         if (totalItems > 0) {
-            progress = (totalFulfilled / totalItems) * 100;
-            // Cap at 100% just in case of over-delivery
-            if (progress > 100) progress = 100;
-
+            progress = Math.min(100, (totalFulfilled / totalItems) * 100);
             if (progress >= 100) status = 'completed';
             else if (progress > 0) status = 'partial';
         }
 
-        report.push({
+        return {
             id: p.id,
             proposal_number: p.proposal_number || p.name,
             client_ref: p.client_ref,
@@ -179,11 +180,9 @@ async function getReconciliationReport() {
             progress: parseFloat(progress.toFixed(1)),
             status: status,
             created_at: p.created_at,
-            search_blob: `${p.proposal_number || ''} ${p.client_ref || ''} ${searchableItems}`.toLowerCase()
-        });
-    }
-
-    return report;
+            search_blob: `${p.proposal_number || ''} ${p.client_ref || ''} ${p.name || ''}`.toLowerCase()
+        };
+    });
 }
 
 
@@ -527,7 +526,7 @@ async function getProposalFulfillmentDetails(proposalId) {
 
         const totalOrderedCount = linesWithFulfillment.reduce((acc, l) => acc + l.qty_ordered, 0);
         const totalFulfilledCount = linesWithFulfillment.reduce((acc, l) => acc + l.qty_fulfilled, 0);
-        const progress = totalOrderedCount > 0 ? (totalFulfilledCount / totalOrderedCount) * 100 : 0;
+        const progress = totalOrderedCount > 0 ? Math.min(100, (totalFulfilledCount / totalOrderedCount) * 100) : 0;
         const vatRate = 0.22;
 
         // Calculate Logistics Metrics
@@ -607,6 +606,46 @@ async function unlinkInvoice(invoiceId) {
         await trx('proposal_fulfillments').where({ document_id: invoiceId }).del();
         await trx('document_lines').where({ document_id: invoiceId }).del();
         return { success: true };
+    });
+}
+
+/**
+ * Resets all matching data and re-runs reconciliation for all documents of a brand.
+ */
+async function resetAllMatchings() {
+    console.log('[Nicolazzi Recon] Global Reset Started...');
+
+    return await knex.transaction(async (trx) => {
+        // 1. Wipe all fulfillment data
+        await trx('proposal_fulfillments').del();
+        await trx('document_lines').del();
+
+        // 2. Identify all relevant invoices/proformas to re-process
+        const invoices = await trx('documents')
+            .where(function () {
+                this.where('supplier', 'like', '%NICOLAZZI%')
+                    .orWhere('supplier', 'like', '%Nicolazzi%');
+            })
+            .whereIn('docType', ['invoice', 'fatura', 'packing_list', 'proforma'])
+            .select('id');
+
+        console.log(`[Nicolazzi Recon] Re-processing ${invoices.length} documents...`);
+
+        // 3. Re-run reconcileInvoice for each (which rebuilds lines and matching)
+        let successCount = 0;
+        for (const inv of invoices) {
+            try {
+                // We call the main logic. Note: it handles its own internal transaction 
+                // but since we are already in one, Knex will use the existing one.
+                await reconcileInvoice(inv.id);
+                successCount++;
+            } catch (err) {
+                console.error(`[Nicolazzi Recon] Failed to re-process doc ${inv.id}:`, err.message);
+            }
+        }
+
+        console.log(`[Nicolazzi Recon] Global Reset Complete. Successful: ${successCount}`);
+        return { success: true, processed: successCount };
     });
 }
 
@@ -747,64 +786,100 @@ async function exportReconciliationExcel(proposalIds) {
 }
 
 
-async function getAnalytics() {
-    // We get all lines for all active nicolazzi proposals to calculate stats
-    const proposals = await knex('custom_proposals')
-        .whereIn('status', ['accepted', 'em_fornecimento'])
-        .select('id', 'name', 'proposal_number', 'client_ref');
+/**
+ * Calculates high-level analytics.
+ * Supports filtering by a set of proposal IDs.
+ */
+async function getAnalytics(proposalIds = null) {
+    // 1. Get Proposals
+    let pQuery = knex('custom_proposals')
+        .whereIn('status', ['accepted', 'em_fornecimento']);
 
-    let totalOrderedNet = 0;
-    let totalCostNet = 0;
+    if (proposalIds && Array.isArray(proposalIds) && proposalIds.length > 0) {
+        pQuery = pQuery.whereIn('id', proposalIds);
+    }
+
+    const proposals = await pQuery.select('id', 'name', 'proposal_number', 'client_ref');
+
+    // MÉTTRICAS DE PROJETO (ESTIMADO)
+    let totalProjectSaleNet = 0;
+    let totalProjectCostNet = 0;
+
+    // MÉTRICAS REALIZADAS (MATCHED)
+    let totalRealSaleNet = 0;
+    let totalRealCostNet = 0;
+
     let lateItemsCount = 0;
     let totalItemsPending = 0;
-
-    // For lead time tracking
     let totalLeadTimeDays = 0;
     let deliveredDocsCount = 0;
 
     const today = new Date();
+    const vatRate = 0.22;
 
     for (const p of proposals) {
         const details = await getProposalFulfillmentDetails(p.id);
         if (!details || details.error) continue;
 
-        totalOrderedNet += parseFloat(details.financial?.ordered?.net || 0);
-        totalCostNet += parseFloat(details.financial?.cost?.net || 0);
+        // Project: O que foi orçamentado (Venda vs Custo "Factory Price")
+        totalProjectSaleNet += parseFloat(details.financial?.ordered?.net || 0);
+        totalProjectCostNet += parseFloat(details.financial?.cost?.net || 0);
 
+        // Realized: O que já foi faturado
+        totalRealSaleNet += parseFloat(details.financial?.fulfilled?.net || 0);
+
+        // Custo Real: Precisamos somar o total das linhas de fatura que deram origem a este fulfillment
+        // Mas o getProposalFulfillmentDetails já nos dá os documentos. 
+        // Vamos percorrer as linhas para ser mais preciso
         for (const line of details.lines) {
+            // Venda real para esta linha
+            // (Já incluído no totalRealSaleNet acima)
+
             if (line.qty_remaining > 0) {
                 totalItemsPending += line.qty_remaining;
                 if (line.predicted_ship_date) {
-                    const pDate = new Date(line.predicted_ship_date);
-                    if (pDate < today) {
-                        lateItemsCount += line.qty_remaining; // Count as late
+                    if (new Date(line.predicted_ship_date) < today) {
+                        lateItemsCount += line.qty_remaining;
                     }
                 }
             }
         }
 
-        // Aggregate average lead time from documents
+        // Aggregate average lead time and Real Cost from documents linked as 'invoice'
         for (const doc of details.documents) {
-            if (doc.type === 'invoice' && doc.lead_time_days > 0) {
-                totalLeadTimeDays += doc.lead_time_days;
-                deliveredDocsCount++;
+            if (doc.type === 'invoice') {
+                if (doc.lead_time_days > 0) {
+                    totalLeadTimeDays += doc.lead_time_days;
+                    deliveredDocsCount++;
+                }
+
+                // Custo Real da Fatura (Net)
+                // Nota: O doc.total costuma ser GROSS. Vamos assumir que precisamos do NET.
+                // Se o PDF extractor guardou totais com/sem IVA, usamos.
+                // Atualmente simplificamos: doc.total / 1.22 se for Gross.
+                // TODO: Melhorar extração para guardar document_lines.total_net
+                const docTotal = parseFloat(doc.total || 0);
+                totalRealCostNet += (docTotal / (1 + vatRate));
             }
         }
     }
 
-    const marginNet = totalOrderedNet - totalCostNet;
-    const marginPercent = totalOrderedNet > 0 ? (marginNet / totalOrderedNet) * 100 : 0;
-    const avgLeadTime = deliveredDocsCount > 0 ? Math.round(totalLeadTimeDays / deliveredDocsCount) : 0;
+    const projectMarginNet = totalProjectSaleNet - totalProjectCostNet;
+    const realMarginNet = totalRealSaleNet - totalRealCostNet;
 
     return {
-        financial: {
-            revenue: totalOrderedNet,
-            cost: totalCostNet,
-            margin: marginNet,
-            marginPercent: parseFloat(marginPercent.toFixed(1))
+        project: {
+            sale: { net: totalProjectSaleNet, gross: totalProjectSaleNet * (1 + vatRate) },
+            cost: { net: totalProjectCostNet, gross: totalProjectCostNet * (1 + vatRate) },
+            margin: { net: projectMarginNet, percent: totalProjectSaleNet > 0 ? (projectMarginNet / totalProjectSaleNet) * 100 : 0 }
+        },
+        realized: {
+            sale: { net: totalRealSaleNet, gross: totalRealSaleNet * (1 + vatRate) },
+            cost: { net: totalRealCostNet, gross: totalRealCostNet * (1 + vatRate) },
+            margin: { net: realMarginNet, percent: totalRealSaleNet > 0 ? (realMarginNet / totalRealSaleNet) * 100 : 0 }
         },
         logistics: {
-            avgLeadTimeDays: avgLeadTime,
+            avgLeadTimeDays: deliveredDocsCount > 0 ? Math.round(totalLeadTimeDays / deliveredDocsCount) : 0,
             lateItemsCurrent: lateItemsCount,
             totalItemsPending: totalItemsPending,
             latePercentage: totalItemsPending > 0 ? ((lateItemsCount / totalItemsPending) * 100).toFixed(1) : 0

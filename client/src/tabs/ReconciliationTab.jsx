@@ -4,6 +4,62 @@ import { fmtEUR } from '../shared/ui';
 import ProposalFulfillmentViewer from '../components/viewers/ProposalFulfillmentViewer';
 import GlobalReconciliationModal from '../components/logistics/GlobalReconciliationModal';
 
+/**
+ * RotatingAnalyticsCard Component
+ * Cycles between Net Sale, Net Cost, and Margin on click.
+ */
+const RotatingAnalyticsCard = ({ label, project, realized }) => {
+    const [view, setView] = useState('sale'); // sale, cost, margin
+
+    const cycleView = () => {
+        if (view === 'sale') setView('cost');
+        else if (view === 'cost') setView('margin');
+        else setView('sale');
+    };
+
+    const getData = () => {
+        if (view === 'sale') return {
+            title: 'Venda (Net)',
+            val: realized.sale.net,
+            sub: `Proj. Total: ${fmtEUR(project.sale.net)}`,
+            color: 'text-white'
+        };
+        if (view === 'cost') return {
+            title: 'Custo (Net)',
+            val: realized.cost.net,
+            sub: `Proj. Total: ${fmtEUR(project.cost.net)}`,
+            color: 'text-amber-500'
+        };
+        return {
+            title: 'Margem (Net)',
+            val: realized.margin.net,
+            sub: `${realized.margin.percent.toFixed(1)}% Margem Real`,
+            color: 'text-green-400'
+        };
+    };
+
+    const d = getData();
+
+    return (
+        <div
+            onClick={cycleView}
+            className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center cursor-pointer hover:border-indigo-500/50 transition-all select-none group"
+        >
+            <div className="flex justify-between items-center">
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{label}</span>
+                <span className="text-[9px] text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-black">Alternar Vista</span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-1">
+                <span className={`text-2xl font-bold font-mono ${d.color}`}>{fmtEUR(d.val)}</span>
+            </div>
+            <div className="flex justify-between items-end mt-1">
+                <span className="text-[10px] text-gray-400 font-bold">{d.title}</span>
+                <span className="text-[10px] text-gray-600 italic">{d.sub}</span>
+            </div>
+        </div>
+    );
+};
+
 export default function ReconciliationTab() {
     const [report, setReport] = useState([]);
     const [analytics, setAnalytics] = useState(null);
@@ -24,23 +80,47 @@ export default function ReconciliationTab() {
         loadReport();
     }, []);
 
+    // Selection-based Analytics Update
+    useEffect(() => {
+        loadAnalytics(selectedIds);
+    }, [selectedIds]);
+
     const loadReport = async () => {
         setLoading(true);
         try {
             const res = await api.get('/api/nicolazzi/report');
             setReport(res.data || []);
-
-            // Also fetch global analytics
-            try {
-                const aRes = await api.get('/api/nicolazzi/analytics');
-                setAnalytics(aRes.data);
-            } catch (err) {
-                console.error('Failed to load analytics', err);
-            }
+            // loadAnalytics will be triggered by selection reset or initial run
         } catch (err) {
             console.error(err);
             alert('Erro ao carregar relatório');
         } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadAnalytics = async (ids = []) => {
+        try {
+            const params = ids.length > 0 ? { proposalIds: ids.join(',') } : {};
+            const res = await api.get('/api/nicolazzi/analytics', { params });
+            setAnalytics(res.data);
+        } catch (err) {
+            console.error('Failed to load analytics', err);
+        }
+    };
+
+    const handleResetAllMatchings = async () => {
+        if (!confirm("⚠️ ATENÇÃO: Esta ação irá APAGAR todos os matchings efetuados e re-processar todas as faturas detetadas. Deseja continuar?")) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await api.post('/api/nicolazzi/reconciliation/reset');
+            alert('Reset concluído com sucesso. O sistema está a atualizar os dados.');
+            loadReport();
+        } catch (err) {
+            alert('Erro ao fazer reset: ' + err.message);
             setLoading(false);
         }
     };
@@ -202,6 +282,14 @@ export default function ReconciliationTab() {
                         )}
                     </div>
 
+                    <button
+                        onClick={handleResetAllMatchings}
+                        className="px-3 py-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-500 border border-red-800/40 rounded text-[10px] font-black uppercase transition-all"
+                        title="Apagar e refazer todos os matchings de faturas"
+                    >
+                        Reset Matchings
+                    </button>
+
                     <button onClick={() => setShowGlobalModal(true)} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-sm transition-colors shadow shadow-indigo-900/40 flex items-center gap-2">
                         <span>⚡</span> Total Matching
                     </button>
@@ -214,52 +302,36 @@ export default function ReconciliationTab() {
             {/* GLOBAL ANALYTICS DASHBOARD */}
             {analytics && (
                 <div className="grid grid-cols-4 gap-4 mb-6 shrink-0">
-                    <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center relative group">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Atrasos (SLA)</span>
-                        <div className="flex items-baseline gap-2 mt-1">
-                            <span className="text-2xl font-bold font-mono text-red-500">{analytics.logistics.lateItemsCurrent}</span>
-                            <span className="text-xs text-gray-400">artigos críticos</span>
-                        </div>
-                        <span className="text-[10px] text-gray-500 mt-1">{analytics.logistics.latePercentage}% de todo o pendente</span>
-
-                        {/* Download button appears on hover */}
-                        <button
-                            disabled={exportingLateItems}
-                            onClick={handleExportLateItems}
-                            title="Extrair listagem de atrasos para Excel"
-                            className="absolute top-3 right-3 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-[#333] rounded transition-all text-gray-400 hover:text-white disabled:opacity-50"
-                        >
-                            {exportingLateItems ? '⏳' : '📥'}
-                        </button>
-                    </div>
+                    <RotatingAnalyticsCard
+                        label="Logística (Atrasos)"
+                        project={{ sale: { net: 0 }, cost: { net: 0 }, margin: { net: 0 } }}
+                        realized={{
+                            sale: { net: analytics.logistics.lateItemsCurrent },
+                            cost: { net: analytics.logistics.totalItemsPending },
+                            margin: { net: 0, percent: parseFloat(analytics.logistics.latePercentage) }
+                        }}
+                    />
 
                     <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center">
                         <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Lead Time Médio</span>
                         <div className="flex items-baseline gap-2 mt-1">
                             <span className="text-2xl font-bold font-mono text-white">{analytics.logistics.avgLeadTimeDays}</span>
-                            <span className="text-xs text-gray-400">dias reais de espera</span>
+                            <span className="text-xs text-gray-400">dias reais</span>
                         </div>
-                        <span className="text-[10px] text-gray-500 mt-1">Média do tempo até chegada</span>
+                        <span className="text-[10px] text-gray-500 mt-1">Média até entrega</span>
                     </div>
 
-                    <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Volume Faturado</span>
-                        <div className="flex items-baseline gap-2 mt-1">
-                            <span className="text-2xl font-bold font-mono text-white">{fmtEUR(analytics.financial.revenue)}</span>
-                        </div>
-                        <span className="text-[10px] text-amber-500 mt-1">Custo: {fmtEUR(analytics.financial.cost)}</span>
-                    </div>
+                    <RotatingAnalyticsCard
+                        label="Volume do Projeto"
+                        project={analytics.project}
+                        realized={analytics.project}
+                    />
 
-                    <div className="bg-green-900/10 border border-green-800/40 rounded-lg p-4 flex flex-col justify-center">
-                        <div className="flex justify-between items-start">
-                            <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Rentabilidade Real</span>
-                            <span className="bg-green-900/50 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded">{analytics.financial.marginPercent}% Margem</span>
-                        </div>
-                        <div className="flex items-baseline gap-2 mt-1">
-                            <span className="text-2xl font-bold font-mono text-green-400">{fmtEUR(analytics.financial.margin)}</span>
-                        </div>
-                        <span className="text-[10px] text-green-500/60 mt-1">Margem Líquida Total Nicolazzi</span>
-                    </div>
+                    <RotatingAnalyticsCard
+                        label="Rentabilidade Real (Matched)"
+                        project={analytics.project}
+                        realized={analytics.realized}
+                    />
                 </div>
             )}
 

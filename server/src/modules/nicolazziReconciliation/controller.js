@@ -149,10 +149,26 @@ exports.exportFulfillmentPdfMultiple = async (req, res) => {
 
 exports.getAnalytics = async (req, res) => {
     try {
-        const data = await service.getAnalytics();
+        const { proposalIds } = req.query; // Expecting comma-separated string or array
+        let ids = null;
+        if (proposalIds) {
+            ids = typeof proposalIds === 'string' ? proposalIds.split(',') : proposalIds;
+        }
+
+        const data = await service.getAnalytics(ids);
         res.json(data);
     } catch (error) {
         console.error('[Nicolazzi Analytics] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.resetAllMatchings = async (req, res) => {
+    try {
+        const result = await service.resetAllMatchings();
+        res.json(result);
+    } catch (error) {
+        console.error('[Nicolazzi Reset] Error:', error);
         res.status(500).json({ error: error.message });
     }
 };
