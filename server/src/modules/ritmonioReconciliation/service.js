@@ -277,8 +277,65 @@ async function discoverMatches() {
     return matches;
 }
 
-async function getReconciliationReport() { return []; }
-async function getReconciliationDetails(invoiceId) { return { linked: false, lines: [] }; }
+async function getReconciliationReport() {
+    const proposals = await knex('custom_proposals')
+        .whereIn('status', ['accepted', 'em_fornecimento'])
+        .select('id', 'name', 'proposal_number', 'client_ref', 'created_at');
+
+    const report = [];
+
+    for (const p of proposals) {
+        const pLines = await knex('proposal_lines').where({ proposal_id: p.id });
+        const fulfillments = await knex('proposal_fulfillments').where({ proposal_id: p.id });
+
+        const totalQty = pLines.reduce((acc, l) => acc + parseFloat(l.quantity || 0), 0);
+        const fulfilledQty = fulfillments.reduce((acc, f) => acc + parseFloat(f.quantity_fulfilled || 0), 0);
+
+        report.push({
+            id: p.id,
+            number: p.proposal_number || p.name,
+            name: p.name,
+            client_ref: p.client_ref,
+            total_items: totalQty,
+            fulfilled_items: fulfilledQty,
+            progress: totalQty > 0 ? (fulfilledQty / totalQty) * 100 : 0
+        });
+    }
+
+    return report;
+}
+
+async function getReconciliationDetails(invoiceId) {
+    const fulfillments = await knex('proposal_fulfillments as pf')
+        .join('custom_proposals as cp', 'pf.proposal_id', 'cp.id')
+        .where('pf.document_id', invoiceId)
+        .select('pf.*', 'cp.name as proposal_name', 'cp.proposal_number');
+
+    if (fulfillments.length === 0) {
+        return { Linked: false, lines: [] };
+    }
+
+    const docLines = await knex('document_lines').where({ document_id: invoiceId });
+
+    return {
+        linked: true,
+        proposal: {
+            id: fulfillments[0].proposal_id,
+            name: fulfillments[0].proposal_name,
+            number: fulfillments[0].proposal_number
+        },
+        lines: docLines.map(dl => {
+            const f = fulfillments.find(f => f.doc_line_id === dl.id);
+            return {
+                sku: dl.sku,
+                description: dl.description,
+                quantity: dl.quantity,
+                fulfilled: f ? f.quantity_fulfilled : 0,
+                status: f ? 'linked' : 'unlinked'
+            };
+        })
+    };
+}
 
 module.exports = {
     reconcileInvoice,
