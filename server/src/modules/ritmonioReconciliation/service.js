@@ -165,7 +165,8 @@ async function discoverMatches() {
     const unlinkedInvoices = await knex('documents')
         .where(function () {
             this.where('supplier', 'like', '%RITMONIO%')
-                .orWhere('supplier', 'like', '%Ritmonio%');
+                .orWhere('supplier', 'like', '%Ritmonio%')
+                .orWhere('supplier', 'like', '%Rubinetteri%');
         })
         .whereIn('docType', ['invoice', 'fatura', 'packing_list'])
         .whereNotIn('id', linkedDocIdsQuery)
@@ -174,6 +175,19 @@ async function discoverMatches() {
     const matches = [];
     const activeProposals = await knex('custom_proposals')
         .whereIn('status', ['accepted', 'em_fornecimento']);
+
+    // Optimization: Pre-fetch all lines for these proposals to avoid N+1 queries
+    const proposalIds = activeProposals.map(p => p.id);
+    const allPLines = await knex('proposal_lines')
+        .whereIn('proposal_id', proposalIds)
+        .select('proposal_id', 'sku');
+
+    // Group lines by proposal
+    const pLinesMap = new Map();
+    for (const pl of allPLines) {
+        if (!pLinesMap.has(pl.proposal_id)) pLinesMap.set(pl.proposal_id, []);
+        pLinesMap.get(pl.proposal_id).push((pl.sku || '').trim().toUpperCase());
+    }
 
     for (const inv of unlinkedInvoices) {
         const data = safeParse(inv.rawJson);
@@ -214,14 +228,13 @@ async function discoverMatches() {
             }
         }
 
-        // Fase 3 SKU Match em discover
+        // Fase 3 SKU Match
         if (!match && data.lines && data.lines.length > 0) {
             const invSkus = data.lines.map(l => (l.code || '').trim().toUpperCase()).filter(Boolean);
             if (invSkus.length > 0) {
-                // To avoid await in loop causing huge slowdowns, we cache lines if we expect many, but here we only have active proposals
                 for (const p of activeProposals) {
-                    const pLines = await knex('proposal_lines').where({ proposal_id: p.id }).select('sku');
-                    const pSkus = pLines.map(l => (l.sku || '').trim().toUpperCase()).filter(Boolean);
+                    const pSkus = pLinesMap.get(p.id) || [];
+                    if (pSkus.length === 0) continue;
 
                     let matchesCount = 0;
                     for (const s of invSkus) {
@@ -247,7 +260,7 @@ async function discoverMatches() {
             },
             proposal: match ? {
                 id: match.id,
-                number: match.proposal_number,
+                number: match.proposal_number || match.name,
                 client_ref: match.client_ref,
                 name: match.name,
                 matchPhase: matchPhase
