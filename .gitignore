@@ -37,3 +37,13 @@ smoke_state.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Temporary & Uploads
+uploads/temp/
+uploads/*.tmp
+server/src/engine/*_BACKUP.js
+
+# Temporary & Uploads
+uploads/temp/
+uploads/*.tmp
+server/src/engine/*_BACKUP.js

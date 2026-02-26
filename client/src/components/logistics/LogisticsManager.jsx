@@ -44,7 +44,9 @@ export default function LogisticsManager({ proposalId, onClose }) {
             });
 
             // Parse Rules
-            const rawRules = data.lead_time_rules ? (typeof data.lead_time_rules === 'string' ? JSON.parse(data.lead_time_rules) : data.lead_time_rules) : [];
+            let rawRules = data.lead_time_rules ? (typeof data.lead_time_rules === 'string' ? JSON.parse(data.lead_time_rules) : data.lead_time_rules) : [];
+            if (!Array.isArray(rawRules)) rawRules = [];
+
             // Ensure at least one global rule if empty
             if (rawRules.length === 0) {
                 rawRules.push({ target: 'global', value: data.general_lead_time_weeks || 8, unit: 'weeks' });
@@ -54,10 +56,25 @@ export default function LogisticsManager({ proposalId, onClose }) {
             setLines(data.lines || []);
             setPendingChanges({});
 
-            // Load Collections for the brand
-            if (data.brand_id) {
-                const cRes = await api.get(`/api/catalog/collections?brand=${data.brand_id}`);
-                setCollections(cRes.data || []);
+            // Load Collections for the brands present in the proposal
+            const safeLines = Array.isArray(data.lines) ? data.lines : [];
+            let uniqueBrands = [...new Set([data.brand_id, ...safeLines.map(l => l.brand_id)].filter(Boolean))];
+
+            // If MULTIMARCAS, ensure we load the standard brands for the dropdowns
+            if (uniqueBrands.includes('MULTIMARCAS')) {
+                uniqueBrands = uniqueBrands.filter(b => b !== 'MULTIMARCAS');
+                if (!uniqueBrands.includes('nicolazzi')) uniqueBrands.push('nicolazzi');
+                if (!uniqueBrands.includes('ritmonio')) uniqueBrands.push('ritmonio');
+            }
+
+            if (uniqueBrands.length > 0) {
+                const collsRes = await Promise.all(uniqueBrands.map(b => api.get(`/api/catalog/collections?brand=${b}`)));
+                const allColls = collsRes.map(res => res.data || []).flat();
+                // Deduplicate by name
+                const dedup = Array.from(new Map(allColls.map(c => [c.name, c])).values());
+                setCollections(dedup);
+            } else {
+                setCollections([]);
             }
         } catch (err) {
             console.error(err);
@@ -359,7 +376,7 @@ export default function LogisticsManager({ proposalId, onClose }) {
                                 <tbody className="divide-y divide-[#181818]">
                                     {lines.map(line => {
                                         const meta = line.extra_attributes ? (typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes) : line.extra_attributes) : {};
-                                        const series = meta.brand_meta?.series || '-';
+                                        const series = meta.series || meta.collection || meta.brand_meta?.series || '-';
                                         const lineBrand = meta.brand_id || meta.brand || proposal.brand_id || '-';
 
                                         return (

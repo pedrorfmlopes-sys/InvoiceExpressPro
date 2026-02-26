@@ -1,5 +1,6 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
+import { applyDiscount, formatDiscountDisplay } from '../../shared/utils/DiscountEngine';
 
 // Register a standard font if needed, but Helvetica is default and safe.
 
@@ -235,8 +236,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
     const totalSiva = lines.reduce((acc, line) => {
         const qty = parseFloat(line.quantity || 0);
         const price = parseFloat(line.unit_price_commercial || 0);
-        const disc = parseFloat(line.discount_commercial_percent || 0);
-        return acc + (qty * price * (1 - disc / 100));
+        return acc + (qty * applyDiscount(price, line.discount_commercial_percent || '0'));
     }, 0);
 
     const shipping = parseFloat(proposal.metadata?.shipping_cost || 0);
@@ -364,8 +364,8 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
                     const qty = parseFloat(line.quantity || 0);
                     const price = parseFloat(line.unit_price_commercial || 0);
-                    const disc = parseFloat(line.discount_commercial_percent || 0);
-                    const total = qty * price * (1 - disc / 100);
+                    const discRaw = line.discount_commercial_percent || '0';
+                    const total = qty * applyDiscount(price, discRaw);
 
                     // Dynamic Predicted Date Calculation (Same as in Reconciliation Service)
                     const effectiveLeadWeeks = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
@@ -420,7 +420,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                             <Text style={styles.colQty}>{line.quantity}</Text>
                             <Text style={styles.colUn}>UN</Text>
                             <Text style={styles.colPrice}>{fmtMoney(price).replace('€', '')}</Text>
-                            <Text style={styles.colDisc}>{disc > 0 ? `${disc}%` : ''}</Text>
+                            <Text style={styles.colDisc}>{formatDiscountDisplay(discRaw)}</Text>
                             <Text style={styles.colTotal}>{fmtMoney(total).replace('€', '')}</Text>
                         </View>
                     );

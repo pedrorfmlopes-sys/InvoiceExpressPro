@@ -93,7 +93,7 @@ async function process(text, pdfBuffer) {
     }
 
     // Gating for Ritmonio Coords (Invoices)
-    if (!extractedData && pdfBuffer && /Ritmonio/i.test(effectiveText) && (/Fattura|Invoice|FA5/i.test(effectiveText)) && !/CONFERMA|CONFIRMATION/i.test(effectiveText)) {
+    if (!extractedData && pdfBuffer && /Ritmonio/i.test(effectiveText) && (/Fattura|Invoice|FA5/i.test(effectiveText))) {
         try {
             const ritmonioCoords = require('./ritmonioInvoiceExtraction');
             console.log("[Engine] Attempting Ritmonio Coords Extraction...");
@@ -126,10 +126,15 @@ async function process(text, pdfBuffer) {
         dates: extractedData.dates,
         entities: extractedData.entities,
         totals: extractedData.totals,
-        lines: extractedData.lines,
+        lines: (extractedData.lines || []).map(l => ({
+            ...l,
+            sku: l.sku || l.code,
+            qty: l.qty || l.quantity,
+            price: l.price || l.unitPrice
+        })),
         docRefs: extractedData.docRefs,
         projectRef: extractedData.projectRef, // [NEW] Pass through Project Ref
-        shippingMarks: extractedData.shippingMarks, // [CRITICAL FIX] Pass through Shipping Marks
+        shippingMarks: extractedData.shippingMarks || (extractedData.docRefs?.customerOrder?.number ? extractedData.docRefs.customerOrder.number : null), // [CRITICAL FIX] Pass through Shipping Marks
 
         confidence: validation.confidence,
         needsReview: validation.needsReview,

@@ -12,6 +12,17 @@ exports.reconcile = async (req, res) => {
     }
 };
 
+exports.reconcileManual = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await service.reconcileInvoice(id, req.body.proposal_id);
+        res.json(result);
+    } catch (error) {
+        console.error('[Nicolazzi Recon] Manual Recon Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 exports.unlink = async (req, res) => {
     try {
         const { id } = req.params;

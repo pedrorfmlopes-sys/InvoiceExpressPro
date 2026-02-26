@@ -19,6 +19,7 @@ router.get('/analytics/late-export', controller.exportLateItemsExcel);
 
 // POST /api/nicolazzi/reconcile/:id
 router.post('/reconcile/:id', controller.reconcile);
+router.post('/reconcile-manual/:id', controller.reconcileManual);
 
 // GET /api/nicolazzi/reconcile/:id/details
 router.get('/reconcile/:id/details', controller.getDetails);

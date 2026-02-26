@@ -9,6 +9,7 @@ export default function CustomerModal({ project, customer, onClose, onSave }) {
         name: '',
         vat: '',
         address: '',
+        shipping_address: '',
         email: '',
         phone: ''
     });
@@ -22,6 +23,7 @@ export default function CustomerModal({ project, customer, onClose, onSave }) {
                 name: customer.name || '',
                 vat: customer.vat || '',
                 address: customer.address || '',
+                shipping_address: customer.shipping_address || '',
                 email: customer.email || '',
                 phone: customer.phone || ''
             });
@@ -82,7 +84,7 @@ export default function CustomerModal({ project, customer, onClose, onSave }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
 
                 {/* Header */}
@@ -181,12 +183,22 @@ export default function CustomerModal({ project, customer, onClose, onSave }) {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-medium text-[var(--text-muted)] uppercase">Morada</label>
+                        <label className="text-xs font-medium text-[var(--text-muted)] uppercase">Morada de Faturação</label>
                         <textarea
-                            className="input min-h-[80px] resize-none"
+                            className="input min-h-[60px] resize-none"
                             value={formData.address}
                             onChange={e => setFormData({ ...formData, address: e.target.value })}
                             placeholder="Rua, Código Postal, Cidade..."
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-[var(--text-muted)] uppercase">Morada de Entrega (Opcional)</label>
+                        <textarea
+                            className="input min-h-[60px] resize-none"
+                            value={formData.shipping_address}
+                            onChange={e => setFormData({ ...formData, shipping_address: e.target.value })}
+                            placeholder="Deixar em branco se for igual à de Faturação"
                         />
                     </div>
                 </form>

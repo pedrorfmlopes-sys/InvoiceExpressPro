@@ -10,6 +10,8 @@ import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTri
 import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
 import PresetManagementModal from './PresetManagementModal';
 import LogisticsManager from '../logistics/LogisticsManager';
+import CustomerModal from '../crm/CustomerModal';
+import { applyDiscount } from '../../shared/utils/DiscountEngine';
 
 const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
@@ -95,8 +97,15 @@ const ProposalEditor = (props) => {
 
     const loadCollections = async (brandId) => {
         try {
-            const res = await api.get(`/api/catalog/collections?brand=${brandId}`);
-            const collections = res.data || [];
+            let collections = [];
+            if (brandId === 'MULTIMARCAS') {
+                const collsRes = await Promise.all(['nicolazzi', 'ritmonio'].map(b => api.get(`/api/catalog/collections?brand=${b}`)));
+                collections = collsRes.map(res => res.data || []).flat();
+            } else {
+                const res = await api.get(`/api/catalog/collections?brand=${brandId}`);
+                collections = res.data || [];
+            }
+
             // Create Set of visible collection names (lowercase for comparison)
             // SQLite returns 1/0 for booleans.
             const visibleSet = new Set(
@@ -109,17 +118,12 @@ const ProposalEditor = (props) => {
             // If we have NO stored collections (empty array), it might mean 
             // the user hasn't imported anything yet, or hasn't configured visibility.
             // In that case, should we show everything? 
-            // The logic "visibleCollections === null" handles "not loaded".
-            // If loaded but empty, it means NOTHING is visible? Or everything?
-            // Usually if the DB returns empty, it means no config. 
-            // But here the DB returns the list of KNOWN collections.
-            // If the DB returns [], then there are no collections known, so nothing is visible?
-            // Actually, if the list is empty, `visibleCollections` becomes a empty Set.
-            // Then `has` returns false for everything.
-            // But if the DB is empty (invalid brand?), then we probably want to show everything (default behavior).
-            // Let's stick to: if we successfully fetched, we use the result.
+            if (collections.length === 0) {
+                setVisibleCollections(null); // Show everything by default
+            } else {
+                setVisibleCollections(visibleSet);
+            }
 
-            setVisibleCollections(visibleSet);
             setCollectionsLoaded(true);
         } catch (err) {
             console.error("Failed to load collections", err);
@@ -225,6 +229,32 @@ const ProposalEditor = (props) => {
         setProposal({ ...proposal, lines: newLines });
     };
 
+    const insertLine = (index) => {
+        const newLine = {
+            id: 'new-' + Math.random().toString(36).substr(2, 9),
+            sku: '',
+            description: '',
+            quantity: 1,
+            unit_price_commercial: 0,
+            discount_commercial_percent: 0,
+            vat_rate: '23',
+            extra_attributes: {}
+        };
+        const newLines = [...proposal.lines];
+        newLines.splice(index + 1, 0, newLine);
+        setProposal({ ...proposal, lines: newLines });
+    };
+
+    const duplicateLine = (index) => {
+        const lineToCopy = proposal.lines[index];
+        const newLines = [...proposal.lines];
+        newLines.splice(index + 1, 0, {
+            ...lineToCopy,
+            id: 'new-' + Math.random().toString(36).substr(2, 9)
+        });
+        setProposal({ ...proposal, lines: newLines });
+    };
+
     // Helper to format original description (Sentence case)
     const formatOriginalDescription = (text) => {
         if (!text) return '';
@@ -268,18 +298,24 @@ const ProposalEditor = (props) => {
 
                     const extra = {
                         ...line.extra_attributes,
+                        brand_id: item.brand || proposal.brand_id,
+                        brand: item.brand || proposal.brand_id,
                         catalog_match: true,
                         finish_code: res.finishCode,
                         finish_note: finish?.note_pt,
+                        finish_group: item.finish_group || null,
                         original_it: item.description_it,
                         original_description: line.extra_attributes?.original_description || originalFormatted,
-                        collection: res.series || item.series
+                        collection: res.series || item.series,
+                        series: res.series || item.series
                     };
 
                     newLines[i] = {
                         ...line,
+                        brand_id: item.brand || proposal.brand_id,
                         description: desc,
                         unit_price_commercial: line.unit_price_commercial,
+                        production_category: res.productionCategory || item.finish_group || line.production_category || 'standard',
                         extra_attributes: {
                             ...extra,
                             catalog_sku: item.sku,
@@ -319,8 +355,8 @@ const ProposalEditor = (props) => {
         try {
             // Fetch extra details (finish notes, etc.) for this item
             const res = await api.post('/api/catalog/resolve', {
-                brand: proposal.brand_id,
-                sku: line.sku // Use the current SKU which has the finish code
+                brand: item.brand || proposal.brand_id,
+                sku: item.sku
             });
 
             const extraDetails = res.data?.success ? res.data : null;
@@ -334,23 +370,30 @@ const ProposalEditor = (props) => {
             const currentPrice = parseFloat(line.unit_price_commercial || 0);
             const isMatch = Math.abs(currentPrice - catalogPrice) < 0.01;
 
-            // Update with catalog data
+            // Mapeamento Multi-Marca: gravar o brand_id real da biblioteca!
             newLines[index] = {
                 ...line,
+                brand_id: item.brand || line.brand_id,
                 description: item.description_pt || item.description_it || line.description,
+                sku: item.sku,
+                unit_price_commercial: currentPrice === 0 ? (item.price || 0) : currentPrice, // Auto inject price if 0!
+                lead_time_weeks: extraDetails?.leadTimeWeeks || line.lead_time_weeks || null,
+                production_category: extraDetails?.productionCategory || extraDetails?.item?.finish_group || item.finish_group || line.production_category || 'standard',
                 extra_attributes: {
                     ...line.extra_attributes,
+                    brand_id: item.brand || line.brand_id,
+                    brand: item.brand || line.brand_id,
                     catalog_match: true,
                     catalog_sku: item.sku,
-                    finish_code: extraDetails?.finishCode || line.extra_attributes.finish_code,
+                    finish_code: extraDetails?.finishCode || line.extra_attributes?.finish_code,
                     finish_group: item.finish_group,
-                    finish_note: extraDetails?.finish?.note_pt || line.extra_attributes.finish_note,
+                    finish_note: extraDetails?.finish?.note_pt || extraDetails?.finishNote || line.extra_attributes?.finish_note,
                     manual_resolution: true,
-                    collection: item.series,
-                    series: item.series,
-                    original_description: line.extra_attributes?.original_description || originalFormatted,
+                    collection: extraDetails?.item?.series || extraDetails?.series || item.series,
+                    series: extraDetails?.item?.series || extraDetails?.series || item.series,
+                    original_description: line.extra_attributes?.original_description || null, // Don't invent an original description for new lines
                     catalog_price: item.price,
-                    price_match: isMatch
+                    price_match: currentPrice === 0 ? true : isMatch
                 },
                 enrichment_status: 'match'
             };
@@ -399,15 +442,18 @@ const ProposalEditor = (props) => {
     };
 
     const selectCustomer = (c) => {
-        const isShippingSame = proposal.metadata?.shipping_is_billing;
+        const hasCustomShipping = c.shipping_address && c.shipping_address.trim().length > 0;
+        const isShippingSame = hasCustomShipping ? false : (proposal.metadata?.shipping_is_billing !== false); // Default true if no custom shipping
+
         setProposal({
             ...proposal,
             client_ref: c.name,
             metadata: {
                 ...proposal.metadata,
                 client_vat: c.vat,
-                billing_address: c.address, // Fix: Update billing address
-                shipping_address: isShippingSame ? c.address : proposal.metadata?.shipping_address, // Sync if needed
+                billing_address: c.address,
+                shipping_address: hasCustomShipping ? c.shipping_address : (isShippingSame ? c.address : proposal.metadata?.shipping_address),
+                shipping_is_billing: isShippingSame, // Ensure toggle matches reality
                 client_email: c.email,
                 client_phone: c.phone
             }
@@ -440,8 +486,7 @@ const ProposalEditor = (props) => {
         const linesTotal = proposal.lines.reduce((acc, l) => {
             const qty = parseFloat(l.quantity || 0);
             const price = parseFloat(l.unit_price_commercial || 0);
-            const desc = parseFloat(l.discount_commercial_percent || 0);
-            const lineNet = qty * price * (1 - desc / 100);
+            const lineNet = qty * applyDiscount(price, l.discount_commercial_percent || '0');
             const vat = lineNet * (parseFloat(l.vat_rate || 23) / 100);
 
             acc.net += lineNet;
@@ -759,8 +804,7 @@ const ProposalEditor = (props) => {
                             {proposal.lines.map((line, idx) => {
                                 const qty = parseFloat(line.quantity || 0);
                                 const price = parseFloat(line.unit_price_commercial || 0);
-                                const desc = parseFloat(line.discount_commercial_percent || 0);
-                                const lineTotal = qty * price * (1 - desc / 100);
+                                const lineTotal = qty * applyDiscount(price, line.discount_commercial_percent || '0');
 
                                 return (
                                     <tr key={line.id} className="group hover:bg-white/[0.02]">
@@ -809,12 +853,22 @@ const ProposalEditor = (props) => {
                                                         <FiSearch />
                                                     </button>
                                                 )}
-                                                <input
-                                                    className="bg-transparent outline-none w-full focus:text-white font-bold"
-                                                    value={line.sku}
-                                                    onChange={e => updateLine(idx, 'sku', e.target.value)}
-                                                    placeholder="SKU..."
-                                                />
+                                                <div className="flex flex-col w-full relative">
+                                                    {line.brand_id && line.brand_id.toLowerCase() !== String(proposal.brand_id || '').toLowerCase() && (
+                                                        <span
+                                                            title={`Artigo de Marca Distinta: ${line.brand_id.toUpperCase()}`}
+                                                            className="absolute -top-3 left-0 text-[7px] font-black uppercase text-indigo-200 bg-indigo-600/80 px-1 rounded shadow-lg shadow-indigo-900/20 z-10"
+                                                        >
+                                                            {line.brand_id.toUpperCase()}
+                                                        </span>
+                                                    )}
+                                                    <input
+                                                        className="bg-transparent outline-none w-full focus:text-white font-bold"
+                                                        value={line.sku}
+                                                        onChange={e => updateLine(idx, 'sku', e.target.value)}
+                                                        placeholder="SKU..."
+                                                    />
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="py-2 pr-4">
@@ -917,10 +971,10 @@ const ProposalEditor = (props) => {
                                         <td className="py-2">
                                             <input
                                                 className="w-full bg-transparent text-center outline-none text-gray-400 focus:text-white text-xs"
-                                                type="number"
-                                                onWheel={(e) => e.target.blur()}
-                                                value={line.discount_commercial_percent}
+                                                type="text"
+                                                value={line.discount_commercial_percent || ''}
                                                 onChange={e => updateLine(idx, 'discount_commercial_percent', e.target.value)}
+                                                placeholder="0"
                                             />
                                         </td>
                                         <td className="py-2 text-right font-mono text-white font-bold text-xs">
@@ -941,6 +995,20 @@ const ProposalEditor = (props) => {
                                                     title="Mover para baixo"
                                                 >
                                                     ↓
+                                                </button>
+                                                <button
+                                                    onClick={() => insertLine(idx)}
+                                                    className="w-6 h-6 flex items-center justify-center hover:bg-green-500/20 rounded text-gray-500 hover:text-green-400 text-[10px]"
+                                                    title="Inserir linha aqui"
+                                                >
+                                                    ➕
+                                                </button>
+                                                <button
+                                                    onClick={() => duplicateLine(idx)}
+                                                    className="w-6 h-6 flex items-center justify-center hover:bg-blue-500/20 rounded text-gray-500 hover:text-blue-400 text-[10px]"
+                                                    title="Duplicar linha"
+                                                >
+                                                    📋
                                                 </button>
                                                 <button
                                                     onClick={() => removeLine(idx)}
@@ -1164,6 +1232,8 @@ const EntityDataModal = ({
     searchCRM, searchResults, searching, selectCustomer, saveToCrm,
     activeSearchField, setActiveSearchField, showResults, setShowResults
 }) => {
+    const [showNewCustomer, setShowNewCustomer] = useState(false);
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[11000] p-4">
             <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -1181,12 +1251,20 @@ const EntityDataModal = ({
                         <div className="flex flex-col gap-4">
                             <div className="flex justify-between items-center">
                                 <label className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Nome do Cliente / Entidade</label>
-                                <button
-                                    onClick={saveToCrm}
-                                    className="text-[9px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20 transition-all font-bold uppercase"
-                                >
-                                    Sincronizar CRM
-                                </button>
+                                <div className="flex gap-2 items-center">
+                                    <button
+                                        onClick={() => setShowNewCustomer(true)}
+                                        className="text-[9px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 px-2 py-0.5 rounded border border-blue-500/20 transition-all font-bold uppercase flex items-center gap-1"
+                                    >
+                                        <FiPlus size={10} /> Novo Cliente
+                                    </button>
+                                    <button
+                                        onClick={saveToCrm}
+                                        className="text-[9px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20 transition-all font-bold uppercase"
+                                    >
+                                        Sincronizar CRM
+                                    </button>
+                                </div>
                             </div>
                             <div className="relative">
                                 <input
@@ -1353,6 +1431,18 @@ const EntityDataModal = ({
                     </button>
                 </div>
             </div>
+
+            {showNewCustomer && (
+                <CustomerModal
+                    project={proposal.project_ref || 'default'}
+                    customer={null}
+                    onClose={() => setShowNewCustomer(false)}
+                    onSave={(c) => {
+                        selectCustomer(c);
+                        setShowNewCustomer(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -6,6 +6,7 @@ const controller = require('./controller');
 router.post('/clone', (req, res) => controller.cloneToProposal(req, res));
 
 // CRUD
+router.post('/', (req, res) => controller.createBlankProposal(req, res));
 router.get('/', (req, res) => controller.getProposals(req, res));
 router.get('/:id', (req, res) => controller.getProposal(req, res));
 router.put('/:id', (req, res) => controller.updateProposal(req, res));

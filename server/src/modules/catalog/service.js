@@ -274,8 +274,12 @@ class CatalogService {
     }
 
     async searchItems(brand, query) {
-        let q = knex('catalog_items')
-            .where({ brand });
+        let q = knex('catalog_items');
+
+        // Se a brand não for "TODAS", filtramos especificamente por uma marca.
+        if (brand && brand.toUpperCase() !== 'TODAS') {
+            q = q.where('brand', 'LIKE', `%${brand}%`);
+        }
 
         if (query) {
             const qLower = query.trim().toLowerCase();
@@ -315,10 +319,78 @@ class CatalogService {
      * Resolves a raw SKU (e.g., 1002-28-CR) to a catalog item and its finish notes.
      */
     async resolveItem(brand, rawSku) {
-        if (brand === 'nicolazzi') {
+        if (!brand) return { error: 'Brand required' };
+        const b = brand.toLowerCase();
+
+        if (b === 'nicolazzi') {
             return this.resolveNicolazziSku(rawSku);
         }
-        return { error: 'Brand not supported for auto-resolution yet' };
+
+        const cleanSku = String(rawSku || '').trim();
+
+        if (b === 'multimarcas' || b === 'todas' || b === 'other') {
+            // Smart resolution logic for Multi-Brand Proposals
+
+            // Try generic EXACT match across all brands first
+            const genericItem = await knex('catalog_items')
+                .where({ sku: cleanSku })
+                .first();
+
+            if (genericItem) {
+                // Found an exact match! Re-run using the proper brand to extract lead times and finish info correctly
+                return this.resolveItem(genericItem.brand, rawSku);
+            }
+
+            // If exact match failed, try Nicolazzi Fuzzy Match matcher (split finishes and handles)
+            const nicoRes = await this.resolveNicolazziSku(rawSku);
+            if (nicoRes.success) {
+                return nicoRes;
+            }
+
+            // Both failed
+            return { success: false, reason: 'Not found in any catalog' };
+        }
+
+        // Generic / Single-brand resolution
+        try {
+            const item = await knex('catalog_items')
+                .whereRaw('LOWER(brand) = ?', [b])
+                .andWhere({ sku: cleanSku })
+                .first();
+
+            if (!item) return { success: false, reason: 'Not found in generic catalog' };
+
+            // For Ritmonio, try to match the last 2-4 chars to a finish code to get lead time
+            let leadTimeWeeks = null;
+            let finishNote = item.description_pt;
+            if (b === 'ritmonio') {
+                const finishMap = await knex('catalog_finishes').where({ brand: 'RITMONIO' });
+                // We check if the sku ends with any known finish code (e.g. BLX, F31)
+                for (const f of finishMap) {
+                    if (cleanSku.toUpperCase().endsWith(f.finish_code.toUpperCase())) {
+                        try {
+                            const params = JSON.parse(f.note_pt);
+                            leadTimeWeeks = params.lead_time_weeks || null;
+                            finishNote += ` | Produção: ${params.lead_time_days} dias úteis`;
+                        } catch (e) { }
+                        break;
+                    }
+                }
+            }
+
+            return {
+                success: true,
+                sku: item.sku,
+                brand: item.brand,
+                description_pt: item.description_pt,
+                finishCode: item.finish_group,
+                finishNote: finishNote, // The description + lead time acts as technical detail!
+                leadTimeWeeks: leadTimeWeeks,
+                item: item
+            };
+        } catch (e) {
+            return { error: e.message };
+        }
     }
 
     async resolveBulk(brand, skus) {
@@ -475,6 +547,14 @@ class CatalogService {
             .groupBy('brand');
 
         return stats;
+    }
+
+    async getBrandFinishes(brand) {
+        if (!brand) return [];
+        return await knex('catalog_finishes')
+            .where('brand', brand)
+            .orderBy('group_code', 'asc')
+            .orderBy('finish_code', 'asc');
     }
 
     async clearBrandCatalog(brand) {

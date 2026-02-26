@@ -12,6 +12,7 @@ router.post('/inspect', requireAuth, requireRole('admin'), upload.single('file')
 router.post('/inspect-collections', requireAuth, requireRole('admin'), CatalogController.inspectCollections);
 router.post('/process', requireAuth, requireRole('admin'), CatalogController.processCatalog);
 router.get('/search', requireAuth, CatalogController.search);
+router.get('/finishes/:brand', requireAuth, CatalogController.getBrandFinishes);
 router.get('/stats', requireAuth, CatalogController.getStats);
 router.post('/resolve', requireAuth, CatalogController.resolveItem);
 router.post('/resolve-bulk', requireAuth, CatalogController.resolveBulk);

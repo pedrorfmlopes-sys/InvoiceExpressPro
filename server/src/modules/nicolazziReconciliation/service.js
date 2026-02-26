@@ -12,11 +12,18 @@ function safeParse(json, fallback = {}) {
     }
 }
 
+function getReconciliationMark(data) {
+    if (!data) return null;
+    const nicoMark = data.shippingMarks;
+    const ritMark = data.docRefs?.customerOrder?.number;
+    return (nicoMark || ritMark || '').trim() || null;
+}
+
 /**
  * Reconciles a Nicolazzi Invoice with a Proposal based on Shipping Mark.
  * @param {string} invoiceId 
  */
-async function reconcileInvoice(invoiceId) {
+async function reconcileInvoice(invoiceId, forceProposalId = null) {
     console.log(`[Nicolazzi Recon] Starting reconciliation for invoice ${invoiceId}`);
 
     // 1. Get Invoice Data
@@ -24,26 +31,29 @@ async function reconcileInvoice(invoiceId) {
     if (!invoice) throw new Error('Invoice not found');
 
     const data = safeParse(invoice.rawJson);
-    const shippingMark = data.shippingMarks;
+    const shippingMark = getReconciliationMark(data);
 
-    if (!shippingMark) {
-        return { success: false, reason: 'No Shipping Mark found in Invoice' };
-    }
+    let proposal = null;
 
-    console.log(`[Nicolazzi Recon] Shipping Mark found: ${shippingMark}`);
+    if (forceProposalId) {
+        proposal = await knex('custom_proposals').where({ id: forceProposalId }).first();
+        if (!proposal) throw new Error('Forced Proposal not found.');
+    } else {
+        if (!shippingMark) {
+            return { success: false, reason: 'No Proposal/Shipping Mark found in Invoice' };
+        }
 
-    // 2. Find Proposal
-    // Logic: Shipping Mark matches Proposal NUMBER (exact match on clean number)
-    // Only look at active/accepted proposals
-    const proposal = await knex('custom_proposals')
-        .where('proposal_number', shippingMark)
-        .whereIn('status', ['accepted', 'em_fornecimento'])
-        .first();
+        console.log(`[Nicolazzi Recon] Shipping Mark found: ${shippingMark}`);
 
-    if (!proposal) {
-        // Fallback: Try name match just in case? Or strict? 
-        // Strict is safer to avoid false positives.
-        return { success: false, reason: `Proposal number '${shippingMark}' not found in 'proposal_number' column.` };
+        // 2. Find Proposal
+        proposal = await knex('custom_proposals')
+            .where('proposal_number', shippingMark)
+            .whereIn('status', ['accepted', 'em_fornecimento'])
+            .first();
+
+        if (!proposal) {
+            return { success: false, reason: `Proposal number '${shippingMark}' not found in 'proposal_number' column.` };
+        }
     }
 
     console.log(`[Nicolazzi Recon] Found Proposal: ${proposal.name} (${proposal.id}) [Num: ${proposal.proposal_number}]`);
@@ -197,9 +207,10 @@ async function getReconciliationDetails(invoiceId) {
     let proposal = null;
 
     // If no fulfillments yet, try to guess via Shipping Mark to show "Potential Match"
-    if (!proposalId && invoiceData.shippingMarks) {
+    const mark = getReconciliationMark(invoiceData);
+    if (!proposalId && mark) {
         const potential = await knex('custom_proposals')
-            .where('proposal_number', invoiceData.shippingMarks)
+            .where('proposal_number', mark)
             .whereIn('status', ['accepted', 'em_fornecimento'])
             .first();
         if (potential) {
@@ -609,7 +620,10 @@ async function discoverMatches() {
     const unlinkedInvoices = await knex('documents')
         .where(function () {
             this.where('supplier', 'like', '%NICOLAZZI%')
-                .orWhere('supplier', 'like', '%Nicolazzi%');
+                .orWhere('supplier', 'like', '%Nicolazzi%')
+                .orWhere('supplier', 'like', '%RITMONIO%')
+                .orWhere('supplier', 'like', '%Ritmonio%')
+                .orWhere('supplier', 'like', '%Rubinetteri%');
         })
         .whereIn('docType', ['invoice', 'fatura', 'packing_list'])
         .whereNotIn('id', linkedDocIdsQuery)
@@ -620,7 +634,7 @@ async function discoverMatches() {
     // 2. Try to match each unlinked invoice to an active proposal
     for (const inv of unlinkedInvoices) {
         const data = safeParse(inv.rawJson);
-        const marks = (data.shippingMarks || inv.docNumber || '').trim();
+        const marks = getReconciliationMark(data) || (inv.docNumber || '').trim();
 
         let match = null;
 

@@ -9,6 +9,7 @@ import { getViewer } from '../components/viewers/ViewerRegistry';
 import { createPortal } from 'react-dom';
 import ProposalFulfillmentViewer from '../components/viewers/ProposalFulfillmentViewer';
 import LogisticsManager from '../components/logistics/LogisticsManager';
+import { applyDiscount } from '../shared/utils/DiscountEngine';
 
 export default function ProposalsTab({ project, setEditingProposalId }) {
     const [proposals, setProposals] = useState([]);
@@ -139,13 +140,23 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
         }
     };
 
+    const handleCreateProposal = async () => {
+        try {
+            const res = await api.post(qp('/api/proposals', project), {
+                brand_id: filterBrand || 'MULTIMARCAS'
+            });
+            setEditingProposalId(res.data.id);
+        } catch (e) {
+            alert("Erro ao criar proposta: " + e.message);
+        }
+    };
+
     const calculateTotal = (lines) => {
         if (!lines) return 0;
         return lines.reduce((acc, l) => {
             const qty = parseFloat(l.quantity || 0);
             const price = parseFloat(l.unit_price_commercial || 0);
-            const desc = parseFloat(l.discount_commercial_percent || 0);
-            const lineNet = qty * price * (1 - desc / 100);
+            const lineNet = qty * applyDiscount(price, l.discount_commercial_percent || '0');
             const vat = lineNet * (parseFloat(l.vat_rate || 23) / 100);
             return acc + lineNet + vat;
         }, 0);
@@ -214,6 +225,7 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                     >
                         <option value="">Todas as Marcas</option>
                         <option value="nicolazzi">Nicolazzi</option>
+                        <option value="RITMONIO">Ritmonio</option>
                         <option value="other">Outras</option>
                     </select>
 
@@ -231,8 +243,8 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
 
                     <div className="relative group">
                         <input
-                            className="bg-[var(--surface-base)] border border-[var(--border)] rounded-xl px-4 py-2 pl-10 text-sm w-48 outline-none focus:border-[var(--accent-primary)] transition-colors"
-                            placeholder="Cliente..."
+                            className="bg-[var(--surface-base)] border border-[var(--border)] rounded-xl px-4 py-2 pl-10 text-sm w-80 outline-none focus:border-[var(--accent-primary)] transition-colors"
+                            placeholder="Procurar Documento, Cliente ou REF..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                         />
@@ -245,6 +257,14 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                         title="Exportar listagem de itens das propostas filtradas"
                     >
                         <span>📊</span> Exportar Itens
+                    </button>
+
+                    <button
+                        onClick={handleCreateProposal}
+                        className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:brightness-110 transition-all flex items-center gap-2 shadow-lg shadow-green-900/20"
+                        title="Criar Proposta do Zero"
+                    >
+                        <span>✨</span> Nova Proposta
                     </button>
                 </div>
             </div>

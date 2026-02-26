@@ -17,6 +17,18 @@ class ProposalStudioController {
         }
     }
 
+    async createBlankProposal(req, res) {
+        try {
+            const project = req.project;
+            const { name, brand_id } = req.body || {};
+            const result = await service.createBlankProposal(project, name, brand_id);
+            res.status(201).json(result);
+        } catch (e) {
+            console.error(e);
+            res.status(500).json({ error: e.message });
+        }
+    }
+
     async getProposals(req, res) {
         try {
             const project = req.project;

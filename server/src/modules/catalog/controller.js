@@ -107,6 +107,16 @@ class CatalogController {
         }
     }
 
+    async getBrandFinishes(req, res) {
+        try {
+            const { brand } = req.params;
+            const finishes = await CatalogService.getBrandFinishes(brand);
+            res.json(finishes);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
     async resolveItem(req, res) {
         try {
             const { brand, sku } = req.body;

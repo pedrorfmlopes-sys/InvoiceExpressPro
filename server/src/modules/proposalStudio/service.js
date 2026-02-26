@@ -7,6 +7,47 @@ const path = require('path');
 
 class ProposalStudioService {
     /**
+     * Creates a blank custom proposal (manual creation).
+     */
+    async createBlankProposal(project, name, brandId) {
+        const proposalId = uuidv4();
+
+        // Generate a clear ID if not passing a specific name
+        let propName = name;
+        let propNumber = '';
+        if (!name) {
+            const count = await knex('custom_proposals').where('proposal_number', 'like', 'PM-%').count('* as c');
+            const numStr = (count[0].c + 1).toString().padStart(4, '0');
+            const dateStr = new Date().toISOString().split('T')[0].split('-').join('').slice(2);
+            propNumber = `PM${dateStr}-${numStr}`;
+            propName = `Proposta Manual: ${propNumber}`;
+        }
+
+        await knex('custom_proposals').insert({
+            id: proposalId,
+            project_ref: project || null,
+            name: propName,
+            proposal_number: propNumber,
+            brand_id: brandId || 'MULTIMARCAS',
+            client_ref: '',
+            status: 'draft',
+            metadata: JSON.stringify({ our_ref: '' }),
+            branding_config: JSON.stringify({
+                vat_number: '',
+                billing_address: '',
+                shipping_address: '',
+                conditions_text: '1. Validade: 30 dias\n2. Pagamento: Pronto Pagamento',
+                warranty_text: 'Garantia standard do fabricante.'
+            }),
+            created_at: knex.fn.now(),
+            updated_at: knex.fn.now()
+        });
+
+        // Generate the proposal number (optional, logic relies on status transitions normally, but we can init empty)
+        return { id: proposalId, message: 'Nova Proposta criada com sucesso!' };
+    }
+
+    /**
      * Clones an existing extraction into a new custom proposal.
      */
     async cloneToProposal(project, docId, userId) {
@@ -51,7 +92,7 @@ class ProposalStudioService {
         const proposal = {
             id: proposalId,
             proposal_number: sourceData.docNumber || doc.docNumber || sourceData.shippingMarks,
-            name: `Proposta: ${doc.docNumber || 'Sem Número'} - ${doc.customer || 'Consumidor Final'}`,
+            name: `Proposta: ${doc.docNumber || 'Sem Número'}`,
             brand_id: doc.supplier && /NICOLAZZI/i.test(doc.supplier) ? 'nicolazzi' : 'other',
             client_ref: doc.customer || cust.name || sourceData.customer,
             project_ref: project || doc.project || sourceData.customerRef,
@@ -61,7 +102,7 @@ class ProposalStudioService {
                 doc_date: sourceData.senderDate || doc.docDate || (sourceData.dates && sourceData.dates.issued),
                 doc_number: sourceData.docNumber || doc.docNumber,
                 our_ref: sourceData.ourRef || (sourceData.docRefs && sourceData.docRefs.customerRef),
-                client_project_name: sourceData.customerRef || sourceData.projectLabel || (sourceData.docRefs && sourceData.docRefs.customerRef) || '',
+                client_project_name: sourceData.customerRef || sourceData.projectLabel || (sourceData.docRefs && (sourceData.docRefs.customerOrder?.number || sourceData.docRefs.customerRef)) || '',
                 client_vat: vat,
                 client_email: cust.email || sourceData.customerEmail,
                 client_phone: cust.phone || sourceData.customerPhone,
@@ -137,7 +178,16 @@ class ProposalStudioService {
 
         if (filters.status) q.where('custom_proposals.status', filters.status);
         if (filters.brand_id) q.where('custom_proposals.brand_id', filters.brand_id);
-        if (filters.client_ref) q.where('custom_proposals.client_ref', 'ilike', `%${filters.client_ref}%`);
+
+        if (filters.client_ref) {
+            const term = `%${filters.client_ref}%`;
+            q.where(function () {
+                this.where('custom_proposals.name', 'like', term)
+                    .orWhere('custom_proposals.client_ref', 'like', term)
+                    .orWhere('documents.docNumber', 'like', term)
+                    .orWhere('custom_proposals.metadata', 'like', term);
+            });
+        }
 
         return await q;
     }
@@ -246,6 +296,8 @@ class ProposalStudioService {
                     discount_commercial_percent: parseFloat(l.discount_commercial_percent),
                     vat_rate: String(l.vat_rate),
                     sort_order: index,
+                    lead_time_weeks: l.lead_time_weeks !== undefined ? l.lead_time_weeks : null,
+                    production_category: l.production_category || null,
                     extra_attributes: JSON.stringify(l.extra_attributes || {}),
                     updated_at: new Date()
                 };

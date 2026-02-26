@@ -3,18 +3,49 @@ import api from '../../api/apiClient';
 
 export default function GlobalReconciliationModal({ onClose, onReconciled }) {
     const [matches, setMatches] = useState([]);
+    const [proposals, setProposals] = useState([]);
+    const [selectedManualProposals, setSelectedManualProposals] = useState({});
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
-        loadMatches();
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        setLoading(true);
+        await Promise.all([loadMatches(), loadProposals()]);
+        setLoading(false);
+    };
+
+    const loadProposals = async () => {
+        try {
+            // Fetch all proposals
+            const res = await api.get('/api/proposals?limit=1000');
+            const activeProps = (res.data?.proposals || []).filter(p => ['accepted', 'em_fornecimento'].includes(p.status));
+            setProposals(activeProps);
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     const loadMatches = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/api/nicolazzi/discover');
-            setMatches(res.data || []);
+            const [nicoRes, ritmoRes] = await Promise.all([
+                api.get('/api/nicolazzi/discover').catch(e => { console.error(e); return { data: [] }; }),
+                api.get('/api/ritmonio/discover').catch(e => { console.error(e); return { data: { matches: [] } }; })
+            ]);
+
+            const nicoMatches = Array.isArray(nicoRes.data) ? nicoRes.data : [];
+            const ritmoMatches = ritmoRes.data?.matches || [];
+
+            const allMatches = [
+                ...nicoMatches.map(m => ({ ...m, brand: 'nicolazzi' })),
+                ...ritmoMatches.map(m => ({ ...m, brand: 'ritmonio' }))
+            ].sort((a, b) => new Date(b.invoice.date || 0) - new Date(a.invoice.date || 0));
+
+            setMatches(allMatches);
         } catch (err) {
             console.error(err);
             alert('Erro ao procurar correspondências');
@@ -23,15 +54,31 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
         }
     };
 
-    const handleReconcile = async (invoiceId) => {
+    const handleReconcile = async (invoiceId, brand) => {
         setProcessing(true);
         try {
-            await api.post(`/api/nicolazzi/reconcile/${invoiceId}`);
+            await api.post(`/api/${brand || 'nicolazzi'}/reconcile/${invoiceId}`);
             // Remove from list or reload
-            await loadMatches();
+            await loadData();
             if (onReconciled) onReconciled();
         } catch (err) {
             alert('Falha ao reconciliar: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleReconcileManual = async (invoiceId, brand) => {
+        const propId = selectedManualProposals[invoiceId];
+        if (!propId) return alert('Selecione uma proposta para reconciliar manualmente.');
+
+        setProcessing(true);
+        try {
+            await api.post(`/api/${brand || 'nicolazzi'}/reconcile-manual/${invoiceId}`, { proposal_id: propId });
+            await loadData();
+            if (onReconciled) onReconciled();
+        } catch (err) {
+            alert('Falha ao reconciliar manualmente: ' + (err.response?.data?.error || err.message));
         } finally {
             setProcessing(false);
         }
@@ -47,7 +94,7 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
         let successCount = 0;
         for (const m of toReconcile) {
             try {
-                await api.post(`/api/nicolazzi/reconcile/${m.invoice.id}`);
+                await api.post(`/api/${m.brand || 'nicolazzi'}/reconcile/${m.invoice.id}`);
                 successCount++;
             } catch (err) {
                 console.error(`Erro na fatura ${m.invoice.id}`, err);
@@ -55,7 +102,7 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
         }
 
         alert(`Reconciliadas ${successCount} de ${toReconcile.length} faturas.`);
-        await loadMatches();
+        await loadData();
         if (onReconciled) onReconciled();
         setProcessing(false);
     };
@@ -72,7 +119,7 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
                             Descobridor de Faturas Pendentes
                         </h2>
                         <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wider">
-                            Faturas Nicolazzi extraídas que ainda não foram associadas a propostas
+                            Faturas Nicolazzi / Ritmonio extraídas que ainda não foram associadas a propostas
                         </p>
                     </div>
                     <div className="flex gap-3">
@@ -105,7 +152,7 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
                             <div className="text-4xl mb-4 opacity-50">🎉</div>
                             <h3 className="text-lg font-bold text-gray-400 mb-1">Tudo em dia!</h3>
-                            <p className="text-sm">Não existem faturas pendentes de reconciliação para a Nicolazzi.</p>
+                            <p className="text-sm">Não existem faturas pendentes de reconciliação (Nicolazzi / Ritmonio).</p>
                         </div>
                     ) : (
                         <div className="grid gap-4">
@@ -139,33 +186,53 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
                                                 <>
                                                     <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider flex items-center gap-1">
                                                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                                        Match Sugerido
+                                                        Match Sugerido {m.proposal.matchPhase ? `(${m.proposal.matchPhase})` : ''}
                                                     </span>
                                                     <div className="text-base font-bold text-white">{m.proposal.number}</div>
                                                     <div className="text-xs text-gray-400">{m.proposal.name} {m.proposal.client_ref ? `(${m.proposal.client_ref})` : ''}</div>
                                                 </>
                                             ) : (
-                                                <>
+                                                <div className="flex flex-col gap-2">
                                                     <span className="text-[10px] text-yellow-600 font-bold uppercase tracking-wider flex items-center gap-1">
                                                         <span className="text-xl">!</span> Não Encontrado
                                                     </span>
                                                     <div className="text-xs text-gray-500 leading-relaxed max-w-xs mt-1">
-                                                        Nenhuma proposta aberta com a referência <strong>{m.invoice.shipping_mark || 'n/d'}</strong> (Shipping Mark). É necessário associar manualmente ou retificar a proposta.
+                                                        Nenhuma match com {m.invoice.shipping_mark || 'n/d'}. Associe manualmente:
                                                     </div>
-                                                </>
+                                                    <select
+                                                        className="mt-2 w-full max-w-xs bg-[#222] border border-[#333] rounded px-2 py-1 text-xs text-white"
+                                                        value={selectedManualProposals[m.invoice.id] || ''}
+                                                        onChange={(e) => setSelectedManualProposals({ ...selectedManualProposals, [m.invoice.id]: e.target.value })}
+                                                    >
+                                                        <option value="">-- Selecione uma Proposta Ativa --</option>
+                                                        {proposals.map(p => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.proposal_number || p.name} - {p.client_ref || 'Sem Cliente'}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
 
                                     {/* ACTIONS */}
                                     <div className="ml-6 flex items-center gap-3">
-                                        {m.proposal && (
+                                        {m.proposal ? (
                                             <button
                                                 disabled={processing}
-                                                onClick={() => handleReconcile(m.invoice.id)}
+                                                onClick={() => handleReconcile(m.invoice.id, m.brand)}
                                                 className="px-4 py-2 bg-green-900/40 hover:bg-green-900/60 text-green-400 border border-green-800 rounded text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
                                             >
                                                 Confirmar
+                                            </button>
+                                        ) : (
+                                            <button
+                                                disabled={processing || !selectedManualProposals[m.invoice.id]}
+                                                onClick={() => handleReconcileManual(m.invoice.id, m.brand)}
+                                                className="px-4 py-2 bg-amber-900/40 hover:bg-amber-900/60 text-amber-500 border border-amber-800 rounded text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 whitespace-nowrap"
+                                            >
+                                                Reconciliar Manual
                                             </button>
                                         )}
                                     </div>

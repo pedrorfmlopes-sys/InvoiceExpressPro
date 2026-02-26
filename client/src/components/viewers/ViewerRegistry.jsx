@@ -3,6 +3,7 @@ import NicolazziInvoiceContainer from './NicolazziInvoiceContainer'; // Refactor
 import NicolazziGoldViewer from './NicolazziGoldViewer'; // Classic Layout (Fixed)
 import NicolazziProformaViewer from './NicolazziProformaViewer'; // Modern Layout
 import NicolazziProformaContainer from './NicolazziProformaContainer';
+import RitmonioContainer from './RitmonioContainer';
 
 // Helper to safely get supplier name
 const getSupplierName = (doc) => {
@@ -33,10 +34,18 @@ const viewers = [
             const supplier = getSupplierName(doc).toUpperCase();
             const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
             const isNicolazzi = supplier.includes('NICOLAZZI') || doc.supplier === 'NICOLAZZI';
-            const isProforma = type.includes('proforma') || type.includes('pro-forma') || doc.type === 'source';
+            const isProforma = type.includes('proforma') || type.includes('pro-forma') || type.includes('conferma') || type.includes('confirmation') || doc.type === 'source' || doc.type === 'order_confirmation';
             return isNicolazzi && isProforma;
         },
         Component: NicolazziProformaContainer
+    },
+    {
+        name: 'Ritmonio Universal',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            return supplier.includes('RITMONIO') || doc.supplier === 'RITMONIO';
+        },
+        Component: RitmonioContainer
     },
     {
         name: 'Simple PDF Viewer',

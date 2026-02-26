@@ -12,7 +12,7 @@ function debugLog(...args) {
 async function ritmonioConfirmationExtraction(pdfBuffer) {
     const fullText = pdfBufferToTextPoppler(pdfBuffer);
     const extracted = {
-        docType: 'order_confirmation',
+        docType: 'proforma',
         docNumber: null,
         dates: { issued: null, due: null },
         totals: {
@@ -85,15 +85,29 @@ async function ritmonioConfirmationExtraction(pdfBuffer) {
 
     // --- 3. Addresses ---
     const stopY = metaHeader ? metaHeader.y : 670;
-    const extractSpatialAddr = (anchorStr, minX, maxX) => {
-        const anchor = p1I.find(i => i.str.includes(anchorStr));
+    const extractSpatialAddr = (anchorStr, minX, maxX, deltaY = 55) => {
+        const anchor = p1I.find(i => new RegExp(anchorStr, 'i').test(i.str));
         if (!anchor) return null;
         const items = p1I.filter(i =>
-            i.y < anchor.y && i.y > stopY + 2 && i.x >= minX && i.x <= maxX &&
+            i.y < anchor.y && i.y > stopY + 2 && i.y >= anchor.y - deltaY && i.x >= minX && i.x <= maxX &&
             !/Pag\.|Delivery|Messrs|Destinazione|Spettabile|Cod\.Cliente|IVA|Data|Numero|Rif\.|Vs\.|Ref\./i.test(i.str)
         );
-        items.sort((a, b) => b.y - a.y || a.x - b.x);
-        let adr = items.map(i => i.str.trim()).join(' ').replace(/\s{2,}/g, ' ').trim();
+
+        // Group fragments horizontally by rounding Y to nearest 5
+        const linesMap = {};
+        items.forEach(i => {
+            const yGroup = Math.round(i.y / 5) * 5;
+            if (!linesMap[yGroup]) linesMap[yGroup] = [];
+            linesMap[yGroup].push(i);
+        });
+
+        let adr = Object.values(linesMap)
+            .sort((a, b) => b[0].y - a[0].y) // Sort Y top-to-bottom
+            .map(lineItems => {
+                lineItems.sort((a, b) => a.x - b.x); // Sort X left-to-right
+                return lineItems.map(i => i.str.trim()).join(' ').replace(/\s{2,}/g, ' ').replace(/\s+([.,])/g, '$1');
+            }).join('\n').trim();
+
         if (extracted.entities.customer.name) {
             const tokens = extracted.entities.customer.name.split(/[\s,().]+/).filter(t => t.length > 2);
             tokens.forEach(t => { adr = adr.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ''); });
@@ -108,16 +122,21 @@ async function ritmonioConfirmationExtraction(pdfBuffer) {
     if (headerY = (p1I.find(i => /Codice\s*Articolo|Item\s*Code/i.test(i.str)) || {}).y) {
         let cols = { code: 0, qty: 0, price: 0, discount: 0, total: 0, shipDate: 0 };
         p1I.filter(i => Math.abs(i.y - headerY) < 10).forEach(i => {
-            if (/Codice/i.test(i.str)) cols.code = i.x;
-            if (/Quantità/i.test(i.str)) cols.qty = i.x;
-            if (/Prezzo/i.test(i.str)) cols.price = i.x;
-            if (/Sconto/i.test(i.str)) cols.discount = i.x;
-            if (/Importo/i.test(i.str)) cols.total = i.x;
-            if (/Partenza/i.test(i.str)) cols.shipDate = i.x;
+            if (/Codice|Item\b/i.test(i.str)) cols.code = i.x;
+            if (/Quantità|Quant\w*|Q\.?ty/i.test(i.str)) cols.qty = i.x;
+            if (/Prezzo|Price/i.test(i.str)) cols.price = i.x;
+            if (/Sconto|Discount|Sc\./i.test(i.str)) cols.discount = i.x;
+            if (/Importo|Amount/i.test(i.str)) cols.total = i.x;
+            if (/Partenza|Delay|Ship/i.test(i.str)) cols.shipDate = i.x;
         });
 
         const xQty = cols.qty || 350, xPrice = cols.price || 410, xDiscount = cols.discount || 480, xTotal = cols.total || 530, xShip = cols.shipDate || 600;
-        const bQP = (xQty + xPrice) / 2, bPD = (xPrice + xDiscount) / 2, bDT = (xDiscount + xTotal) / 2, bTS = (xTotal + xShip) / 2;
+
+        // Snapping boundaries tightly to 15px before the start of the next column
+        const bQP = xPrice - 15;
+        const bPD = xDiscount - 15;
+        const bDT = xTotal - 15;
+        const bTS = xShip - 15;
 
         let lastLine = null, lastLineY = null;
         for (const page of pages) {
@@ -152,13 +171,11 @@ async function ritmonioConfirmationExtraction(pdfBuffer) {
 
                 if (hasNums) {
                     const q = normalizeAmount(clean(qty)), p = normalizeAmount(clean(price)), t = normalizeAmount(clean(totalStr));
-                    let dr = 0;
-                    if (discount.includes('+')) {
-                        let m = 1; discount.split('+').forEach(px => m *= (1 - normalizeAmount(px) / 100));
-                        dr = (1 - m) * 100;
-                    } else dr = normalizeAmount(discount || '0');
 
-                    const newLine = { code: code.trim(), description: desc.trim(), quantity: q, unitPrice: p, total: t, discountPercent: dr, foreeseenShippingDate: normalizeDate(shipDateStr.trim()) };
+                    // DO NOT REDUCE DISCOUNT! Pass it as string so UI shows "45+10"
+                    const drStr = discount.replace(/[^\d+.,-]/g, '').trim();
+
+                    const newLine = { code: code.trim(), description: desc.trim(), quantity: q, unitPrice: p, total: parseFloat(t.toFixed(2)), discountPercent: drStr, foreeseenShippingDate: normalizeDate(shipDateStr.trim()) };
                     extracted.lines.push(newLine);
                     lastLine = newLine; lastLineY = row.y;
                     isFirstRowOnPage = false;

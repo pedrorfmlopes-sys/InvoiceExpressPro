@@ -48,6 +48,7 @@ class CustomerService {
         const customerData = {
             name: rawName,
             address: rawAddress,
+            shipping_address: data.shipping_address || '', // Support for separate delivery address
             country: country, // Added for Phase 11
             email: data.email || data.customerEmail || '',
             phone: data.phone || data.customerPhone || '',
@@ -64,6 +65,7 @@ class CustomerService {
             // SMART MERGE: Fill empty CRM fields from new extraction info
             const patch = {};
             if (!existing.address && customerData.address) patch.address = customerData.address;
+            if (!existing.shipping_address && customerData.shipping_address) patch.shipping_address = customerData.shipping_address;
             if (!existing.email && customerData.email) patch.email = customerData.email;
             if (!existing.phone && customerData.phone) patch.phone = customerData.phone;
 
