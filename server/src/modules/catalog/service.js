@@ -260,7 +260,7 @@ class CatalogService {
                 const leadWeeks = Math.ceil(leadDays / 5);
 
                 return {
-                    brand: 'RITMONIO',
+                    brand: 'ritmonio',
                     finish_code: code,
                     group_code: isStarred ? 'STARRED' : 'STANDARD',
                     name_en: name, // Maintain Nicolazzi parity
@@ -271,7 +271,7 @@ class CatalogService {
             }).filter(Boolean);
 
             for (const f of finishes) {
-                const existing = await knex('catalog_finishes').where({ brand: 'RITMONIO', finish_code: f.finish_code }).first();
+                const existing = await knex('catalog_finishes').where({ brand: 'ritmonio', finish_code: f.finish_code }).first();
                 if (existing) {
                     await knex('catalog_finishes').where({ id: existing.id }).update(f);
                 } else {
@@ -286,7 +286,7 @@ class CatalogService {
         if (!itemSheet) throw new Error(`Sheet not found: ${iSheetName}`);
 
         if (mappings.clearBeforeImport) {
-            await knex('catalog_items').where({ brand: 'RITMONIO' }).delete();
+            await knex('catalog_items').where({ brand: 'ritmonio' }).delete();
         }
 
         const rawItemData = XLSX.utils.sheet_to_json(itemSheet, { defval: '' });
@@ -306,7 +306,7 @@ class CatalogService {
             desc = desc.replace(/\s+_/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
             return {
-                brand: 'RITMONIO',
+                brand: 'ritmonio',
                 sku,
                 series,
                 description_pt: desc,
@@ -321,7 +321,7 @@ class CatalogService {
         let updatedCount = 0;
 
         // Load existing map
-        const existingItems = await knex('catalog_items').where({ brand: 'RITMONIO' }).select('id', 'sku');
+        const existingItems = await knex('catalog_items').where({ brand: 'ritmonio' }).select('id', 'sku');
         const existingMap = new Map();
         existingItems.forEach(it => existingMap.set(it.sku.toLowerCase(), it.id));
 
@@ -507,7 +507,7 @@ class CatalogService {
             let finishCode = item.finish_group || '';
 
             if (b === 'ritmonio') {
-                const finishMap = await knex('catalog_finishes').where({ brand: 'RITMONIO' });
+                const finishMap = await knex('catalog_finishes').where({ brand: 'ritmonio' });
                 const upperSku = cleanSku.toUpperCase();
 
                 for (const f of finishMap) {

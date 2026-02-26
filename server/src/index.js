@@ -39,8 +39,9 @@ app.listen(PORT, HOST, () => {
     runCleanup();
 
     // --- Logistics Calibration ---
-    const { seedNicolazziCalendar } = require('./modules/logistics/calendarEngine');
-    seedNicolazziCalendar().catch(e => console.error('[Logistics] Failed to seed calendar:', e));
+    const { seedNicolazziCalendar, seedRitmonioCalendar } = require('./modules/logistics/calendarEngine');
+    seedNicolazziCalendar().catch(e => console.error('[Logistics] Failed to seed Nicolazzi calendar:', e));
+    seedRitmonioCalendar().catch(e => console.error('[Logistics] Failed to seed Ritmonio calendar:', e));
 
     // Schedule
     setInterval(runCleanup, CLEANUP_INTERVAL);
