@@ -46,6 +46,14 @@ server/rbac_debug.log
 EXPRESS_ROUTES_DUMP*.txt
 RUNTIME_ENDPOINT_SMOKE*.txt
 
+# Temporary & Local Backups
+uploads/temp/
+uploads/*.tmp
+server/src/engine/*_BACKUP.js
+server/rbac_debug.log
+EXPRESS_ROUTES_DUMP*.txt
+RUNTIME_ENDPOINT_SMOKE*.txt
+
 # Temporary & Uploads
 uploads/temp/
 uploads/*.tmp
