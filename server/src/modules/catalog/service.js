@@ -218,6 +218,146 @@ class CatalogService {
         return { success: true, stats: { createdCount, updatedCount, skippedCount, filteredCount } };
     }
 
+    async processRitmonioExcel(filePath, mappings = {}) {
+        const workbook = XLSX.readFile(filePath);
+        const brand = 'ritmonio';
+
+        const cols = mappings.columns || {
+            sku: 'Codart',
+            description_pt: 'Des_1_PT',
+            price: 'PL39',
+            collection: 'Familia',
+            // Finish columns (optional)
+            fCode: 'Codigo',
+            fName: 'Nome_EN',
+            fDays: 'Tempo produção',
+            fStar: 'Marcado asterisco',
+            fDesc: 'Descricao Tecnica'
+        };
+
+        const allowedCollections = mappings.allowedCollections || null;
+
+        // 1. Process Finishes (Sheet: Acabamentos)
+        const fSheetName = mappings.finishSheetName || "Acabamentos";
+        const finishSheet = workbook.Sheets[fSheetName];
+        if (finishSheet) {
+            console.log(`[CatalogService] Ritmonio: Processing finishes from "${fSheetName}"`);
+            const rawFinishData = XLSX.utils.sheet_to_json(finishSheet, { defval: '' });
+
+            const finishes = rawFinishData.map(row => {
+                // Sanitize keys
+                const r = {}; Object.keys(row).forEach(k => r[k.trim()] = row[k]);
+
+                const code = String(r[cols.fCode] || r['Codigo'] || '').trim();
+                if (!code) return null;
+
+                const name = String(r[cols.fName] || r['Nome_EN'] || '').trim();
+                const leadDays = parseInt(r[cols.fDays] || r['Tempo produção']) || 0;
+                const starVal = String(r[cols.fStar] || r['Marcado asterisco'] || '').toLowerCase();
+                const isStarred = starVal === 'sim' || starVal === 'true' || starVal === '1' || starVal === 'x';
+                const techDesc = String(r[cols.fDesc] || r['Descricao Tecnica'] || '').trim();
+
+                const leadWeeks = Math.ceil(leadDays / 5);
+
+                return {
+                    brand: 'RITMONIO',
+                    finish_code: code,
+                    group_code: isStarred ? 'STARRED' : 'STANDARD',
+                    name_en: name, // Maintain Nicolazzi parity
+                    description_pt: techDesc || null,
+                    note_pt: JSON.stringify({ lead_time_days: leadDays, lead_time_weeks: leadWeeks }),
+                    updated_at: new Date()
+                };
+            }).filter(Boolean);
+
+            for (const f of finishes) {
+                const existing = await knex('catalog_finishes').where({ brand: 'RITMONIO', finish_code: f.finish_code }).first();
+                if (existing) {
+                    await knex('catalog_finishes').where({ id: existing.id }).update(f);
+                } else {
+                    await knex('catalog_finishes').insert({ ...f, id: uuidv4(), created_at: new Date() });
+                }
+            }
+        }
+
+        // 2. Process Items
+        const iSheetName = mappings.itemSheetName || workbook.SheetNames.find(s => s.toLowerCase().includes('compacta')) || workbook.SheetNames[0];
+        const itemSheet = workbook.Sheets[iSheetName];
+        if (!itemSheet) throw new Error(`Sheet not found: ${iSheetName}`);
+
+        if (mappings.clearBeforeImport) {
+            await knex('catalog_items').where({ brand: 'RITMONIO' }).delete();
+        }
+
+        const rawItemData = XLSX.utils.sheet_to_json(itemSheet, { defval: '' });
+        const items = rawItemData.map(row => {
+            const r = {}; Object.keys(row).forEach(k => r[k.trim()] = row[k]);
+
+            const sku = String(r[cols.sku] || r['Codart'] || '').trim();
+            if (!sku) return null;
+
+            const series = String(r[cols.collection] || r['Familia'] || '').trim();
+            if (allowedCollections && !allowedCollections.includes(series)) return null;
+
+            // Ritmonio specific description cleaning (merging Des_1 and Des_2 if they exist)
+            let desc = String(r[cols.description_pt] || r['Des_1_PT'] || '').trim();
+            const desc2 = String(r['Des_2_PT'] || '').trim();
+            if (desc2) desc += ' ' + desc2;
+            desc = desc.replace(/\s+_/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+            return {
+                brand: 'RITMONIO',
+                sku,
+                series,
+                description_pt: desc,
+                price: parseFloat(r[cols.price] || r['PL39'] || 0),
+                updated_at: new Date(),
+                source: 'Import Automatic'
+            };
+        }).filter(Boolean);
+
+        // Batch processing for items
+        let createdCount = 0;
+        let updatedCount = 0;
+
+        // Load existing map
+        const existingItems = await knex('catalog_items').where({ brand: 'RITMONIO' }).select('id', 'sku');
+        const existingMap = new Map();
+        existingItems.forEach(it => existingMap.set(it.sku.toLowerCase(), it.id));
+
+        const toInsert = [];
+        const toUpdate = [];
+
+        for (const it of items) {
+            const eid = existingMap.get(it.sku.toLowerCase());
+            if (eid) toUpdate.push({ id: eid, ...it });
+            else toInsert.push({ ...it, id: uuidv4(), created_at: new Date() });
+        }
+
+        if (toInsert.length > 0) {
+            const chunk = 500;
+            for (let i = 0; i < toInsert.length; i += chunk) {
+                await knex('catalog_items').insert(toInsert.slice(i, i + chunk));
+                createdCount += toInsert.slice(i, i + chunk).length;
+            }
+        }
+
+        if (toUpdate.length > 0) {
+            const chunk = 100;
+            for (let i = 0; i < toUpdate.length; i += chunk) {
+                await knex.transaction(async trx => {
+                    for (const row of toUpdate.slice(i, i + chunk)) {
+                        const { id, ...data } = row;
+                        await trx('catalog_items').where({ id }).update(data);
+                    }
+                });
+                updatedCount += toUpdate.slice(i, i + chunk).length;
+            }
+        }
+
+        return { success: true, stats: { createdCount, updatedCount, skippedCount: rawItemData.length - items.length } };
+    }
+
     // The original upsertItems method is now largely redundant as its logic is integrated into processNicolazziExcel.
     // However, to maintain the structure and avoid breaking other potential calls,
     // I'm keeping it but noting its reduced role or potential for removal.
@@ -360,19 +500,30 @@ class CatalogService {
 
             if (!item) return { success: false, reason: 'Not found in generic catalog' };
 
-            // For Ritmonio, try to match the last 2-4 chars to a finish code to get lead time
+            // For Ritmonio, try to match the last 2-4 chars to a finish code to get lead time and details
             let leadTimeWeeks = null;
             let finishNote = item.description_pt;
+            let finish = null;
+            let finishCode = item.finish_group || '';
+
             if (b === 'ritmonio') {
                 const finishMap = await knex('catalog_finishes').where({ brand: 'RITMONIO' });
-                // We check if the sku ends with any known finish code (e.g. BLX, F31)
+                const upperSku = cleanSku.toUpperCase();
+
                 for (const f of finishMap) {
-                    if (cleanSku.toUpperCase().endsWith(f.finish_code.toUpperCase())) {
+                    if (upperSku.endsWith(f.finish_code.toUpperCase())) {
+                        finish = f;
+                        finishCode = f.finish_code;
                         try {
-                            const params = JSON.parse(f.note_pt);
+                            const params = typeof f.note_pt === 'string' ? JSON.parse(f.note_pt) : (f.note_pt || {});
                             leadTimeWeeks = params.lead_time_weeks || null;
-                            finishNote += ` | Produção: ${params.lead_time_days} dias úteis`;
-                        } catch (e) { }
+                            // Technical description from finish takes priority for the note
+                            const techDesc = f.description_pt || '';
+                            const timeStr = params.lead_time_days ? ` | Produção: ${params.lead_time_days} dias úteis` : '';
+                            finishNote = techDesc ? `${techDesc}${timeStr}` : `${item.description_pt}${timeStr}`;
+                        } catch (e) {
+                            console.warn('[CatalogService] Failed to parse finish note for Ritmonio:', f.finish_code);
+                        }
                         break;
                     }
                 }
@@ -383,9 +534,10 @@ class CatalogService {
                 sku: item.sku,
                 brand: item.brand,
                 description_pt: item.description_pt,
-                finishCode: item.finish_group,
-                finishNote: finishNote, // The description + lead time acts as technical detail!
+                finishCode: finishCode,
+                finishNote: finishNote,
                 leadTimeWeeks: leadTimeWeeks,
+                finish: finish,
                 item: item
             };
         } catch (e) {

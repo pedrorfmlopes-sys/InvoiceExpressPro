@@ -36,7 +36,13 @@ const CatalogManagementTab = ({ project }) => {
             sku: 'Codigo',
             description_pt: 'Des.PT',
             price: 'PVP',
-            collection: 'Série'
+            collection: 'Série',
+            // Finish columns
+            fCode: 'Codigo',
+            fName: 'Nome_EN',
+            fDays: 'Tempo produção',
+            fStar: 'Marcado asterisco',
+            fDesc: 'Descricao Tecnica'
         },
         clearBeforeImport: false
     });
@@ -411,7 +417,7 @@ const CatalogManagementTab = ({ project }) => {
                                     {(mapping.itemSheetName && inspectData.sheets.find(s => s.name === mapping.itemSheetName)?.headers) && (
                                         <div className="bg-white/5 p-4 rounded-xl border border-white/10 mt-2">
                                             <h5 className="text-[10px] uppercase font-black text-amber-500 tracking-widest mb-4 flex items-center gap-2">
-                                                <FiDatabase /> Mapeamento de Colunas
+                                                <FiDatabase /> Mapeamento de Colunas (Artigos)
                                             </h5>
                                             <div className="grid grid-cols-2 gap-4">
                                                 {[
@@ -443,6 +449,43 @@ const CatalogManagementTab = ({ project }) => {
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            {/* Finish Mapping - Only if finish sheet is selected */}
+                                            {mapping.finishSheetName && (
+                                                <div className="mt-6 pt-4 border-t border-white/5">
+                                                    <h5 className="text-[10px] uppercase font-black text-blue-500 tracking-widest mb-4 flex items-center gap-2">
+                                                        <FiDatabase /> Mapeamento de Colunas (Acabamentos)
+                                                    </h5>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        {[
+                                                            { id: 'fCode', label: 'Código Acabamento' },
+                                                            { id: 'fName', label: 'Nome Acabamento' },
+                                                            { id: 'fDays', label: 'Dias Produção' },
+                                                            { id: 'fStar', label: 'Estrela (Destaque)' },
+                                                            { id: 'fDesc', label: 'Desc. Técnica (Opt.)' }
+                                                        ].map(field => (
+                                                            <div key={field.id}>
+                                                                <label className="text-[9px] uppercase font-bold text-gray-500 block mb-1">{field.label}</label>
+                                                                <select
+                                                                    className="w-full bg-black/40 border border-white/10 rounded px-2 py-2 text-xs text-white outline-none focus:border-blue-500/50"
+                                                                    value={mapping.columns[field.id] || ''}
+                                                                    onChange={e => {
+                                                                        setMapping({
+                                                                            ...mapping,
+                                                                            columns: { ...mapping.columns, [field.id]: e.target.value }
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <option value="">-- Selecionar Coluna --</option>
+                                                                    {inspectData.sheets.find(s => s.name === mapping.finishSheetName)?.headers.map(h => (
+                                                                        <option key={h} value={h}>{h}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 

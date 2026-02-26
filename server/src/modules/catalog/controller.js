@@ -57,10 +57,12 @@ class CatalogController {
             }
 
             let result;
-            if (brand === 'nicolazzi') {
-                result = await CatalogService.processNicolazziExcel(filePath, mappings);
+            const methodName = `process${brand.charAt(0).toUpperCase() + brand.slice(1)}Excel`;
+
+            if (typeof CatalogService[methodName] === 'function') {
+                result = await CatalogService[methodName](filePath, mappings);
             } else {
-                return res.status(400).json({ error: 'Brand not supported yet for auto-processing' });
+                return res.status(400).json({ error: `Brand "${brand}" is not supported yet for auto-processing` });
             }
 
             // Cleanup temp file after processing
