@@ -11,10 +11,16 @@ async function updateProposalLogistics(id, { order_date, lead_time_weeks, notes,
     if (lead_time_weeks !== undefined) updates.general_lead_time_weeks = lead_time_weeks;
     if (notes !== undefined) updates.logistics_notes = notes;
 
-    // Postgres Fix: Never pass an empty string to a JSONB column. 
-    // It must be a valid JSON object/array or NULL.
+    // Nuclear Option: Explicit Postgres Casting for JSONB columns
     if (rules !== undefined) {
-        updates.lead_time_rules = (rules && Array.isArray(rules) && rules.length > 0) ? rules : null;
+        const isPg = knex.client.config.client === 'pg' || knex.client.config.client === 'postgres';
+        if (isPg) {
+            // Explicitly cast to jsonb using Knex Raw for Postgres (Render)
+            updates.lead_time_rules = knex.raw('?::jsonb', [JSON.stringify(rules || [])]);
+        } else {
+            // Local SQLite (Production) - standard object handling
+            updates.lead_time_rules = (rules && Array.isArray(rules) && rules.length > 0) ? rules : null;
+        }
     }
 
     await knex('custom_proposals').where({ id }).update(updates);
