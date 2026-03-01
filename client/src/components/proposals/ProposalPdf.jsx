@@ -151,6 +151,7 @@ const styles = StyleSheet.create({
 
     skuText: { fontFamily: 'Helvetica', color: '#4B5563' },
     descText: { fontFamily: 'Helvetica' },
+    commentDesc: { fontFamily: 'Helvetica-BoldOblique', color: '#111827', fontSize: 9 },
 
     totalsSection: {
         marginTop: 10,
@@ -375,15 +376,17 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     // Dynamic Predicted Date Calculation (Same as in Reconciliation Service)
                     const effectiveLeadWeeks = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
                     let predictedDate = line.predicted_ship_date;
-                    if (!predictedDate && effectiveLeadWeeks > 0) {
-                        const baseDate = proposal.order_confirmation_date
-                            ? new Date(proposal.order_confirmation_date)
-                            : (proposal.metadata?.doc_date ? new Date(proposal.metadata.doc_date) : null);
+                    const isComment = !line.sku && !parseFloat(line.quantity || 0) && !parseFloat(line.unit_price_commercial || 0);
 
-                        if (baseDate) {
-                            baseDate.setDate(baseDate.getDate() + (effectiveLeadWeeks * 7));
-                            predictedDate = baseDate.getTime();
-                        }
+                    if (isComment) {
+                        return (
+                            <View key={idx} style={[styles.tableRow, { backgroundColor: '#F9FAFB' }]} wrap={false}>
+                                <Text style={styles.colCode}></Text>
+                                <View style={{ width: '88%', padding: 2 }}>
+                                    <Text style={styles.commentDesc}>{line.description}</Text>
+                                </View>
+                            </View>
+                        );
                     }
 
                     return (
@@ -392,7 +395,6 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                             <View style={[styles.colDesc]}>
                                 <Text style={styles.descText}>{line.description}</Text>
 
-                                {/* Predicted Ship Date - Requested per line if defined or calculated */}
                                 {predictedDate && (
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                                         <Text style={{ fontSize: 7, color: '#6B7280', fontWeight: 'bold' }}>PRAZO PREVISTO: </Text>

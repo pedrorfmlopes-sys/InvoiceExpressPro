@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GlassCard } from '../components/ui/GlassCard';
-import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiCheckSquare, FiSquare, FiCheck, FiCalendar, FiSettings } from 'react-icons/fi';
+import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiCheckSquare, FiSquare, FiCheck, FiCalendar, FiSettings, FiPlus, FiDownload, FiX, FiUpload } from 'react-icons/fi';
 import api from '../api/apiClient';
 import CalendarManager from '../components/logistics/CalendarManager';
 
@@ -10,6 +10,29 @@ const BRANDS_CONFIG = [
     { id: 'bette', name: 'Bette', color: 'green' }
 ];
 
+const UNIT_OPTIONS = [
+    { value: 'days', label: 'Dias' },
+    { value: 'weeks', label: 'Semanas' },
+    { value: 'months', label: 'Meses' }
+];
+
+// Convert stored lead_time_weeks to display value based on unit
+const toDisplayValue = (weeks, unit) => {
+    if (weeks == null) return '';
+    if (unit === 'days') return Math.round(weeks * 7);
+    if (unit === 'months') return parseFloat((weeks / 4.33).toFixed(1));
+    return weeks;
+};
+
+// Convert display value back to weeks for storage
+const toWeeks = (value, unit) => {
+    const v = parseFloat(value);
+    if (isNaN(v)) return null;
+    if (unit === 'days') return parseFloat((v / 7).toFixed(2));
+    if (unit === 'months') return parseFloat((v * 4.33).toFixed(2));
+    return v;
+};
+
 const CatalogManagementTab = ({ project }) => {
     const [selectedBrand, setSelectedBrand] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -17,16 +40,150 @@ const CatalogManagementTab = ({ project }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [activeLibraryTab, setActiveLibraryTab] = useState('collections'); // 'collections' | 'finishes'
 
     // Mapping Flow State
-    const [inspectData, setInspectData] = useState(null); // { tempFilename, sheets: [{ name, headers }] }
-    const [availableCollections, setAvailableCollections] = useState([]); // For import wizard
-    const [selectedCollections, setSelectedCollections] = useState([]); // For import wizard
+    const [inspectData, setInspectData] = useState(null);
+    const [availableCollections, setAvailableCollections] = useState([]);
+    const [selectedCollections, setSelectedCollections] = useState([]);
     const [isLoadingCollections, setIsLoadingCollections] = useState(false);
 
     // Persistent Collection Settings
     const [storedCollections, setStoredCollections] = useState([]);
     const [isLoadingStored, setIsLoadingStored] = useState(false);
+
+    // Finish Settings
+    const [brandFinishes, setBrandFinishes] = useState([]);
+    const [isLoadingFinishes, setIsLoadingFinishes] = useState(false);
+
+    // Save state
+    const [isSaving, setIsSaving] = useState(false);
+    const [savedFeedback, setSavedFeedback] = useState(false);
+
+    const saveAll = async () => {
+        if (!selectedBrand || isSaving) return;
+        setIsSaving(true);
+        try {
+            if (activeLibraryTab === 'collections') {
+                const rows = storedCollections.filter(c => !c._isNew);
+                await Promise.all(rows.map(col =>
+                    api.patch('/api/catalog/collections', {
+                        brand: selectedBrand.id,
+                        name: col.name,
+                        leadTimeWeeks: col.lead_time_weeks,
+                        leadTimeUnit: col.lead_time_unit || 'weeks',
+                        description: col.description || null,
+                        isVisible: col.is_visible
+                    }).catch(e => console.error('Save failed for', col.name, e))
+                ));
+            } else {
+                const rows = brandFinishes.filter(f => !f._isNew);
+                await Promise.all(rows.map(f =>
+                    api.patch('/api/catalog/finishes', {
+                        brand: selectedBrand.id,
+                        finishCode: f.finish_code,
+                        name: f.name_en || f.name_it || '',
+                        groupCode: f.group_code || '',
+                        leadTimeWeeks: f.lead_time_weeks,
+                        leadTimeUnit: f.lead_time_unit || 'weeks',
+                        description: f.description_pt || null
+                    }).catch(e => console.error('Save failed for', f.finish_code, e))
+                ));
+            }
+            setSavedFeedback(true);
+            setTimeout(() => setSavedFeedback(false), 2500);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // CSV Import
+    const importFileRef = useRef(null);
+    const [isImporting, setIsImporting] = useState(false);
+    const [importFeedback, setImportFeedback] = useState(null); // { count, errors }
+
+    const importFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedBrand) return;
+        setIsImporting(true);
+        setImportFeedback(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('brand', selectedBrand.id);
+            formData.append('type', activeLibraryTab); // 'collections' or 'finishes'
+
+            const res = await api.post('/api/catalog/import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const { count, errors } = res.data;
+            setImportFeedback({ count: count ?? 0, errors: errors ?? 0 });
+            setTimeout(() => setImportFeedback(null), 4000);
+
+            // Reload the relevant table
+            if (activeLibraryTab === 'collections') await loadStoredCollections();
+            else await loadBrandFinishes();
+
+        } catch (err) {
+            console.error('Import failed', err);
+            setImportFeedback({ count: 0, errors: 1 });
+        } finally {
+            setIsImporting(false);
+            if (importFileRef.current) importFileRef.current.value = '';
+        }
+    };
+
+    const [selectedRows, setSelectedRows] = useState(new Set()); // Set of keys (name for collections, finish_code for finishes)
+    const [bulkApply, setBulkApply] = useState({ value: '', unit: 'weeks' });
+
+    const toggleRowSelection = (key) => {
+        setSelectedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key); else next.add(key);
+            return next;
+        });
+    };
+
+    const selectAllVisible = (items, keyFn) => {
+        const allKeys = items.filter(i => !i._isNew).map(keyFn);
+        setSelectedRows(prev => {
+            const allSelected = allKeys.every(k => prev.has(k));
+            if (allSelected) return new Set(); // Deselect all
+            return new Set(allKeys); // Select all
+        });
+    };
+
+    const applyBulkLeadTime = async () => {
+        if (!bulkApply.value || selectedRows.size === 0) return;
+        const weeks = toWeeks(bulkApply.value, bulkApply.unit);
+        if (weeks === null) return;
+
+        if (activeLibraryTab === 'collections') {
+            setStoredCollections(prev => prev.map(c =>
+                selectedRows.has(c.name) ? { ...c, lead_time_weeks: weeks, lead_time_unit: bulkApply.unit } : c
+            ));
+            await Promise.all([...selectedRows].map(name =>
+                api.patch('/api/catalog/collections', {
+                    brand: selectedBrand.id, name,
+                    leadTimeWeeks: weeks, leadTimeUnit: bulkApply.unit
+                }).catch(err => console.error('Bulk save failed for', name, err))
+            ));
+        } else {
+            setBrandFinishes(prev => prev.map(f =>
+                selectedRows.has(f.finish_code) ? { ...f, lead_time_weeks: weeks, lead_time_unit: bulkApply.unit } : f
+            ));
+            await Promise.all([...selectedRows].map(finishCode =>
+                api.patch('/api/catalog/finishes', {
+                    brand: selectedBrand.id, finishCode,
+                    leadTimeWeeks: weeks, leadTimeUnit: bulkApply.unit
+                }).catch(err => console.error('Bulk save failed for', finishCode, err))
+            ));
+        }
+        setSelectedRows(new Set()); // Clear selection after apply
+        setBulkApply(prev => ({ ...prev, value: '' }));
+    };
 
     // Initialize with default standard mappings
     const [mapping, setMapping] = useState({
@@ -90,30 +247,165 @@ const CatalogManagementTab = ({ project }) => {
         }
     };
 
+    const loadBrandFinishes = async () => {
+        if (!selectedBrand) return;
+        setIsLoadingFinishes(true);
+        try {
+            const res = await api.get(`/api/catalog/finishes/${selectedBrand.id}`);
+            setBrandFinishes(res.data || []);
+        } catch (err) {
+            console.error("Failed to load brand finishes", err);
+        } finally {
+            setIsLoadingFinishes(false);
+        }
+    };
+
     const toggleCollection = async (name, currentVisibility) => {
-        // Optimistic update
         const newVisibility = !currentVisibility;
         setStoredCollections(prev => prev.map(c =>
             c.name === name ? { ...c, is_visible: newVisibility } : c
         ));
-
         try {
-            await api.post('/api/catalog/collections/toggle', {
-                brand: selectedBrand.id,
-                name,
-                isVisible: newVisibility
+            await api.patch('/api/catalog/collections', {
+                brand: selectedBrand.id, name, isVisible: newVisibility
             });
         } catch (err) {
-            console.error("Failed to toggle collection", err);
-            // Revert on error
+            console.error('Failed to toggle collection', err);
             setStoredCollections(prev => prev.map(c =>
                 c.name === name ? { ...c, is_visible: currentVisibility } : c
             ));
         }
     };
 
+    // Generic update for a collection field — called on blur
+    const saveCollection = async (name, patch) => {
+        try {
+            await api.patch('/api/catalog/collections', { brand: selectedBrand.id, name, ...patch });
+        } catch (err) {
+            console.error('Failed to save collection', err);
+            // Do NOT reload — keep the local state to avoid losing user edits
+        }
+    };
+
+    const addCollection = async () => {
+        const newRow = { name: '', description: '', lead_time_weeks: null, lead_time_unit: 'weeks', is_visible: true, _isNew: true };
+        setStoredCollections(prev => [newRow, ...prev]);
+    };
+
+    const deleteCollection = async (name) => {
+        if (!name) {
+            setStoredCollections(prev => prev.filter(c => c.name !== name));
+            return;
+        }
+        setStoredCollections(prev => prev.filter(c => c.name !== name));
+        try {
+            await api.delete('/api/catalog/collections', { data: { brand: selectedBrand.id, name } });
+        } catch (err) {
+            console.error('Failed to delete collection', err);
+            // Reload to restore deleted row if server rejected the delete
+            loadStoredCollections();
+        }
+    };
+
+    const saveNewCollection = async (row) => {
+        if (!row.name.trim()) return;
+        try {
+            await api.post('/api/catalog/collections', {
+                brand: selectedBrand.id,
+                name: row.name,
+                description: row.description,
+                leadTimeWeeks: row.lead_time_weeks,
+                leadTimeUnit: row.lead_time_unit || 'weeks',
+                isVisible: row.is_visible
+            });
+            await loadStoredCollections();
+        } catch (err) {
+            console.error('Failed to create collection', err);
+        }
+    };
+
+    // Generic save for a finish field — called on blur
+    const saveFinish = async (finishCode, patch) => {
+        try {
+            await api.patch('/api/catalog/finishes', { brand: selectedBrand.id, finishCode, ...patch });
+        } catch (err) {
+            console.error('Failed to save finish', err);
+            // Do NOT reload — keep the local state to avoid losing user edits
+        }
+    };
+
+    const addFinish = async () => {
+        const newRow = { finish_code: '', group_code: '', name_en: '', name_it: '', description_pt: '', lead_time_weeks: null, lead_time_unit: 'weeks', _isNew: true };
+        setBrandFinishes(prev => [newRow, ...prev]);
+    };
+
+    const deleteFinish = async (finishCode) => {
+        if (!finishCode) {
+            setBrandFinishes(prev => prev.filter(f => f.finish_code !== finishCode));
+            return;
+        }
+        setBrandFinishes(prev => prev.filter(f => f.finish_code !== finishCode));
+        try {
+            await api.delete('/api/catalog/finishes', { data: { brand: selectedBrand.id, finishCode } });
+        } catch (err) {
+            console.error('Failed to delete finish', err);
+            loadBrandFinishes();
+        }
+    };
+
+    const saveNewFinish = async (row) => {
+        if (!row.finish_code?.trim()) return;
+        try {
+            await api.post('/api/catalog/finishes', {
+                brand: selectedBrand.id,
+                finishCode: row.finish_code,
+                groupCode: row.group_code,
+                name: row.name_en || row.name || '',
+                description: row.description_pt || '',
+                leadTimeWeeks: row.lead_time_weeks,
+                leadTimeUnit: row.lead_time_unit || 'weeks'
+            });
+            await loadBrandFinishes();
+        } catch (err) {
+            console.error('Failed to create finish', err);
+        }
+    };
+
+    const exportLibrary = async (type) => {
+        try {
+            const res = await api.get(`/api/catalog/export?brand=${selectedBrand.id}&type=${type}`);
+            const rows = res.data;
+            if (!rows || !rows.length) return;
+
+            const headers = Object.keys(rows[0]);
+            const bom = '\uFEFF';
+            const csv = bom + [
+                headers.join(';'),
+                ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(';'))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${selectedBrand.id}_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            // Delay cleanup so browser has time to start the download
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 150);
+        } catch (err) {
+            console.error('Export failed', err);
+        }
+    };
+
     useEffect(() => {
-        if (selectedBrand) loadStoredCollections();
+        if (selectedBrand) {
+            loadStoredCollections();
+            loadBrandFinishes();
+        }
     }, [selectedBrand]);
 
     useEffect(() => {
@@ -646,48 +938,473 @@ const CatalogManagementTab = ({ project }) => {
                         </GlassCard>
                     </div>
 
-                    {/* Collection Visibility Manager */}
+                    {/* ─── Library Manager ─────────────────────── */}
                     <GlassCard>
                         <div className="flex flex-col gap-4">
-                            <h4 className="text-lg font-bold text-white flex items-center gap-2">
-                                <FiCheckSquare className="text-amber-500" /> Gestão de Coleções
-                            </h4>
+                            {/* Header */}
+                            <div className="flex justify-between items-center flex-wrap gap-3">
+                                <div className="flex items-center gap-2">
+                                    {/* Tab switcher */}
+                                    {[
+                                        { id: 'collections', label: 'Coleções', icon: <FiCheckSquare size={14} />, color: 'amber' },
+                                        { id: 'finishes', label: 'Acabamentos', icon: <FiSettings size={14} />, color: 'blue' }
+                                    ].map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveLibraryTab(tab.id)}
+                                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeLibraryTab === tab.id
+                                                ? tab.color === 'amber'
+                                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                : 'bg-white/5 text-gray-500 border border-white/10 hover:text-white'
+                                                }`}
+                                        >
+                                            {tab.icon} {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => activeLibraryTab === 'collections' ? addCollection() : addFinish()}
+                                        className="flex items-center gap-1 px-3 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 rounded-xl text-xs font-bold transition-all"
+                                    >
+                                        <FiPlus size={14} /> Nova Linha
+                                    </button>
+                                    <button
+                                        onClick={saveAll}
+                                        disabled={isSaving}
+                                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${savedFeedback
+                                            ? 'bg-green-500/20 border-green-500/30 text-green-400'
+                                            : 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30 text-amber-400 disabled:opacity-50'
+                                            }`}
+                                    >
+                                        {isSaving
+                                            ? <><FiLoader size={13} className="animate-spin" /> A guardar...</>
+                                            : savedFeedback
+                                                ? <><FiCheck size={13} /> Guardado</>
+                                                : <><FiCheck size={13} /> Guardar Tudo</>
+                                        }
+                                    </button>
+                                    <button
+                                        onClick={() => importFileRef.current?.click()}
+                                        disabled={isImporting}
+                                        className="flex items-center gap-1 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                    >
+                                        {isImporting ? <FiLoader size={13} className="animate-spin" /> : <FiUpload size={13} />}
+                                        Importar Excel/CSV
+                                    </button>
+                                    <button
+                                        onClick={() => exportLibrary(activeLibraryTab)}
+                                        className="flex items-center gap-1 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white rounded-xl text-xs font-bold transition-all"
+                                    >
+                                        <FiDownload size={14} /> Exportar CSV
+                                    </button>
+                                    {/* Hidden file input — accepts Excel and CSV */}
+                                    <input
+                                        ref={importFileRef}
+                                        type="file"
+                                        accept=".xlsx,.xls,.csv,.txt"
+                                        onChange={importFile}
+                                        className="hidden"
+                                    />
+                                </div>
+                                {/* Import feedback toast */}
+                                {importFeedback && (
+                                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold ${importFeedback.errors > 0 && importFeedback.count === 0 ? 'bg-red-500/15 text-red-400' : 'bg-green-500/15 text-green-400'}`}>
+                                        {importFeedback.count > 0 ? <FiCheckCircle size={12} /> : <FiAlertTriangle size={12} />}
+                                        {importFeedback.count > 0 ? `${importFeedback.count} linha${importFeedback.count !== 1 ? 's' : ''} importada${importFeedback.count !== 1 ? 's' : ''}` : ''}
+                                        {importFeedback.errors > 0 ? ` · ${importFeedback.errors} erro${importFeedback.errors !== 1 ? 's' : ''}` : ''}
+                                    </div>
+                                )}
+                            </div>
+
                             <p className="text-xs text-gray-500">
-                                Defina quais as coleções que devem aparecer nas propostas.
-                                Desmarque as genéricas (ex: "Geral", "Standard") para não poluirem a descrição dos artigos.
+                                {activeLibraryTab === 'collections'
+                                    ? 'Gerencie as coleções por marca. A coluna "Visível" controla se o nome da coleção aparece nas descrições das propostas.'
+                                    : 'Gerencie os acabamentos por marca. Os prazos definidos aqui têm prioridade sobre os prazos da coleção (Acabamento > Coleção > Marca).'}
                             </p>
 
-                            {isLoadingStored ? (
-                                <div className="flex items-center gap-2 text-amber-500 py-4">
-                                    <FiLoader className="animate-spin" /> A carregar coleções...
+                            {/* ─── Bulk Apply Bar ─── */}
+                            {selectedRows.size > 0 && (
+                                <div className="flex items-center gap-3 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl flex-wrap">
+                                    <span className="text-indigo-400 text-xs font-bold whitespace-nowrap">
+                                        {selectedRows.size} selecionado{selectedRows.size !== 1 ? 's' : ''}
+                                    </span>
+                                    <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+                                        <select
+                                            value={bulkApply.unit}
+                                            onChange={e => setBulkApply(prev => ({ ...prev, unit: e.target.value }))}
+                                            className="bg-black/40 border border-indigo-500/30 rounded-lg px-2 py-1.5 text-white text-[11px] outline-none focus:border-indigo-400 w-28"
+                                        >
+                                            {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                                        </select>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="Valor..."
+                                            value={bulkApply.value}
+                                            onChange={e => setBulkApply(prev => ({ ...prev, value: e.target.value }))}
+                                            onKeyDown={e => e.key === 'Enter' && applyBulkLeadTime()}
+                                            className="flex-1 bg-black/40 border border-indigo-500/30 rounded-lg px-3 py-1.5 text-white text-xs font-mono outline-none focus:border-indigo-400 placeholder-gray-600"
+                                        />
+                                        <button
+                                            onClick={applyBulkLeadTime}
+                                            disabled={!bulkApply.value}
+                                            className="px-4 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-500/40 text-indigo-300 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                        >
+                                            Aplicar a Selecionados
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedRows(new Set())}
+                                        className="text-gray-600 hover:text-gray-400 text-xs transition-all"
+                                    >
+                                        Limpar
+                                    </button>
                                 </div>
-                            ) : storedCollections.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar p-1">
-                                    {storedCollections.map((col, idx) => {
-                                        // Handle SQLite 0/1 booleans
-                                        const isVisible = col.is_visible !== false && col.is_visible !== 0;
-                                        return (
-                                            <div
-                                                key={col.name || idx}
-                                                onClick={() => toggleCollection(col.name, isVisible)}
-                                                className={`
-                                                    flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all select-none
-                                                    ${isVisible
-                                                        ? 'bg-amber-500/10 border-amber-500/30 text-white'
-                                                        : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-100'}
-                                                `}
-                                            >
-                                                <div className={`w-4 h-4 rounded border flex items-center justify-center ${isVisible ? 'bg-amber-500 border-amber-500' : 'border-gray-500'}`}>
-                                                    {isVisible && <FiCheckCircle size={12} className="text-black" />}
-                                                </div>
-                                                <span className="text-xs font-bold truncate" title={col.name}>{col.name}</span>
-                                            </div>
-                                        );
-                                    })}
+                            )}
+
+                            {/* ─── COLLECTIONS TABLE ──── */}
+                            {activeLibraryTab === 'collections' && (
+                                <div className="overflow-x-auto">
+                                    {(isLoadingStored) ? (
+                                        <div className="flex items-center gap-2 text-amber-500 py-6">
+                                            <FiLoader className="animate-spin" /> A carregar coleções...
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-white/10">
+                                                    <th className="py-2 pr-3 w-8">
+                                                        {/* Select All */}
+                                                        <div
+                                                            onClick={() => selectAllVisible(storedCollections, c => c.name)}
+                                                            className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${storedCollections.filter(c => !c._isNew).length > 0 &&
+                                                                storedCollections.filter(c => !c._isNew).every(c => selectedRows.has(c.name))
+                                                                ? 'bg-indigo-500 border-indigo-500'
+                                                                : 'border-gray-600 hover:border-indigo-400'
+                                                                }`}
+                                                        >
+                                                            {storedCollections.filter(c => !c._isNew).every(c => selectedRows.has(c.name)) &&
+                                                                <FiCheck size={10} className="text-white" />}
+                                                        </div>
+                                                    </th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-6">✓</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4">Nome da Coleção</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-28">Unidade</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-20">Prazo</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2">Descrição Técnica</th>
+                                                    <th className="w-8"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {storedCollections.map((col, idx) => {
+                                                    const isVisible = col.is_visible !== false && col.is_visible !== 0;
+                                                    const unit = col.lead_time_unit || 'weeks';
+                                                    return (
+                                                        <tr key={col.name || `new-${idx}`} className={`border-b border-white/5 group transition-all ${selectedRows.has(col.name) ? 'bg-indigo-500/8' : 'hover:bg-white/3'
+                                                            }`}>
+                                                            {/* Row checkbox */}
+                                                            <td className="py-2 pr-3">
+                                                                {!col._isNew && (
+                                                                    <div
+                                                                        onClick={() => toggleRowSelection(col.name)}
+                                                                        className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${selectedRows.has(col.name)
+                                                                            ? 'bg-indigo-500 border-indigo-500'
+                                                                            : 'border-gray-600 hover:border-indigo-400'
+                                                                            }`}
+                                                                    >
+                                                                        {selectedRows.has(col.name) && <FiCheck size={10} className="text-white" />}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            {/* Visible toggle */}
+                                                            <td className="py-2 pr-4">
+                                                                <div
+                                                                    onClick={() => !col._isNew && toggleCollection(col.name, isVisible)}
+                                                                    className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-all shrink-0 ${isVisible ? 'bg-amber-500 border-amber-500' : 'border-gray-600 hover:border-white'}`}
+                                                                >
+                                                                    {isVisible && <FiCheck size={12} className="text-black" />}
+                                                                </div>
+                                                            </td>
+                                                            {/* Name */}
+                                                            <td className="py-2 pr-4 font-bold">
+                                                                <input
+                                                                    type="text"
+                                                                    defaultValue={col.name}
+                                                                    placeholder="Nome..."
+                                                                    readOnly={!col._isNew}
+                                                                    onBlur={e => {
+                                                                        if (col._isNew) {
+                                                                            setStoredCollections(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c));
+                                                                        }
+                                                                    }}
+                                                                    className={`bg-transparent border-b outline-none py-1 w-full text-white text-xs font-bold placeholder-gray-700 transition-all ${col._isNew ? 'border-amber-500/50 focus:border-amber-400' : 'border-transparent cursor-default'}`}
+                                                                />
+                                                            </td>
+                                                            {/* Unit */}
+                                                            <td className="py-2 pr-4">
+                                                                <select
+                                                                    value={unit}
+                                                                    onChange={e => {
+                                                                        const newUnit = e.target.value;
+                                                                        setStoredCollections(prev => prev.map((c, i) => i === idx ? { ...c, lead_time_unit: newUnit } : c));
+                                                                        if (!col._isNew && col.name) saveCollection(col.name, { leadTimeUnit: newUnit });
+                                                                    }}
+                                                                    className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-white text-[11px] outline-none focus:border-amber-500/50 w-full"
+                                                                >
+                                                                    {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                                                                </select>
+                                                            </td>
+                                                            {/* Value */}
+                                                            <td className="py-2 pr-4">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    value={toDisplayValue(col.lead_time_weeks, unit)}
+                                                                    placeholder="—"
+                                                                    onChange={e => {
+                                                                        const weeks = toWeeks(e.target.value, unit);
+                                                                        setStoredCollections(prev => prev.map((c, i) => i === idx ? { ...c, lead_time_weeks: weeks } : c));
+                                                                    }}
+                                                                    onBlur={e => {
+                                                                        const weeks = toWeeks(e.target.value, unit);
+                                                                        if (!col._isNew && col.name) saveCollection(col.name, { leadTimeWeeks: weeks, leadTimeUnit: unit });
+                                                                    }}
+                                                                    className="bg-black/40 border border-white/10 rounded-lg py-1 px-2 text-center text-[11px] font-mono text-white outline-none focus:border-amber-500/50 w-full"
+                                                                />
+                                                            </td>
+                                                            {/* Description */}
+                                                            <td className="py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    defaultValue={col.description || ''}
+                                                                    placeholder="Descrição técnica da coleção..."
+                                                                    onBlur={e => {
+                                                                        if (col._isNew) {
+                                                                            setStoredCollections(prev => prev.map((c, i) => i === idx ? { ...c, description: e.target.value } : c));
+                                                                        } else {
+                                                                            saveCollection(col.name, { description: e.target.value });
+                                                                        }
+                                                                    }}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter' && col._isNew) saveNewCollection({ ...storedCollections[idx], description: e.target.value });
+                                                                    }}
+                                                                    className="bg-transparent border-b border-white/10 outline-none py-1 w-full text-gray-300 text-[11px] placeholder-gray-700 focus:border-amber-500/50 transition-all"
+                                                                />
+                                                            </td>
+                                                            {/* Actions */}
+                                                            <td className="py-2 pl-2">
+                                                                {col._isNew ? (
+                                                                    <button
+                                                                        onClick={() => saveNewCollection(storedCollections[idx])}
+                                                                        className="p-1 rounded text-green-400 hover:bg-green-500/20 transition-all"
+                                                                        title="Guardar"
+                                                                    >
+                                                                        <FiCheck size={14} />
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => deleteCollection(col.name)}
+                                                                        className="p-1 rounded text-gray-700 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                                                                        title="Eliminar"
+                                                                    >
+                                                                        <FiX size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {storedCollections.length === 0 && (
+                                                    <tr><td colSpan={6} className="py-8 text-center text-gray-600 italic">Nenhuma coleção. Clique em "Nova Linha" ou importe um ficheiro.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    )}
                                 </div>
-                            ) : (
-                                <div className="text-gray-500 text-sm italic py-4">
-                                    Nenhuma coleção encontrada. Importe tabelas para popular esta lista.
+                            )}
+
+                            {/* ─── FINISHES TABLE ──── */}
+                            {activeLibraryTab === 'finishes' && (
+                                <div className="overflow-x-auto">
+                                    {(isLoadingFinishes) ? (
+                                        <div className="flex items-center gap-2 text-blue-500 py-6">
+                                            <FiLoader className="animate-spin" /> A carregar acabamentos...
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-white/10">
+                                                    <th className="py-2 pr-3 w-8">
+                                                        <div
+                                                            onClick={() => selectAllVisible(brandFinishes, f => f.finish_code)}
+                                                            className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${brandFinishes.filter(f => !f._isNew).length > 0 &&
+                                                                brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.finish_code))
+                                                                ? 'bg-indigo-500 border-indigo-500'
+                                                                : 'border-gray-600 hover:border-indigo-400'
+                                                                }`}
+                                                        >
+                                                            {brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.finish_code)) &&
+                                                                <FiCheck size={10} className="text-white" />}
+                                                        </div>
+                                                    </th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-20">Código</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-20">Grupo</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4">Nome</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-28">Unidade</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-20">Prazo</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2">Descrição Técnica</th>
+                                                    <th className="w-8"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {brandFinishes.map((f, idx) => {
+                                                    const unit = f.lead_time_unit || 'weeks';
+                                                    return (
+                                                        <tr key={f.finish_code || `new-${idx}`} className={`border-b border-white/5 group transition-all ${selectedRows.has(f.finish_code) ? 'bg-indigo-500/8' : 'hover:bg-white/3'
+                                                            }`}>
+                                                            {/* Row checkbox */}
+                                                            <td className="py-2 pr-3">
+                                                                {!f._isNew && (
+                                                                    <div
+                                                                        onClick={() => toggleRowSelection(f.finish_code)}
+                                                                        className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${selectedRows.has(f.finish_code)
+                                                                            ? 'bg-indigo-500 border-indigo-500'
+                                                                            : 'border-gray-600 hover:border-indigo-400'
+                                                                            }`}
+                                                                    >
+                                                                        {selectedRows.has(f.finish_code) && <FiCheck size={10} className="text-white" />}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            {/* Code */}
+                                                            <td className="py-2 pr-4">
+                                                                <input
+                                                                    type="text"
+                                                                    defaultValue={f.finish_code}
+                                                                    placeholder="COD..."
+                                                                    readOnly={!f._isNew}
+                                                                    onBlur={e => {
+                                                                        if (f._isNew) {
+                                                                            setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, finish_code: e.target.value } : r));
+                                                                        }
+                                                                    }}
+                                                                    className={`bg-transparent border-b outline-none py-1 w-full font-black text-blue-400 text-[11px] uppercase tracking-tight placeholder-gray-700 ${f._isNew ? 'border-blue-500/50' : 'border-transparent cursor-default'}`}
+                                                                />
+                                                            </td>
+                                                            {/* Group */}
+                                                            <td className="py-2 pr-4">
+                                                                <input
+                                                                    type="text"
+                                                                    defaultValue={f.group_code || ''}
+                                                                    placeholder="GRP"
+                                                                    onBlur={e => {
+                                                                        const newVal = e.target.value;
+                                                                        setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, group_code: newVal } : r));
+                                                                        if (!f._isNew && f.finish_code) {
+                                                                            saveFinish(f.finish_code, { groupCode: newVal });
+                                                                        }
+                                                                    }}
+                                                                    className="bg-transparent border-b border-white/10 outline-none py-1 w-full text-gray-400 text-[11px] placeholder-gray-700 focus:border-blue-500/50 transition-all"
+                                                                />
+                                                            </td>
+                                                            {/* Name */}
+                                                            <td className="py-2 pr-4">
+                                                                <input
+                                                                    type="text"
+                                                                    defaultValue={f.name_en || f.name_it || ''}
+                                                                    placeholder="Nome do acabamento..."
+                                                                    onBlur={e => {
+                                                                        const val = e.target.value;
+                                                                        setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, name_en: val } : r));
+                                                                        if (!f._isNew && f.finish_code) {
+                                                                            saveFinish(f.finish_code, { name: val });
+                                                                        }
+                                                                    }}
+                                                                    className="bg-transparent border-b border-white/10 outline-none py-1 w-full text-white font-bold text-[11px] placeholder-gray-700 focus:border-blue-500/50 transition-all"
+                                                                />
+                                                            </td>
+                                                            {/* Unit */}
+                                                            <td className="py-2 pr-4">
+                                                                <select
+                                                                    value={unit}
+                                                                    onChange={e => {
+                                                                        const newUnit = e.target.value;
+                                                                        setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, lead_time_unit: newUnit } : r));
+                                                                        if (!f._isNew && f.finish_code) saveFinish(f.finish_code, { leadTimeUnit: newUnit });
+                                                                    }}
+                                                                    className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-white text-[11px] outline-none focus:border-blue-500/50 w-full"
+                                                                >
+                                                                    {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                                                                </select>
+                                                            </td>
+                                                            {/* Value */}
+                                                            <td className="py-2 pr-4">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    value={toDisplayValue(f.lead_time_weeks, unit)}
+                                                                    placeholder="—"
+                                                                    onChange={e => {
+                                                                        const weeks = toWeeks(e.target.value, unit);
+                                                                        setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, lead_time_weeks: weeks } : r));
+                                                                    }}
+                                                                    onBlur={e => {
+                                                                        const weeks = toWeeks(e.target.value, unit);
+                                                                        if (!f._isNew && f.finish_code) saveFinish(f.finish_code, { leadTimeWeeks: weeks, leadTimeUnit: unit });
+                                                                    }}
+                                                                    className="bg-black/40 border border-white/10 rounded-lg py-1 px-2 text-center text-[11px] font-mono text-white outline-none focus:border-blue-500/50 w-full"
+                                                                />
+                                                            </td>
+                                                            {/* Description */}
+                                                            <td className="py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    defaultValue={f.description_pt || ''}
+                                                                    placeholder="Descrição técnica..."
+                                                                    onBlur={e => {
+                                                                        const val = e.target.value;
+                                                                        setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, description_pt: val } : r));
+                                                                        if (!f._isNew && f.finish_code) {
+                                                                            saveFinish(f.finish_code, { description: val });
+                                                                        }
+                                                                    }}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter' && f._isNew) saveNewFinish({ ...brandFinishes[idx], description_pt: e.target.value });
+                                                                    }}
+                                                                    className="bg-transparent border-b border-white/10 outline-none py-1 w-full text-gray-300 text-[11px] placeholder-gray-700 focus:border-blue-500/50 transition-all"
+                                                                />
+                                                            </td>
+                                                            {/* Actions */}
+                                                            <td className="py-2 pl-2">
+                                                                {f._isNew ? (
+                                                                    <button
+                                                                        onClick={() => saveNewFinish(brandFinishes[idx])}
+                                                                        className="p-1 rounded text-green-400 hover:bg-green-500/20 transition-all"
+                                                                        title="Guardar"
+                                                                    >
+                                                                        <FiCheck size={14} />
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => deleteFinish(f.finish_code)}
+                                                                        className="p-1 rounded text-gray-700 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                                                                        title="Eliminar"
+                                                                    >
+                                                                        <FiX size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {brandFinishes.length === 0 && (
+                                                    <tr><td colSpan={7} className="py-8 text-center text-gray-600 italic">Nenhum acabamento encontrado. Clique em "Nova Linha" ou importe um ficheiro.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -74,11 +74,17 @@ const ProposalEditor = (props) => {
         try {
             setLoading(true);
             const [pRes, projRes, presetRes] = await Promise.all([
-                api.get(`/api/proposals/${proposalId}`),
+                api.get(`/api/proposals/${proposalId}?t=${Date.now()}`),
                 api.get('/api/projects'),
                 api.get(`/api/proposals/presets/list`)
             ]);
-            setProposal(pRes.data);
+            const data = pRes.data;
+            // Default doc_date to today if not set — avoids empty date in editor & PDF
+            if (!data.metadata) data.metadata = {};
+            if (!data.metadata.doc_date) {
+                data.metadata.doc_date = new Date().toISOString().split('T')[0];
+            }
+            setProposal({ ...data });
             setProjects(projRes.data.projects || []);
             setPresets(presetRes.data || []);
         } catch (e) {
@@ -365,6 +371,11 @@ const ProposalEditor = (props) => {
             const rawOriginal = item.description_it || item.description_en || '';
             const originalFormatted = rawOriginal ? (rawOriginal.charAt(0).toUpperCase() + rawOriginal.slice(1).toLowerCase()) : '';
 
+            // Parse item extra_attributes from modal (may contain finish_note, finish_code chosen by user)
+            const itemExtra = typeof item.extra_attributes === 'string'
+                ? JSON.parse(item.extra_attributes || '{}')
+                : (item.extra_attributes || {});
+
             // Price Safety
             const catalogPrice = parseFloat(item.price || 0);
             const currentPrice = parseFloat(line.unit_price_commercial || 0);
@@ -385,13 +396,13 @@ const ProposalEditor = (props) => {
                     brand: item.brand || line.brand_id,
                     catalog_match: true,
                     catalog_sku: item.sku,
-                    finish_code: extraDetails?.finishCode || line.extra_attributes?.finish_code,
+                    finish_code: extraDetails?.finishCode || itemExtra.finish_code || line.extra_attributes?.finish_code,
                     finish_group: item.finish_group,
-                    finish_note: extraDetails?.finish?.description_pt || extraDetails?.finish?.note_pt || extraDetails?.finishNote || line.extra_attributes?.finish_note,
+                    finish_note: extraDetails?.finish?.description_pt || extraDetails?.finish?.note_pt || extraDetails?.finishNote || itemExtra.finish_note || line.extra_attributes?.finish_note,
                     manual_resolution: true,
                     collection: extraDetails?.item?.series || extraDetails?.series || item.series,
                     series: extraDetails?.item?.series || extraDetails?.series || item.series,
-                    original_description: line.extra_attributes?.original_description || null, // Don't invent an original description for new lines
+                    original_description: line.extra_attributes?.original_description || null,
                     catalog_price: item.price,
                     price_match: currentPrice === 0 ? true : isMatch
                 },
@@ -761,15 +772,6 @@ const ProposalEditor = (props) => {
                     />
                 )}
 
-                {showLogistics && (
-                    <LogisticsManager
-                        proposalId={proposalId}
-                        onClose={() => {
-                            setShowLogistics(false);
-                            loadData();
-                        }}
-                    />
-                )}
 
                 {/* Editor Content */}
                 <div className="flex-1 overflow-auto p-8">
@@ -807,7 +809,7 @@ const ProposalEditor = (props) => {
                                 const lineTotal = qty * applyDiscount(price, line.discount_commercial_percent || '0');
 
                                 return (
-                                    <tr key={line.id} className="group hover:bg-white/[0.02]">
+                                    <tr key={`${line.id}-${line.predicted_ship_date || 'nodate'}`} className="group hover:bg-white/[0.02]">
                                         <td className="py-2 text-[9px] font-mono text-gray-600 text-center">{idx + 1}</td>
                                         <td className="py-2 text-[10px] font-mono text-amber-500/70">
                                             <div className="flex items-center gap-1.5">
@@ -879,29 +881,40 @@ const ProposalEditor = (props) => {
                                                     value={line.description}
                                                     onChange={e => updateLine(idx, 'description', e.target.value)}
                                                 />
-                                                {line.extra_attributes?.original_description && (
-                                                    <div className="text-[9px] text-gray-500 italic leading-none">
-                                                        ({line.extra_attributes.original_description})
-                                                    </div>
-                                                )}
-                                                {shouldShowCollectionDynamic(line.extra_attributes?.collection) && (
-                                                    <div className="text-[9px] text-gray-500 uppercase tracking-tighter mt-1 line-clamp-1">
-                                                        {line.extra_attributes.collection}
-                                                    </div>
-                                                )}
-
-                                                {/* Tech Spec Indicator */}
-                                                {(line.extra_attributes?.finish_note || line.extra_attributes?.brand_meta?.finishNote) && (
-                                                    <div className="mt-1 flex items-center gap-1.5 text-[8px] bg-blue-500/5 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/10 w-fit">
-                                                        <span className="font-bold uppercase">📋 Spec Técnica:</span>
-                                                        <span className="line-clamp-1 opacity-70">{(line.extra_attributes.finish_note || line.extra_attributes.brand_meta.finishNote).substring(0, 30)}...</span>
-                                                    </div>
-                                                )}
-
-                                                {/* Ship Date Indicator */}
                                                 {(() => {
+                                                    const isComment = !line.sku && !parseFloat(line.quantity) && !parseFloat(line.unit_price_commercial);
+                                                    if (isComment) return null;
+
+                                                    return (
+                                                        <>
+                                                            {line.extra_attributes?.original_description && (
+                                                                <div className="text-[9px] text-gray-500 italic leading-none">
+                                                                    ({line.extra_attributes.original_description})
+                                                                </div>
+                                                            )}
+                                                            {shouldShowCollectionDynamic(line.extra_attributes?.collection) && (
+                                                                <div className="text-[9px] text-gray-500 uppercase tracking-tighter mt-1 line-clamp-1">
+                                                                    {line.extra_attributes.collection}
+                                                                </div>
+                                                            )}
+                                                            {(line.extra_attributes?.finish_note || line.extra_attributes?.brand_meta?.finishNote) && (
+                                                                <div className="mt-1 flex items-center gap-1.5 text-[8px] bg-blue-500/5 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/10 w-fit">
+                                                                    <span className="font-bold uppercase">📋 Spec Técnica:</span>
+                                                                    <span className="line-clamp-1 opacity-70">{(line.extra_attributes.finish_note || line.extra_attributes.brand_meta.finishNote).substring(0, 30)}...</span>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
+
+                                                {(() => {
+                                                    const isComment = !line.sku && !parseFloat(line.quantity) && !parseFloat(line.unit_price_commercial);
+                                                    if (isComment) return null;
+
                                                     const effLead = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
                                                     let pDate = line.predicted_ship_date;
+
+                                                    // Auto-calculate only if MISSING. If it exists (manually set), respect it.
                                                     if (!pDate && effLead > 0) {
                                                         const bDate = proposal.order_confirmation_date
                                                             ? new Date(proposal.order_confirmation_date)
@@ -911,15 +924,27 @@ const ProposalEditor = (props) => {
                                                             pDate = bDate.getTime();
                                                         }
                                                     }
-                                                    if (!pDate) return null;
-                                                    const date = new Date(pDate);
-                                                    const isOverdue = date < new Date();
+
+                                                    const dateVal = pDate ? new Date(pDate).toISOString().split('T')[0] : '';
+                                                    const isOverdue = pDate && (new Date(pDate) < new Date());
 
                                                     return (
-                                                        <div className={`text-[8px] font-black uppercase mt-1 flex items-center gap-1.5 ${isOverdue ? 'text-red-500' : 'text-green-500'}`}>
-                                                            <FiClock className="shrink-0" />
-                                                            <span>Previsto: {date.toLocaleDateString('pt-PT')}</span>
-                                                            {isOverdue && <span className="px-1 bg-red-500/10 rounded animate-pulse">Atraso</span>}
+                                                        <div className={`text-[9px] font-black uppercase mt-2 flex items-center gap-2 px-2 py-1 rounded-md border shadow-sm transition-all
+                                                            ${isOverdue
+                                                                ? 'bg-red-500/10 border-red-500/20 text-red-500'
+                                                                : 'bg-green-500/10 border-green-500/20 text-green-400'
+                                                            }`}>
+                                                            <FiClock className="shrink-0 text-[11px]" />
+                                                            <input
+                                                                type="date"
+                                                                value={dateVal}
+                                                                onChange={e => {
+                                                                    const val = e.target.value ? new Date(e.target.value).getTime() : null;
+                                                                    updateLine(idx, 'predicted_ship_date', val);
+                                                                }}
+                                                                className="bg-transparent border-none outline-none text-[10px] font-bold text-current cursor-pointer"
+                                                            />
+                                                            {isOverdue && <span className="px-1.5 bg-red-500 text-white text-[8px] rounded animate-pulse ml-auto">ATRASO</span>}
                                                         </div>
                                                     );
                                                 })()}
@@ -1210,7 +1235,10 @@ const ProposalEditor = (props) => {
                 {showLogistics && (
                     <LogisticsManager
                         proposalId={proposalId}
-                        onClose={() => setShowLogistics(false)}
+                        onClose={() => {
+                            setShowLogistics(false);
+                            loadData();
+                        }}
                     />
                 )}
 

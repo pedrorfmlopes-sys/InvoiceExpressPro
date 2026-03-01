@@ -76,7 +76,8 @@ const CatalogSearchModal = ({ brand, initialSku, onClose, onSelect, onCreateNew 
             extra_attributes: JSON.stringify({
                 base_sku: base,
                 finish_code: finCode,
-                finish_name: finish.note_pt || finish.name_en || finish.name_it,
+                finish_name: finish.name_en || finish.name_it || finish.finish_code,
+                finish_note: finish.description_pt || finish.note_pt || '',
                 handle: handle,
                 catalog_price: pendingItem.price
             })
@@ -153,7 +154,7 @@ const CatalogSearchModal = ({ brand, initialSku, onClose, onSelect, onCreateNew 
                                             <span className="text-xs bg-black/30 px-2 py-0.5 rounded text-gray-400 uppercase tracking-widest">{f.group_code}</span>
                                         </div>
                                         <span className="text-sm text-gray-300 font-bold">{f.name_it}</span>
-                                        <span className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed" title={f.note_pt || ''}>{f.note_pt || f.technical_type || f.name_en}</span>
+                                        <span className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed" title={f.description_pt || f.name_en || ''}>{f.description_pt || f.technical_type || f.name_en}</span>
                                     </div>
                                 ))}
                             </div>

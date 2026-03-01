@@ -10,7 +10,17 @@ async function calculateShipDate(startDate, leadTime, brandId = 'nicolazzi') {
     if (!startDate) return null;
 
     // Normalize leadTime to { value, unit }
-    let config = typeof leadTime === 'object' ? leadTime : { value: leadTime || 0, unit: 'weeks' };
+    let config;
+    if (typeof leadTime === 'object' && leadTime !== null) {
+        config = {
+            value: parseFloat(leadTime.value !== undefined ? leadTime.value : (leadTime.lead_time_weeks || 0)),
+            unit: leadTime.unit || 'weeks'
+        };
+    } else {
+        config = { value: parseFloat(leadTime || 0), unit: 'weeks' };
+    }
+
+    if (isNaN(config.value)) config.value = 0;
 
     // 1. Fetch Calendar Logic
     const calendar = await knex('factory_calendars').where('brand_id', brandId).first();
@@ -37,45 +47,48 @@ async function calculateShipDate(startDate, leadTime, brandId = 'nicolazzi') {
         }
     }
 
-    // 3. Check for SHUTDOWNS in the range [Start, Target]
-    let relevantShutdowns = [];
+    // 3. Check for SHUTDOWNS in the range [Start, Target] - Iterative approach
+    let processedShutdownIds = new Set();
+    let foundNewShutdown = true;
+
+    // Filter shutdowns for the iterative loop
     const recurringEvents = events.filter(e => e.type === 'shutdown' && e.is_recurring);
     const staticEvents = events.filter(e => e.type === 'shutdown' && !e.is_recurring);
 
-    const startYear = startDate.getFullYear();
-    const targetYear = targetDate.getFullYear();
+    while (foundNewShutdown) {
+        foundNewShutdown = false;
 
-    // Expand recurring events for current and next year
-    recurringEvents.forEach(ev => {
-        const evStart = new Date(ev.start_date);
-        const evEnd = new Date(ev.end_date);
-        for (let y = startYear; y <= targetYear + 1; y++) {
-            relevantShutdowns.push({
-                start: new Date(y, evStart.getMonth(), evStart.getDate()),
-                end: new Date(y, evEnd.getMonth(), evEnd.getDate())
-            });
-        }
-    });
+        const relevantShutdowns = [];
+        const startYear = startDate.getFullYear();
+        const targetYear = targetDate.getFullYear();
 
-    staticEvents.forEach(ev => {
-        relevantShutdowns.push({ start: new Date(ev.start_date), end: new Date(ev.end_date) });
-    });
+        recurringEvents.forEach(ev => {
+            const evStart = new Date(ev.start_date);
+            const evEnd = new Date(ev.end_date);
+            for (let y = startYear; y <= targetYear + 1; y++) {
+                relevantShutdowns.push({
+                    id: `${ev.id}-${y}`,
+                    start: new Date(y, evStart.getMonth(), evStart.getDate()),
+                    end: new Date(y, evEnd.getMonth(), evEnd.getDate())
+                });
+            }
+        });
 
-    relevantShutdowns.sort((a, b) => a.start - b.start);
+        staticEvents.forEach(ev => {
+            relevantShutdowns.push({ id: ev.id, start: new Date(ev.start_date), end: new Date(ev.end_date) });
+        });
 
-    // Extend targetDate by any shutdown overlapping the range
-    // We do a simple additive logic: if a shutdown is in the middle, push delivery out.
-    for (const shutdown of relevantShutdowns) {
-        if (shutdown.start <= targetDate && shutdown.end >= startDate) {
-            const overlapStart = shutdown.start < startDate ? startDate : shutdown.start;
-            const overlapEnd = shutdown.end > targetDate ? targetDate : shutdown.end;
+        relevantShutdowns.sort((a, b) => a.start - b.start);
 
-            // For factory shutdowns, we usually add the FULL duration of the stop
-            // Manufacturer logic: "If we stop for 2 weeks in August, delivery is pushed 2 weeks"
-            // Ensure at least 1 day is added for 1-day holidays
-            const diffTime = Math.abs(shutdown.end - shutdown.start);
-            const shutdownDuration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-            targetDate.setDate(targetDate.getDate() + shutdownDuration);
+        for (const shutdown of relevantShutdowns) {
+            if (!processedShutdownIds.has(shutdown.id) && shutdown.start <= targetDate && shutdown.end >= startDate) {
+                const diffTime = Math.abs(shutdown.end - shutdown.start);
+                const shutdownDuration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                targetDate.setDate(targetDate.getDate() + shutdownDuration);
+                processedShutdownIds.add(shutdown.id);
+                foundNewShutdown = true;
+                break; // Re-calculate starting from the earliest shutdown in the new range
+            }
         }
     }
 

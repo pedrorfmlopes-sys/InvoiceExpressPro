@@ -79,7 +79,6 @@ export default function ReconciliationTab() {
     const [loading, setLoading] = useState(true);
     const [selectedProposalId, setSelectedProposalId] = useState(null);
     const [showGlobalModal, setShowGlobalModal] = useState(false);
-    const [activeBrand, setActiveBrand] = useState('nicolazzi'); // nicolazzi, ritmonio
 
     // Filters and Selection for Export
     const [statusFilter, setStatusFilter] = useState('all'); // all, pending, partial, completed
@@ -89,15 +88,24 @@ export default function ReconciliationTab() {
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportingLateItems, setExportingLateItems] = useState(false);
 
-    // Change brand
+    // Unified Load
     useEffect(() => {
         loadReport();
-    }, [activeBrand]);
+        loadAnalytics();
+    }, []);
+
+    // Reactive analytics — reload when selection changes
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            loadAnalytics(selectedIds);
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [selectedIds]);
 
     const loadReport = async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/api/${activeBrand}/report`);
+            const res = await api.get(`/api/reconciliation/report`);
             setReport(res.data || []);
         } catch (err) {
             console.error(err);
@@ -110,7 +118,7 @@ export default function ReconciliationTab() {
     const loadAnalytics = async (ids = []) => {
         try {
             const params = ids.length > 0 ? { proposalIds: ids.join(',') } : {};
-            const res = await api.get(`/api/${activeBrand}/analytics`, { params });
+            const res = await api.get(`/api/reconciliation/analytics`, { params });
             setAnalytics(res.data);
         } catch (err) {
             console.error('Failed to load analytics', err);
@@ -124,7 +132,7 @@ export default function ReconciliationTab() {
 
         setLoading(true);
         try {
-            await api.post(`/api/${activeBrand}/reconciliation/reset`);
+            await api.post(`/api/reconciliation/reset`);
             alert('Reset concluído com sucesso. O sistema está a atualizar os dados.');
             loadReport();
         } catch (err) {
@@ -181,12 +189,12 @@ export default function ReconciliationTab() {
         if (selectedIds.length === 0) return;
         setExportingExcel(true);
         try {
-            const res = await api.post(`/api/${activeBrand}/report/export`, { proposalIds: selectedIds }, { responseType: 'blob' });
+            const res = await api.post(`/api/reconciliation/report/export`, { proposalIds: selectedIds }, { responseType: 'blob' });
 
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `status_encomendas_${activeBrand}_${new Date().toISOString().split('T')[0]}.xlsx`);
+            link.setAttribute('download', `status_encomendas_${new Date().toISOString().split('T')[0]}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -201,12 +209,12 @@ export default function ReconciliationTab() {
         if (selectedIds.length === 0) return;
         setExportingPdf(true);
         try {
-            const res = await api.post(`/api/${activeBrand}/report/export-pdf`, { proposalIds: selectedIds }, { responseType: 'blob' });
+            const res = await api.post(`/api/reconciliation/report/export-pdf`, { proposalIds: selectedIds }, { responseType: 'blob' });
 
             const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `relatorio_status_${activeBrand}_${new Date().toISOString().split('T')[0]}.pdf`);
+            link.setAttribute('download', `relatorio_status_${new Date().toISOString().split('T')[0]}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -220,12 +228,12 @@ export default function ReconciliationTab() {
     const handleExportLateItems = async () => {
         setExportingLateItems(true);
         try {
-            const res = await api.get(`/api/${activeBrand}/analytics/late-export`, { responseType: 'blob' });
+            const res = await api.get(`/api/reconciliation/analytics/late-export`, { responseType: 'blob' });
 
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `${activeBrand}_artigos_atraso.xlsx`);
+            link.setAttribute('download', `artigos_atraso.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -244,21 +252,6 @@ export default function ReconciliationTab() {
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">Relatório de Reconciliação</h1>
                     <p className="text-sm text-gray-500 mt-1">Gestão de Fornecimento & Analytics</p>
-                </div>
-
-                <div className="flex bg-[#1a1a1a] rounded-lg p-1 border border-[#333]">
-                    <button
-                        onClick={() => setActiveBrand('nicolazzi')}
-                        className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${activeBrand === 'nicolazzi' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        Nicolazzi
-                    </button>
-                    <button
-                        onClick={() => setActiveBrand('ritmonio')}
-                        className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${activeBrand === 'ritmonio' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        Ritmonio
-                    </button>
                 </div>
             </div>
             <div className="flex items-center gap-3">
@@ -325,37 +318,52 @@ export default function ReconciliationTab() {
             {/* GLOBAL ANALYTICS DASHBOARD */}
             {
                 analytics && (
-                    <div className="grid grid-cols-4 gap-4 mb-6 shrink-0">
-                        <RotatingAnalyticsCard
-                            label="Logística (Atrasos)"
-                            project={{ sale: { net: 0 }, cost: { net: 0 }, margin: { net: 0 } }}
-                            realized={{
-                                sale: { net: analytics.logistics.lateItemsCurrent },
-                                cost: { net: analytics.logistics.totalItemsPending },
-                                margin: { net: 0, percent: parseFloat(analytics.logistics.latePercentage) }
-                            }}
-                        />
-
-                        <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center">
-                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Lead Time Médio</span>
-                            <div className="flex items-baseline gap-2 mt-1">
-                                <span className="text-2xl font-bold font-mono text-white">{analytics.logistics.avgLeadTimeDays}</span>
-                                <span className="text-xs text-gray-400">dias reais</span>
+                    <div className="mb-6 shrink-0">
+                        {/* Selection indicator */}
+                        {selectedIds.length > 0 && (
+                            <div className="flex items-center gap-3 mb-2 px-3 py-1.5 bg-indigo-900/20 border border-indigo-800/40 rounded-lg">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                                <span className="text-[11px] text-indigo-400 font-bold uppercase tracking-wider">
+                                    Analytics filtrados: {selectedIds.length} proposta{selectedIds.length !== 1 ? 's' : ''} selecionada{selectedIds.length !== 1 ? 's' : ''}
+                                </span>
+                                <button
+                                    onClick={() => setSelectedIds([])}
+                                    className="ml-auto text-[10px] text-indigo-500 hover:text-white font-bold uppercase transition-colors"
+                                >Limpar seleção ×</button>
                             </div>
-                            <span className="text-[10px] text-gray-500 mt-1">Média até entrega</span>
+                        )}
+                        <div className="grid grid-cols-4 gap-4">
+                            <RotatingAnalyticsCard
+                                label="Logística (Atrasos)"
+                                project={{ sale: { net: 0 }, cost: { net: 0 }, margin: { net: 0 } }}
+                                realized={{
+                                    sale: { net: analytics.logistics.lateItemsCurrent },
+                                    cost: { net: analytics.logistics.totalItemsPending },
+                                    margin: { net: 0, percent: parseFloat(analytics.logistics.latePercentage) }
+                                }}
+                            />
+
+                            <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex flex-col justify-center">
+                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Lead Time Médio</span>
+                                <div className="flex items-baseline gap-2 mt-1">
+                                    <span className="text-2xl font-bold font-mono text-white">{analytics.logistics.avgLeadTimeDays}</span>
+                                    <span className="text-xs text-gray-400">dias reais</span>
+                                </div>
+                                <span className="text-[10px] text-gray-500 mt-1">Média até entrega</span>
+                            </div>
+
+                            <RotatingAnalyticsCard
+                                label="Volume do Projeto"
+                                project={analytics.project}
+                                realized={analytics.project}
+                            />
+
+                            <RotatingAnalyticsCard
+                                label="Rentabilidade Real (Matched)"
+                                project={analytics.project}
+                                realized={analytics.realized}
+                            />
                         </div>
-
-                        <RotatingAnalyticsCard
-                            label="Volume do Projeto"
-                            project={analytics.project}
-                            realized={analytics.project}
-                        />
-
-                        <RotatingAnalyticsCard
-                            label="Rentabilidade Real (Matched)"
-                            project={analytics.project}
-                            realized={analytics.realized}
-                        />
                     </div>
                 )
             }

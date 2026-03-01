@@ -78,40 +78,52 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
     const updates = [];
 
     for (const line of lines) {
-        if (line.is_manual_override) continue;
-
         // Determine Context (Brand + Rules)
         let meta = line.extra_attributes ? (typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes) : line.extra_attributes) : {};
-
-        // 1. Line-level Brand Override
         const lineBrandId = (meta.brand_id || meta.brand || proposal.brand_id || 'nicolazzi').toLowerCase();
 
-        // 2. Determine Rule (Priority: Finish > Category > Collection > Global)
-        const series = (meta.brand_meta?.series || meta.series || '').trim();
-        const finish = (meta.finish_code || meta.finishCode || meta.brand_meta?.finishCode || '').trim();
-        const cat = (line.production_category || '').trim();
+        let leadTime = null;
+        let rule = null;
 
-        let rule = rules.find(r => finish && r.target === `finish:${finish}`) ||
-            rules.find(r => cat && r.target === `category:${cat}`) ||
-            rules.find(r => series && r.target === `collection:${series}`) ||
-            rules.find(r => r.target === 'global');
-
-        let leadTime;
-        if (rule) {
-            leadTime = { value: rule.value, unit: rule.unit };
+        if (line.is_manual_override) {
+            // Use line's own lead time
+            const val = line.lead_time_weeks !== null && line.lead_time_weeks !== undefined ? line.lead_time_weeks : 8;
+            leadTime = { value: val, unit: 'weeks' };
         } else {
-            // Fallback to legacy field
-            leadTime = { value: line.lead_time_weeks || proposal.general_lead_time_weeks || 8, unit: 'weeks' };
+            // 2. Determine Rule (Priority: Finish > Collection > Category > Brand > Global)
+            const series = (meta.series || meta.collection || meta.brand_meta?.series || '').trim().toLowerCase();
+            const finish = (meta.finish_code || meta.finishCode || meta.brand_meta?.finishCode || '').trim().toLowerCase();
+            const cat = (line.production_category || '').trim().toLowerCase();
+            const b = lineBrandId;
+
+            rule =
+                rules.find(r => finish && r.target.toLowerCase() === `finish:${b}:${finish}`) ||
+                rules.find(r => series && r.target.toLowerCase() === `collection:${b}:${series}`) ||
+                rules.find(r => cat && r.target.toLowerCase() === `category:${b}:${cat}`) ||
+                rules.find(r => r.target.toLowerCase() === `brand:${b}`) ||
+                // Legacy Matches
+                rules.find(r => finish && r.target.toLowerCase() === `finish:${finish}`) ||
+                rules.find(r => series && r.target.toLowerCase() === `collection:${series}`) ||
+                rules.find(r => cat && r.target.toLowerCase() === `category:${cat}`) ||
+                rules.find(r => r.target.toLowerCase() === 'global');
+
+            if (rule) {
+                leadTime = { value: rule.value, unit: rule.unit };
+            } else {
+                // Fallback to legacy field
+                const val = (line.lead_time_weeks !== null && line.lead_time_weeks !== undefined)
+                    ? line.lead_time_weeks
+                    : (proposal.general_lead_time_weeks !== null && proposal.general_lead_time_weeks !== undefined ? proposal.general_lead_time_weeks : 8);
+                leadTime = { value: val, unit: 'weeks' };
+            }
         }
 
         // Calculate (using line-specific brand context)
         const shipDate = await calculateShipDate(startDate, leadTime, lineBrandId);
 
-        console.log(`[Logistics] Line ${line.sku}: Brand=${lineBrandId}, Rule=${rule?.target || 'none'}, LT=${leadTime.value} ${leadTime.unit} -> ${shipDate ? shipDate.toISOString().split('T')[0] : 'NULL'}`);
-
         updates.push({
             id: line.id,
-            predicted_ship_date: shipDate
+            predicted_ship_date: shipDate ? shipDate.getTime() : null
         });
     }
 
@@ -121,6 +133,88 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
     }
 
     return { success: true, updated: updates.length };
+}
+
+/**
+ * NEW: Calculate Preview
+ * Takes current rules and order date, returns calculated dates for lines without saving.
+ */
+async function calculatePreview(proposalId, { order_date, rules, manual_overrides = [] }) {
+    console.log(`[LogisticsPreview] Calculating for ${proposalId}. Anchor: ${order_date}. Overrides: ${manual_overrides.length}`);
+    const proposal = await knex('custom_proposals').where({ id: proposalId }).first();
+    if (!proposal) return { success: false, reason: 'Proposal not found' };
+
+    const startDate = order_date ? new Date(order_date) : (proposal.order_confirmation_date ? new Date(proposal.order_confirmation_date) : null);
+    if (!startDate) return { success: false, reason: 'No Order Date' };
+
+    const lines = await knex('proposal_lines').where({ proposal_id: proposalId });
+    const results = [];
+
+    for (const line of lines) {
+        let isManual = !!line.is_manual_override;
+        let leadTime;
+
+        // Check if this line has a manual override in the draft
+        const override = manual_overrides.find(o => String(o.id) === String(line.id));
+
+        if (override) {
+            if (override.manual_override === false) {
+                // User wants to revert to rules
+                isManual = false;
+                leadTime = null;
+            } else if (override.manual_override === true || override.lead_time_weeks !== undefined) {
+                leadTime = {
+                    value: override.value !== undefined ? override.value : override.lead_time_weeks,
+                    unit: override.unit || 'weeks'
+                };
+                isManual = true;
+            }
+        }
+
+        if (!isManual) {
+            // Apply Rules
+            let meta = line.extra_attributes ? (typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes) : line.extra_attributes) : {};
+            const lineBrandId = (meta.brand_id || meta.brand || proposal.brand_id || 'nicolazzi').toLowerCase().trim();
+            const series = (meta.series || meta.collection || meta.brand_meta?.series || '').trim().toLowerCase();
+            const finish = (meta.finish_code || meta.finishCode || meta.brand_meta?.finishCode || '').trim().toLowerCase();
+            const cat = (line.production_category || '').trim().toLowerCase();
+            const b = lineBrandId;
+
+            rule =
+                rules.find(r => finish && r.target.toLowerCase() === `finish:${b}:${finish}`) ||
+                rules.find(r => series && r.target.toLowerCase() === `collection:${b}:${series}`) ||
+                rules.find(r => cat && r.target.toLowerCase() === `category:${b}:${cat}`) ||
+                rules.find(r => r.target.toLowerCase() === `brand:${b}`) ||
+                // Legacy Matches
+                rules.find(r => finish && r.target.toLowerCase() === `finish:${finish}`) ||
+                rules.find(r => series && r.target.toLowerCase() === `collection:${series}`) ||
+                rules.find(r => cat && r.target.toLowerCase() === `category:${cat}`) ||
+                rules.find(r => r.target.toLowerCase() === 'global');
+
+            if (line.sku && rule) {
+                console.log(`[LogisticsPreview] SKU: ${line.sku} MATCHED RULE: ${rule.target} VALUE: ${rule.value}`);
+            }
+
+            leadTime = rule ? { value: rule.value, unit: rule.unit } : { value: line.lead_time_weeks || proposal.general_lead_time_weeks || 8, unit: 'weeks' };
+        }
+
+        const meta = line.extra_attributes ? (typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes) : line.extra_attributes) : {};
+        const lineBrandId = (meta.brand_id || meta.brand || proposal.brand_id || 'nicolazzi').toLowerCase();
+
+        const shipDate = await calculateShipDate(startDate, leadTime, lineBrandId);
+        const shipTimestamp = shipDate ? shipDate.getTime() : null;
+
+        results.push({
+            id: line.id,
+            predicted_ship_date: shipTimestamp,
+            lead_time_weeks: leadTime.unit === 'weeks' ? leadTime.value : (leadTime.unit === 'months' ? leadTime.value * 4 : Math.ceil(leadTime.value / 7)),
+            actual_lead_time_value: leadTime.value,
+            actual_lead_time_unit: leadTime.unit,
+            is_manual_override: isManual ? 1 : 0
+        });
+    }
+
+    return { success: true, lines: results };
 }
 
 /**
@@ -192,5 +286,6 @@ module.exports = {
     updateProposalLogistics,
     updateLineLogistics,
     recalculateShipDates,
-    autoCategorizeLines
+    autoCategorizeLines,
+    calculatePreview
 };

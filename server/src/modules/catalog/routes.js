@@ -19,6 +19,14 @@ router.post('/resolve-bulk', requireAuth, CatalogController.resolveBulk);
 router.post('/bulk-create', requireAuth, CatalogController.bulkCreate);
 router.get('/collections', requireAuth, CatalogController.getCollections);
 router.post('/collections/toggle', requireAuth, CatalogController.toggleCollection);
+router.patch('/collections', requireAuth, CatalogController.updateCollection);
+router.post('/collections', requireAuth, CatalogController.createCollection);
+router.delete('/collections', requireAuth, CatalogController.deleteCollection);
+router.patch('/finishes', requireAuth, CatalogController.updateFinish);
+router.post('/finishes', requireAuth, CatalogController.createFinish);
+router.delete('/finishes', requireAuth, CatalogController.deleteFinish);
+router.get('/export', requireAuth, CatalogController.exportLibrary);
+router.post('/import', requireAuth, upload.single('file'), CatalogController.importLibrary);
 router.delete('/clear', requireAuth, requireRole('admin'), CatalogController.clearCatalog);
 
 module.exports = router;

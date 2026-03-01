@@ -149,9 +149,13 @@ exports.exportFulfillmentPdfMultiple = async (req, res) => {
 
 exports.getAnalytics = async (req, res) => {
     try {
+        console.log('[Analytics] Controller started. Query:', req.query);
         const proposalIds = req.query.proposalIds ? req.query.proposalIds.split(',') : null;
-        const result = await service.getAnalytics(proposalIds, 'nicolazzi');
+        const brand = req.query.brand || null;
+        const result = await service.getAnalytics(proposalIds, brand);
+        console.log('[Analytics] Controller: sending response.');
         res.json(result);
+        console.log('[Analytics] Controller: response sent.');
     } catch (err) {
         console.error('[Nicolazzi Analytics] Error:', err);
         res.status(500).json({ error: err.message });
@@ -160,7 +164,11 @@ exports.getAnalytics = async (req, res) => {
 
 exports.resetAllMatchings = async (req, res) => {
     try {
-        const result = await service.resetAllMatchings('nicolazzi');
+        console.log('[Reset] Controller started. Body:', req.body);
+        const brand = req.body.brand || 'ALL';
+        console.log('[Reset] Calling service for brand:', brand);
+        const result = await service.resetAllMatchings(brand);
+        console.log('[Reset] Service result:', result);
         res.json(result);
     } catch (err) {
         console.error('[Nicolazzi Reset] Error:', err);

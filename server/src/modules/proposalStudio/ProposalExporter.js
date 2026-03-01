@@ -244,10 +244,13 @@ class ProposalPdfEngine {
         let totalSiva = 0;
 
         this.proposal.lines.forEach(line => {
-            const lineTotal = (line.quantity || 0) * (line.unit_price_commercial || 0);
+            const qty = line.quantity || 0;
+            const price = line.unit_price_commercial || 0;
+            const discPercent = line.discount_commercial_percent || 0;
+            const lineTotal = qty * price * (1 - (discPercent / 100));
             totalSiva += lineTotal;
 
-            let fullDescription = line.description || '';
+            let fullDescription = (line.description || '').replace(/\{.*?\}/g, '').trim();
             const extraLines = [];
 
             const effectiveLeadWeeks = line.lead_time_weeks || this.proposal.general_lead_time_weeks || 0;
@@ -383,7 +386,20 @@ class ProposalPdfEngine {
                 this.drawText('ANEXO: ESPECIFICAÇÕES TÉCNICAS DE ACABAMENTOS', this.margin, 12, this.fontB, rgb(0, 0, 0));
                 this.y -= 25;
 
-                uniqueFinishes.forEach(f => {
+                // Sort by code length descending to handle sub-string filtering
+                const sortedFinishes = [...uniqueFinishes].sort((a, b) => b.code.length - a.code.length);
+                const filteredFinishes = [];
+
+                sortedFinishes.forEach(f => {
+                    const isRedundant = filteredFinishes.some(existing => {
+                        const codeMatch = existing.code.includes(f.code) && f.code.length < existing.code.length;
+                        const noteMatch = existing.note.includes(f.note) || f.note.includes(existing.note);
+                        return codeMatch && noteMatch;
+                    });
+                    if (!isRedundant) filteredFinishes.push(f);
+                });
+
+                filteredFinishes.forEach(f => {
                     const title = f.code ? `Acabamento: ${f.code}` : 'Especificação Técnica';
                     const noteLines = this.splitTextToLines(f.note, 9, this.width - (this.margin * 2) - 20);
                     const blockHeight = (noteLines.length * 12) + 30;

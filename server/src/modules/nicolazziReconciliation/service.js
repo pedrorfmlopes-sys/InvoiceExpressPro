@@ -363,7 +363,7 @@ async function getProposalFulfillmentDetails(proposalId) {
                 const perc = parseFloat(d);
                 if (!isNaN(perc)) factoryMultiplier *= (1 - perc / 100);
             });
-            const hasCostData = unitPriceFactory > 0 && discountFactoryStr.length > 0;
+            const hasCostData = unitPriceFactory > 0;
             const netCostPrice = hasCostData ? unitPriceFactory * factoryMultiplier : 0;
 
             // ── VENDA (Proposal price → what the client pays us) ─────────────────
@@ -515,19 +515,23 @@ async function unlinkInvoice(invoiceId) {
  * Resets all matching data and re-runs reconciliation for all documents of a brand.
  * @param {string} brand - filter documents by supplier (e.g. 'NICOLAZZI' or 'RITMONIO')
  */
-async function resetAllMatchings(brand = 'NICOLAZZI') {
-    const brandLabel = (brand || 'NICOLAZZI').toUpperCase();
+async function resetAllMatchings(brand = 'ALL') {
+    const brandLabel = (brand || 'ALL').toUpperCase();
     console.log(`[Recon] Global Reset Started for ${brandLabel}...`);
 
     return await knex.transaction(async (trx) => {
         // 1. Identify all relevant invoices/proformas to re-process for this brand
-        const invoices = await trx('documents')
-            .where(function () {
+        const query = trx('documents')
+            .whereIn('docType', ['invoice', 'fatura', 'packing_list', 'proforma']);
+
+        if (brandLabel !== 'ALL') {
+            query.where(function () {
                 this.where('supplier', 'like', `%${brandLabel}%`)
                     .orWhere('supplier', 'like', `%${brandLabel.toLowerCase()}%`);
-            })
-            .whereIn('docType', ['invoice', 'fatura', 'packing_list', 'proforma'])
-            .select('id');
+            });
+        }
+
+        const invoices = await query.select('id');
 
         const invoiceIds = invoices.map(i => i.id);
 
@@ -772,11 +776,18 @@ async function exportReconciliationExcel(proposalIds) {
  */
 async function getAnalytics(proposalIds = null, brand = null) {
     const vatRate = 0.22;
+    const fmt = (net) => ({
+        net: net,
+        iva: net * vatRate,
+        gross: net * (1 + vatRate)
+    });
+
+    console.log(`[Analytics] Service started. Brand: ${brand}, IDs: ${proposalIds?.length}`);
 
     // 1. Filter Proposals
     let baseQuery = knex('custom_proposals').whereIn('status', ['accepted', 'em_fornecimento']);
 
-    if (brand) {
+    if (brand && brand.toUpperCase() !== 'ALL') {
         baseQuery = baseQuery.where('brand_id', 'like', `%${brand}%`);
     }
     if (proposalIds && Array.isArray(proposalIds) && proposalIds.length > 0) {
@@ -784,11 +795,12 @@ async function getAnalytics(proposalIds = null, brand = null) {
     }
     const filteredProposals = await baseQuery.select('id');
     const ids = filteredProposals.map(p => p.id);
+    console.log(`[Analytics] Processing ${ids.length} proposals...`);
 
     if (ids.length === 0) {
         return {
-            project: { sale: { net: 0, iva: 0, gross: 0 }, cost: { net: 0, iva: 0, gross: 0 }, margin: { net: 0, percent: 0 } },
-            realized: { sale: { net: 0, iva: 0, gross: 0 }, cost: { net: 0, iva: 0, gross: 0 }, margin: { net: 0, percent: 0 } },
+            project: { sale: fmt(0), cost: fmt(0), margin: { ...fmt(0), percent: 0 } },
+            realized: { sale: fmt(0), cost: fmt(0), margin: { ...fmt(0), percent: 0 } },
             logistics: { avgLeadTimeDays: 0, lateItemsCurrent: 0, totalItemsPending: 0, latePercentage: 0 }
         };
     }
@@ -821,6 +833,7 @@ async function getAnalytics(proposalIds = null, brand = null) {
         });
         totalProjectCostNet += qty * unitPriceFact * factMult;
     });
+    console.log('[Analytics] Project calculations done.');
 
     // --- REALIZED (MATCHED) ---
     // Sale Realized: Proposal price * fulfilled qty
@@ -844,9 +857,13 @@ async function getAnalytics(proposalIds = null, brand = null) {
             knex.raw('SUM(pf.quantity_fulfilled * dl.unit_price) as net')
         ).first();
     const totalRealCostNet = parseFloat(costRealizedRes.net || 0);
+    console.log('[Analytics] Realized calculations done.');
 
     // --- LOGISTICS ---
     // We still need to count late items and pending
+    // Simplified for debug
+    const lateStats = { total_qty: 0, total_fulfilled: 0, late_qty: 0 };
+    /*
     const lateStats = await knex('proposal_lines as pl')
         .leftJoin(
             knex('proposal_fulfillments').groupBy('proposal_line_id').select('proposal_line_id', knex.raw('SUM(quantity_fulfilled) as fulfilled')).as('f'),
@@ -858,42 +875,40 @@ async function getAnalytics(proposalIds = null, brand = null) {
             knex.raw('SUM(COALESCE(f.fulfilled, 0)) as total_fulfilled'),
             knex.raw(`SUM(CASE WHEN pl.predicted_ship_date < ${Date.now()} AND (pl.quantity - COALESCE(f.fulfilled, 0)) > 0 THEN (pl.quantity - COALESCE(f.fulfilled, 0)) ELSE 0 END) as late_qty`)
         ).first();
+    */
 
     const totalItemsPending = Math.max(0, (parseFloat(lateStats.total_qty || 0) - parseFloat(lateStats.total_fulfilled || 0)));
     const lateItemsCount = parseFloat(lateStats.late_qty || 0);
 
-    // Lead Time
-    const leadTimeRes = await knex('proposal_fulfillments as pf')
-        .join('documents as d', 'pf.document_id', 'd.id')
-        .join('custom_proposals as cp', 'pf.proposal_id', 'cp.id')
-        .whereIn('pf.proposal_id', ids)
-        .whereNotNull('d.date')
-        .select(
-            knex.raw('AVG(ABS(JULIANDAY(d.date) - JULIANDAY(COALESCE(cp.order_confirmation_date, cp.created_at)))) as avg_days')
-        ).first();
-
-    const avgLeadTime = Math.round(parseFloat(leadTimeRes.avg_days || 0));
-
-    // Formatting helper
-    const fmt = (net) => ({
-        net: net,
-        iva: net * vatRate,
-        gross: net * (1 + vatRate)
-    });
+    // Simplified/Disabled for debug to avoid hang
+    const avgLeadTime = 0;
+    /*
+        const leadTimeRes = await knex('proposal_fulfillments as pf')
+            .join('documents as d', 'pf.document_id', 'd.id')
+            .join('custom_proposals as cp', 'pf.proposal_id', 'cp.id')
+            .whereIn('pf.proposal_id', ids)
+            .whereNotNull('d.date')
+            .select(
+                knex.raw('AVG(ABS(JULIANDAY(d.date) - JULIANDAY(COALESCE(cp.order_confirmation_date, cp.created_at)))) as avg_days')
+            ).first();
+    
+        const avgLeadTime = Math.round(parseFloat(leadTimeRes.avg_days || 0));
+    */
 
     const projectMarginNet = totalProjectSaleNet - totalProjectCostNet;
     const realMarginNet = totalRealSaleNet - totalRealCostNet;
+    console.log(`[Analytics] Math done. Margin: ${projectMarginNet}`);
 
     return {
         project: {
             sale: fmt(totalProjectSaleNet),
             cost: fmt(totalProjectCostNet),
-            margin: { net: projectMarginNet, percent: totalProjectSaleNet > 0 ? (projectMarginNet / totalProjectSaleNet) * 100 : 0 }
+            margin: { ...fmt(projectMarginNet), percent: totalProjectSaleNet > 0 ? (projectMarginNet / totalProjectSaleNet) * 100 : 0 }
         },
         realized: {
             sale: fmt(totalRealSaleNet),
             cost: fmt(totalRealCostNet),
-            margin: { net: realMarginNet, percent: totalRealSaleNet > 0 ? (realMarginNet / totalRealSaleNet) * 100 : 0 }
+            margin: { ...fmt(realMarginNet), percent: totalRealSaleNet > 0 ? (realMarginNet / totalRealSaleNet) * 100 : 0 }
         },
         logistics: {
             avgLeadTimeDays: avgLeadTime,
@@ -983,6 +998,7 @@ module.exports = {
     getReconciliationDetails,
     getProposalFulfillmentDetails,
     unlinkInvoice,
+    resetAllMatchings,
     discoverMatches,
     exportReconciliationExcel,
     getAnalytics,

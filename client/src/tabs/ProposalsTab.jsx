@@ -142,8 +142,10 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
 
     const handleCreateProposal = async () => {
         try {
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
             const res = await api.post(qp('/api/proposals', project), {
-                brand_id: filterBrand || 'MULTIMARCAS'
+                brand_id: filterBrand || 'MULTIMARCAS',
+                metadata: { doc_date: today }
             });
             setEditingProposalId(res.data.id);
         } catch (e) {

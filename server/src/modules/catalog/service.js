@@ -33,7 +33,7 @@ class CatalogService {
             group_code: String(row.group_code || row["Código Grupo"] || row["Group Code"] || '').trim(),
             name_it: row.name_it || row["Nome IT"],
             name_en: row.name_en || row["Nome EN"],
-            note_pt: row.note_pt || row.nota_pt_pt || row["Nota PT"] || row["Explicação Técnica"] || row["Nota Técnica"],
+            description_pt: row.description_pt || row.note_pt || row.nota_pt_pt || row["Nota PT"] || row["Explicação Técnica"] || row["Nota Técnica"],
             technical_type: row.technical_type || row["Tipo Técnico"],
             protection: row.protection || row["Proteção"]
         })).filter(r => r.finish_code && r.group_code);
@@ -263,9 +263,9 @@ class CatalogService {
                     brand: 'ritmonio',
                     finish_code: code,
                     group_code: isStarred ? 'STARRED' : 'STANDARD',
-                    name_en: name, // Maintain Nicolazzi parity
+                    name_en: name,
                     description_pt: techDesc || null,
-                    note_pt: JSON.stringify({ lead_time_days: leadDays, lead_time_weeks: leadWeeks }),
+                    lead_time_weeks: leadWeeks || null,
                     updated_at: new Date()
                 };
             }).filter(Boolean);
@@ -470,8 +470,6 @@ class CatalogService {
 
         if (b === 'multimarcas' || b === 'todas' || b === 'other') {
             // Smart resolution logic for Multi-Brand Proposals
-
-            // Try generic EXACT match across all brands first
             const genericItem = await knex('catalog_items')
                 .where({ sku: cleanSku })
                 .first();
@@ -500,12 +498,14 @@ class CatalogService {
 
             if (!item) return { success: false, reason: 'Not found in generic catalog' };
 
-            // For Ritmonio, try to match the last 2-4 chars to a finish code to get lead time and details
+            // --- Hierarchical Lead Time & Finish Resolution ---
             let leadTimeWeeks = null;
             let finishNote = item.description_pt;
             let finish = null;
             let finishCode = item.finish_group || '';
+            const series = item.series;
 
+            // 1. Resolve Finish (Ritmonio Suffix logic)
             if (b === 'ritmonio') {
                 const finishMap = await knex('catalog_finishes').where({ brand: 'ritmonio' });
                 const upperSku = cleanSku.toUpperCase();
@@ -514,25 +514,41 @@ class CatalogService {
                     if (upperSku.endsWith(f.finish_code.toUpperCase())) {
                         finish = f;
                         finishCode = f.finish_code;
-                        try {
-                            const params = typeof f.note_pt === 'string' ? JSON.parse(f.note_pt) : (f.note_pt || {});
-                            leadTimeWeeks = params.lead_time_weeks || null;
-                            // Technical description from finish takes priority for the note
-                            const techDesc = f.description_pt || '';
-                            const timeStr = params.lead_time_days ? ` | Produção: ${params.lead_time_days} dias úteis` : '';
-                            finishNote = techDesc ? `${techDesc}${timeStr}` : `${item.description_pt}${timeStr}`;
-                        } catch (e) {
-                            console.warn('[CatalogService] Failed to parse finish note for Ritmonio:', f.finish_code);
+                        // Read lead time directly from the DB column (migrated from legacy note_pt JSON)
+                        if (f.lead_time_weeks != null) {
+                            leadTimeWeeks = f.lead_time_weeks;
                         }
+                        const leadDays = f.lead_time_weeks ? Math.round(f.lead_time_weeks * 5) : null;
+                        const techDesc = f.description_pt || '';
+                        const timeStr = leadDays ? ` | Produção: ${leadDays} dias úteis` : '';
+                        finishNote = techDesc ? `${techDesc}${timeStr}` : `${item.description_pt || ''}${timeStr}`;
                         break;
                     }
                 }
+            }
+
+            // 2. Resolve Collection Lead Time (Fallback Tier 2)
+            if (!leadTimeWeeks && series) {
+                const collection = await knex('catalog_collections')
+                    .whereRaw('LOWER(brand) = ?', [b])
+                    .andWhere({ name: series })
+                    .first();
+                if (collection) {
+                    try {
+                        const meta = typeof collection.metadata === 'string' ? JSON.parse(collection.metadata) : (collection.metadata || {});
+                        leadTimeWeeks = meta.lead_time_weeks || collection.lead_time_weeks || null;
+                    } catch (e) {
+                        // Silent fail
+                    }
+                }
+
             }
 
             return {
                 success: true,
                 sku: item.sku,
                 brand: item.brand,
+                series: series,
                 description_pt: item.description_pt,
                 finishCode: finishCode,
                 finishNote: finishNote,
@@ -655,14 +671,15 @@ class CatalogService {
 
             for (const item of potentialItems) {
                 const remainder = cleanSku.slice(item.sku.length);
-                // Try to see if remainder contains handle or finish
                 if (!remainder) return { originalSku: rawSku, item, sku: item.sku, handle: item.handle, success: true, fuzzy: true, series: item.series };
 
-                // Guess finish from remainder
-                const possibleFinish = await knex('catalog_finishes')
+                // Guess finish from remainder - Prioritize longest match (e.g. DBM over DB)
+                const possibleFinishes = await knex('catalog_finishes')
                     .where({ brand: 'nicolazzi' })
                     .whereRaw('? LIKE CONCAT(\'%\', finish_code, \'%\')', [remainder])
-                    .first();
+                    .orderByRaw('LENGTH(finish_code) DESC');
+
+                const possibleFinish = possibleFinishes[0];
 
                 return {
                     originalSku: rawSku,
@@ -703,10 +720,28 @@ class CatalogService {
 
     async getBrandFinishes(brand) {
         if (!brand) return [];
-        return await knex('catalog_finishes')
+        const rows = await knex('catalog_finishes')
             .where('brand', brand)
             .orderBy('group_code', 'asc')
             .orderBy('finish_code', 'asc');
+        // Back-compat: note_pt can be either JSON (lead time) or plain text (description)
+        return rows.map(r => {
+            if (r.note_pt) {
+                try {
+                    const parsed = JSON.parse(r.note_pt);
+                    // note_pt is JSON → extract lead_time_weeks
+                    if (parsed && parsed.lead_time_weeks != null && r.lead_time_weeks == null) {
+                        r.lead_time_weeks = parsed.lead_time_weeks;
+                    }
+                } catch (e) {
+                    // note_pt is plain text → use as description_pt if not set
+                    if (!r.description_pt) {
+                        r.description_pt = r.note_pt;
+                    }
+                }
+            }
+            return r;
+        });
     }
 
     async clearBrandCatalog(brand) {
@@ -828,6 +863,126 @@ class CatalogService {
             .where({ brand, name })
             .update({ is_visible: isVisible, updated_at: new Date() });
         return { success: true };
+    }
+
+    async updateCollection(brand, name, data) {
+        await knex('catalog_collections')
+            .where({ brand, name })
+            .update({
+                ...(data.leadTimeWeeks !== undefined && { lead_time_weeks: data.leadTimeWeeks }),
+                ...(data.leadTimeUnit !== undefined && { lead_time_unit: data.leadTimeUnit }),
+                ...(data.description !== undefined && { description: data.description }),
+                ...(data.isVisible !== undefined && { is_visible: data.isVisible }),
+                updated_at: new Date()
+            });
+        return { success: true };
+    }
+
+    async createCollection(brand, data) {
+        const { name, description, leadTimeWeeks, leadTimeUnit, isVisible } = data;
+        if (!name) throw new Error('Collection name is required');
+        await knex('catalog_collections')
+            .insert({
+                brand,
+                name,
+                description: description || null,
+                lead_time_weeks: leadTimeWeeks || null,
+                lead_time_unit: leadTimeUnit || 'weeks',
+                is_visible: isVisible !== undefined ? isVisible : true
+            })
+            .onConflict(['brand', 'name'])
+            .merge(); // Upsert
+        return { success: true };
+    }
+
+    async deleteCollection(brand, name) {
+        await knex('catalog_collections').where({ brand, name }).delete();
+        return { success: true };
+    }
+
+    async updateFinish(brand, finishCode, data) {
+        await knex('catalog_finishes')
+            .where({ brand, finish_code: finishCode })
+            .update({
+                ...(data.leadTimeWeeks !== undefined && { lead_time_weeks: data.leadTimeWeeks }),
+                ...(data.leadTimeUnit !== undefined && { lead_time_unit: data.leadTimeUnit }),
+                ...(data.description !== undefined && { description_pt: data.description }),
+                ...(data.name !== undefined && { name_en: data.name }),
+                ...(data.groupCode !== undefined && { group_code: data.groupCode }),
+                updated_at: new Date()
+            });
+        return { success: true };
+    }
+
+    async createFinish(brand, data) {
+        const { finishCode, groupCode, name, description, leadTimeWeeks, leadTimeUnit } = data;
+        if (!finishCode) throw new Error('Finish code is required');
+        const existing = await knex('catalog_finishes')
+            .where({ brand, finish_code: finishCode })
+            .first();
+        if (existing) {
+            await knex('catalog_finishes')
+                .where({ id: existing.id })
+                .update({
+                    group_code: groupCode || existing.group_code,
+                    name_en: name || existing.name_en,
+                    description_pt: description || existing.description_pt,
+                    lead_time_weeks: leadTimeWeeks !== undefined ? leadTimeWeeks : existing.lead_time_weeks,
+                    lead_time_unit: leadTimeUnit || existing.lead_time_unit || 'weeks',
+                    updated_at: new Date()
+                });
+        } else {
+            await knex('catalog_finishes').insert({
+                id: require('uuid').v4(),
+                brand,
+                finish_code: finishCode,
+                group_code: groupCode || '',
+                name_en: name || null,
+                description_pt: description || null,
+                lead_time_weeks: leadTimeWeeks || null,
+                lead_time_unit: leadTimeUnit || 'weeks'
+            });
+        }
+        return { success: true };
+    }
+
+    async deleteFinish(brand, finishCode) {
+        await knex('catalog_finishes').where({ brand, finish_code: finishCode }).delete();
+        return { success: true };
+    }
+
+    /**
+     * Export all collections or finishes for a brand as structured JSON
+     * Frontend converts to CSV/Excel
+     */
+    async exportLibrary(brand, type) {
+        if (type === 'finishes') {
+            const rows = await knex('catalog_finishes')
+                .where({ brand })
+                .select('finish_code', 'group_code', 'name_en as name',
+                    'description_pt', 'note_pt', 'lead_time_weeks', 'lead_time_unit')
+                .orderBy('group_code').orderBy('finish_code');
+            // Resolve description: prefer description_pt, fallback to note_pt if plain text
+            return rows.map(r => {
+                let desc = r.description_pt;
+                if (!desc && r.note_pt) {
+                    try { JSON.parse(r.note_pt); } catch (e) { desc = r.note_pt; }
+                }
+                return {
+                    finish_code: r.finish_code,
+                    group_code: r.group_code,
+                    name: r.name,
+                    description: desc || null,
+                    lead_time_weeks: r.lead_time_weeks,
+                    lead_time_unit: r.lead_time_unit
+                };
+            });
+        } else {
+            return knex('catalog_collections')
+                .where({ brand })
+                .select('name', 'description', 'lead_time_weeks', 'lead_time_unit', 'is_visible')
+                .orderBy('name');
+        }
     }
 }
 

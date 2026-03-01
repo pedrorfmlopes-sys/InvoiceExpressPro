@@ -29,5 +29,6 @@ router.put('/:id/logistics', (req, res) => controller.updateLogisticsHeader(req,
 router.post('/:id/logistics/lines', (req, res) => controller.updateLogisticsLines(req, res));
 router.post('/:id/logistics/calculate', (req, res) => controller.recalculateLogistics(req, res));
 router.post('/:id/logistics/auto-categorize', (req, res) => controller.autoCategorizeLogistics(req, res));
+router.post('/:id/logistics/calculate-preview', (req, res) => controller.calculatePreview(req, res));
 
 module.exports = router;

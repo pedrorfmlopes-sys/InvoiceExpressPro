@@ -184,8 +184,8 @@ class ProposalStudioController {
         try {
             const { id } = req.params;
             const { lineIds, updates } = req.body;
-            await logisticsService.updateLineLogistics(id, lineIds, updates);
-            res.json({ ok: true });
+            const result = await logisticsService.updateLineLogistics(id, lineIds, updates);
+            res.json(result || { ok: true });
         } catch (e) {
             res.status(500).json({ error: e.message });
         }
@@ -205,6 +205,16 @@ class ProposalStudioController {
         try {
             const { id } = req.params;
             const result = await logisticsService.autoCategorizeLines(id);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async calculatePreview(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await logisticsService.calculatePreview(id, req.body);
             res.json(result);
         } catch (e) {
             res.status(500).json({ error: e.message });

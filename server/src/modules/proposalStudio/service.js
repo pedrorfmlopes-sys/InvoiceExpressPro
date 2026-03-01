@@ -3,7 +3,9 @@ const { v4: uuidv4 } = require('uuid');
 const SatelliteStorage = require('../../storage/SatelliteStorage');
 const ProposalExporter = require('./ProposalExporter');
 const CustomerService = require('../crm/CustomerService');
+const CatalogService = require('../catalog/service');
 const path = require('path');
+
 
 class ProposalStudioService {
     /**
@@ -93,7 +95,8 @@ class ProposalStudioService {
             id: proposalId,
             proposal_number: sourceData.docNumber || doc.docNumber || sourceData.shippingMarks,
             name: `Proposta: ${doc.docNumber || 'Sem Número'}`,
-            brand_id: doc.supplier && /NICOLAZZI/i.test(doc.supplier) ? 'nicolazzi' : 'other',
+            brand_id: doc.supplier && /NICOLAZZI/i.test(doc.supplier) ? 'nicolazzi' : (/RITMONIO/i.test(doc.supplier) ? 'ritmonio' : 'other'),
+
             client_ref: doc.customer || cust.name || sourceData.customer,
             project_ref: project || doc.project || sourceData.customerRef,
             status: 'draft',
@@ -141,9 +144,16 @@ class ProposalStudioService {
             updated_at: new Date()
         }));
 
+        // 5. Enrich Lines with Catalog Data (Finish, Lead Time, etc)
+        const brandId = proposal.brand_id;
+        for (const line of proposalLines) {
+            await this.enrichLineWithCatalog(brandId, line);
+        }
+
         if (proposalLines.length > 0) {
             await knex('proposal_lines').insert(proposalLines);
         }
+
 
         return { proposalId, linesCount: proposalLines.length };
     }
@@ -297,18 +307,28 @@ class ProposalStudioService {
                     vat_rate: String(l.vat_rate),
                     sort_order: index,
                     lead_time_weeks: l.lead_time_weeks !== undefined ? l.lead_time_weeks : null,
+                    predicted_ship_date: l.predicted_ship_date ? new Date(l.predicted_ship_date) : null,
+                    is_manual_override: l.is_manual_override || false,
                     production_category: l.production_category || null,
                     extra_attributes: JSON.stringify(l.extra_attributes || {}),
                     updated_at: new Date()
                 };
 
                 if (existing) {
+                    // Detect SKU change to trigger re-enrichment
+                    if (existing.sku !== l.sku && !l.is_manual_override) {
+                        await this.enrichLineWithCatalog(header.brand_id || existing.brand_id, lineData);
+                    }
                     // UPDATE — preserving the existing UUID
                     await knex('proposal_lines').where({ id: existing.id }).update(lineData);
                     processedIds.add(existing.id);
                 } else {
                     // INSERT — new line
                     const newId = uuidv4();
+                    // Enrich new line
+                    if (!lineData.is_manual_override) {
+                        await this.enrichLineWithCatalog(header.brand_id || 'other', lineData);
+                    }
                     await knex('proposal_lines').insert({
                         ...lineData,
                         id: newId,
@@ -317,6 +337,7 @@ class ProposalStudioService {
                     processedIds.add(newId);
                 }
             }
+
 
             // DELETE lines that are no longer in the proposal — but ONLY if they have no fulfillments
             const removedLines = existingLines.filter(l => !processedIds.has(l.id));
@@ -428,6 +449,55 @@ class ProposalStudioService {
             await trx('custom_proposals').where({ id }).del();
         });
     }
+
+    /**
+     * Helper to Enrich a Proposal Line with Catalog Data.
+     * Implements hierarchal logic: Finish > Collection > Brand.
+     */
+    async enrichLineWithCatalog(brand, line) {
+        if (!line.sku) return;
+
+        try {
+            const res = await CatalogService.resolveItem(brand, line.sku);
+            if (!res || !res.success) return;
+
+            const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes) : (line.extra_attributes || {});
+
+            // 1. Update Finish info
+            if (res.finishCode) {
+                extra.finishCode = res.finishCode;
+                extra.finishNote = res.finishNote;
+                if (res.finish) extra.brand_meta = { ...(extra.brand_meta || {}), ...res.finish };
+            }
+
+            // 2. Update Series/Collection info
+            if (res.series) {
+                extra.series = res.series;
+            }
+
+            // 3. Update Lead Time (from resolution)
+            if (res.leadTimeWeeks !== null && res.leadTimeWeeks !== undefined) {
+                line.lead_time_weeks = res.leadTimeWeeks;
+            }
+
+            line.extra_attributes = JSON.stringify(extra);
+
+            // 4. Trigger predicted date calculation if we have an order date
+            const proposal = await knex('custom_proposals').where({ id: line.proposal_id }).first();
+            if (proposal && proposal.order_confirmation_date && line.lead_time_weeks !== null) {
+                const { calculateShipDate } = require('../logistics/calendarEngine');
+                const shipDate = await calculateShipDate(
+                    new Date(proposal.order_confirmation_date),
+                    { value: line.lead_time_weeks, unit: 'weeks' },
+                    brand
+                );
+                if (shipDate) line.predicted_ship_date = shipDate;
+            }
+        } catch (err) {
+            console.error('[ProposalStudioService] Enrichment Error:', err.message);
+        }
+    }
 }
+
 
 module.exports = new ProposalStudioService();

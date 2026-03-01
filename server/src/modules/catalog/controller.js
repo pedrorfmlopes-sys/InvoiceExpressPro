@@ -1,7 +1,8 @@
 // server/src/modules/catalog/controller.js
 const CatalogService = require('./service');
-const path = require('path');
+const XLSX = require('xlsx');
 const fs = require('fs');
+const path = require('path');
 
 class CatalogController {
 
@@ -185,6 +186,153 @@ class CatalogController {
         } catch (error) {
             console.error('[CatalogController] Toggle failed:', error);
             res.status(500).json({ error: error.message });
+        }
+    }
+
+    async updateCollection(req, res) {
+        try {
+            const { brand, name, leadTimeWeeks, leadTimeUnit, description, isVisible } = req.body;
+            if (!brand || !name) return res.status(400).json({ error: 'Missing parameters' });
+
+            await CatalogService.updateCollection(brand, name, { leadTimeWeeks, leadTimeUnit, description, isVisible });
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[CatalogController] Update collection failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async createCollection(req, res) {
+        try {
+            const { brand, name, description, leadTimeWeeks, leadTimeUnit, isVisible } = req.body;
+            if (!brand || !name) return res.status(400).json({ error: 'Missing brand or name' });
+
+            await CatalogService.createCollection(brand, { name, description, leadTimeWeeks, leadTimeUnit, isVisible });
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[CatalogController] Create collection failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async deleteCollection(req, res) {
+        try {
+            const { brand, name } = req.body;
+            if (!brand || !name) return res.status(400).json({ error: 'Missing parameters' });
+
+            await CatalogService.deleteCollection(brand, name);
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[CatalogController] Delete collection failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async updateFinish(req, res) {
+        try {
+            const { brand, finishCode, leadTimeWeeks, leadTimeUnit, description, name, groupCode } = req.body;
+            if (!brand || !finishCode) return res.status(400).json({ error: 'Missing parameters' });
+
+            await CatalogService.updateFinish(brand, finishCode, { leadTimeWeeks, leadTimeUnit, description, name, groupCode });
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[CatalogController] Update finish failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async createFinish(req, res) {
+        try {
+            const { brand, finishCode, groupCode, name, description, leadTimeWeeks, leadTimeUnit } = req.body;
+            if (!brand || !finishCode) return res.status(400).json({ error: 'Missing brand or finishCode' });
+
+            await CatalogService.createFinish(brand, { finishCode, groupCode, name, description, leadTimeWeeks, leadTimeUnit });
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[CatalogController] Create finish failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async deleteFinish(req, res) {
+        try {
+            const { brand, finishCode } = req.body;
+            if (!brand || !finishCode) return res.status(400).json({ error: 'Missing parameters' });
+
+            await CatalogService.deleteFinish(brand, finishCode);
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[CatalogController] Delete finish failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async exportLibrary(req, res) {
+        try {
+            const { brand, type } = req.query; // type: 'finishes' | 'collections'
+            if (!brand || !type) return res.status(400).json({ error: 'Missing brand or type' });
+
+            const data = await CatalogService.exportLibrary(brand, type);
+            res.json(data);
+        } catch (error) {
+            console.error('[CatalogController] Export failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async importLibrary(req, res) {
+        const filePath = req.file?.path;
+        try {
+            const { brand, type } = req.body; // type: 'collections' | 'finishes'
+            if (!brand || !type) return res.status(400).json({ error: 'Missing brand or type' });
+            if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+            const workbook = XLSX.readFile(filePath);
+            const sheetName = workbook.SheetNames[0];
+            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            if (type === 'collections') {
+                for (const row of rows) {
+                    const name = row.name || row['Nome da Coleção'] || row['Nome'];
+                    if (!name) continue;
+                    try {
+                        await CatalogService.createCollection(brand, {
+                            name: String(name).trim(),
+                            description: row.description || row['Descrição Técnica'] || null,
+                            leadTimeWeeks: row.lead_time_weeks != null ? parseFloat(row.lead_time_weeks) : null,
+                            leadTimeUnit: row.lead_time_unit || 'weeks',
+                            isVisible: row.is_visible !== false && row.is_visible !== 0 && row.is_visible !== 'false'
+                        });
+                        successCount++;
+                    } catch (e) { errorCount++; }
+                }
+            } else {
+                for (const row of rows) {
+                    const finishCode = row.finish_code || row['Código'];
+                    if (!finishCode) continue;
+                    try {
+                        await CatalogService.createFinish(brand, {
+                            finishCode: String(finishCode).trim(),
+                            groupCode: row.group_code || row['Grupo'] || null,
+                            name: row.name || row['Nome'] || null,
+                            description: row.description || row['Descrição Técnica'] || null,
+                            leadTimeWeeks: row.lead_time_weeks != null ? parseFloat(row.lead_time_weeks) : null,
+                            leadTimeUnit: row.lead_time_unit || 'weeks'
+                        });
+                        successCount++;
+                    } catch (e) { errorCount++; }
+                }
+            }
+
+            res.json({ success: true, count: successCount, errors: errorCount });
+        } catch (error) {
+            console.error('[CatalogController] Import failed:', error);
+            res.status(500).json({ error: error.message });
+        } finally {
+            if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
     }
 }

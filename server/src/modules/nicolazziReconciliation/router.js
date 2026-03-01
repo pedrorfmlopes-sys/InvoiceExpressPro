@@ -30,8 +30,8 @@ router.post('/reconcile/:id/unlink', controller.unlink);
 // GET /api/nicolazzi/discover
 router.get('/discover', controller.discoverMatches);
 
-// POST /api/nicolazzi/reconciliation/reset
-router.post('/reconciliation/reset', controller.resetAllMatchings);
+// POST /api/reconciliation/reset
+router.post('/reset', controller.resetAllMatchings);
 
 // GET /api/nicolazzi/proposals/:id/fulfillment
 router.get('/proposals/:id/fulfillment', controller.getProposalFulfillment);
