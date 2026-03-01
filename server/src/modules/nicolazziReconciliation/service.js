@@ -786,22 +786,30 @@ async function getAnalytics(proposalIds = null, brand = null) {
         };
     };
 
-    console.log(`[Analytics] Service started. Brand: ${brand}, IDs: ${proposalIds?.length}`);
+    const isPg = knex.client.config.client === 'pg' || knex.client.config.client === 'postgres';
+    console.log(`[Analytics] Service started. Brand filter: ${brand}, IDs filter: ${proposalIds?.length}. Env: ${isPg ? 'Postgres' : 'Other'}`);
 
     // 1. Filter Proposals
     let baseQuery = knex('custom_proposals').whereIn('status', ['accepted', 'em_fornecimento']);
 
     if (brand && brand.toUpperCase() !== 'ALL') {
-        baseQuery = baseQuery.where('brand_id', 'like', `%${brand}%`);
+        if (isPg) {
+            baseQuery = baseQuery.where('brand_id', 'ilike', `%${brand}%`);
+        } else {
+            baseQuery = baseQuery.where('brand_id', 'like', `%${brand}%`);
+        }
     }
+
     if (proposalIds && Array.isArray(proposalIds) && proposalIds.length > 0) {
         baseQuery = baseQuery.whereIn('id', proposalIds);
     }
+
     const filteredProposals = await baseQuery.select('id');
     const ids = filteredProposals.map(p => p.id);
-    console.log(`[Analytics] Processing ${ids.length} proposals...`);
+    console.log(`[Analytics] Query complete. Found ${ids.length} proposals for analysis.`);
 
     if (ids.length === 0) {
+        console.log(`[Analytics] No proposals match criteria. Returning zeroed summary. Query params: brand=${brand}, IDs=${proposalIds?.length}`);
         return {
             project: { sale: fmt(0), cost: fmt(0), margin: { ...fmt(0), percent: 0 } },
             realized: { sale: fmt(0), cost: fmt(0), margin: { ...fmt(0), percent: 0 } },
@@ -868,7 +876,6 @@ async function getAnalytics(proposalIds = null, brand = null) {
     // --- LOGISTICS ---
     // We still need to count late items and pending
     // Simplified for debug
-    const isPg = knex.client.config.client === 'pg' || knex.client.config.client === 'postgres';
 
     // Postgres vs SQLite compatible Late Stats
     const lateStatsQuery = knex('proposal_lines as pl')
