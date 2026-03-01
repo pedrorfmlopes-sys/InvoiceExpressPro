@@ -39,7 +39,7 @@ const RotatingAnalyticsCard = ({ label, project, realized }) => {
             val: realized.margin.net,
             iva: realized.margin.iva,
             gross: realized.margin.gross,
-            sub: `${realized.margin.percent.toFixed(1)}% Margem Real`,
+            sub: `${(realized.margin.percent || 0).toFixed(1)}% Margem Real`,
             color: 'text-green-400'
         };
     };

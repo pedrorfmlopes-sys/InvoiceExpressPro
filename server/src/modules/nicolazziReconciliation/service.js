@@ -825,12 +825,14 @@ async function getAnalytics(proposalIds = null, brand = null) {
 
         // Cost
         const unitPriceFact = parseFloat(l.unit_price_factory || 0);
-        const discFactStr = l.discount_factory || '';
+        const discFactStr = String(l.discount_factory || '');
         let factMult = 1;
-        discFactStr.split('+').forEach(d => {
-            const p = parseFloat(d);
-            if (!isNaN(p)) factMult *= (1 - p / 100);
-        });
+        if (discFactStr) {
+            discFactStr.split('+').forEach(d => {
+                const p = parseFloat(d);
+                if (!isNaN(p)) factMult *= (1 - p / 100);
+            });
+        }
         totalProjectCostNet += qty * unitPriceFact * factMult;
     });
     console.log('[Analytics] Project calculations done.');
@@ -844,7 +846,7 @@ async function getAnalytics(proposalIds = null, brand = null) {
         .join('proposal_lines as pl', 'pf.proposal_line_id', 'pl.id')
         .whereIn('pf.proposal_id', ids)
         .select(
-            knex.raw('SUM(pf.quantity_fulfilled * pl.unit_price_commercial * (1 - COALESCE(pl.discount_commercial_percent, 0)/100)) as net')
+            knex.raw('SUM(COALESCE(pf.quantity_fulfilled, 0) * COALESCE(pl.unit_price_commercial, 0) * (1 - COALESCE(pl.discount_commercial_percent, 0)/100)) as net')
         ).first();
     const totalRealSaleNet = parseFloat(saleRealizedRes.net || 0);
 
@@ -854,7 +856,7 @@ async function getAnalytics(proposalIds = null, brand = null) {
         .join('document_lines as dl', 'pf.doc_line_id', 'dl.id')
         .whereIn('pf.proposal_id', ids)
         .select(
-            knex.raw('SUM(pf.quantity_fulfilled * dl.unit_price) as net')
+            knex.raw('SUM(COALESCE(pf.quantity_fulfilled, 0) * COALESCE(dl.unit_price, 0)) as net')
         ).first();
     const totalRealCostNet = parseFloat(costRealizedRes.net || 0);
     console.log('[Analytics] Realized calculations done.');
@@ -914,7 +916,7 @@ async function getAnalytics(proposalIds = null, brand = null) {
             avgLeadTimeDays: avgLeadTime,
             lateItemsCurrent: lateItemsCount,
             totalItemsPending: totalItemsPending,
-            latePercentage: totalItemsPending > 0 ? ((lateItemsCount / totalItemsPending) * 100).toFixed(1) : 0
+            latePercentage: totalItemsPending > 0 ? (Math.max(0, (lateItemsCount / totalItemsPending) * 100)).toFixed(1) : 0
         }
     };
 }
