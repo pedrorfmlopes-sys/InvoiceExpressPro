@@ -776,11 +776,15 @@ async function exportReconciliationExcel(proposalIds) {
  */
 async function getAnalytics(proposalIds = null, brand = null) {
     const vatRate = 0.22;
-    const fmt = (net) => ({
-        net: net,
-        iva: net * vatRate,
-        gross: net * (1 + vatRate)
-    });
+    const fmt = (net) => {
+        const n = parseFloat(net || 0);
+        const valid = isNaN(n) ? 0 : n;
+        return {
+            net: valid,
+            iva: valid * vatRate,
+            gross: valid * (1 + vatRate)
+        };
+    };
 
     console.log(`[Analytics] Service started. Brand: ${brand}, IDs: ${proposalIds?.length}`);
 
@@ -824,16 +828,16 @@ async function getAnalytics(proposalIds = null, brand = null) {
         totalProjectSaleNet += qty * parseFloat(l.unit_price_commercial || 0) * (1 - discComm / 100);
 
         // Cost
-        const unitPriceFact = parseFloat(l.unit_price_factory || 0);
+        const unitPriceFact = parseFloat(l.unit_price_factory || 0) || 0;
         const discFactStr = String(l.discount_factory || '');
         let factMult = 1;
-        if (discFactStr) {
+        if (discFactStr && discFactStr.trim()) {
             discFactStr.split('+').forEach(d => {
-                const p = parseFloat(d);
+                const p = parseFloat(d.trim());
                 if (!isNaN(p)) factMult *= (1 - p / 100);
             });
         }
-        totalProjectCostNet += qty * unitPriceFact * factMult;
+        totalProjectCostNet += (qty * unitPriceFact * factMult) || 0;
     });
     console.log('[Analytics] Project calculations done.');
 
@@ -864,9 +868,10 @@ async function getAnalytics(proposalIds = null, brand = null) {
     // --- LOGISTICS ---
     // We still need to count late items and pending
     // Simplified for debug
-    const lateStats = { total_qty: 0, total_fulfilled: 0, late_qty: 0 };
-    /*
-    const lateStats = await knex('proposal_lines as pl')
+    const isPg = knex.client.config.client === 'pg' || knex.client.config.client === 'postgres';
+
+    // Postgres vs SQLite compatible Late Stats
+    const lateStatsQuery = knex('proposal_lines as pl')
         .leftJoin(
             knex('proposal_fulfillments').groupBy('proposal_line_id').select('proposal_line_id', knex.raw('SUM(quantity_fulfilled) as fulfilled')).as('f'),
             'pl.id', 'f.proposal_line_id'
@@ -875,9 +880,10 @@ async function getAnalytics(proposalIds = null, brand = null) {
         .select(
             knex.raw('SUM(pl.quantity) as total_qty'),
             knex.raw('SUM(COALESCE(f.fulfilled, 0)) as total_fulfilled'),
-            knex.raw(`SUM(CASE WHEN pl.predicted_ship_date < ${Date.now()} AND (pl.quantity - COALESCE(f.fulfilled, 0)) > 0 THEN (pl.quantity - COALESCE(f.fulfilled, 0)) ELSE 0 END) as late_qty`)
-        ).first();
-    */
+            knex.raw(`SUM(CASE WHEN pl.predicted_ship_date < CURRENT_TIMESTAMP AND (pl.quantity - COALESCE(f.fulfilled, 0)) > 0 THEN (pl.quantity - COALESCE(f.fulfilled, 0)) ELSE 0 END) as late_qty`)
+        );
+
+    const lateStats = await lateStatsQuery.first() || { total_qty: 0, total_fulfilled: 0, late_qty: 0 };
 
     const totalItemsPending = Math.max(0, (parseFloat(lateStats.total_qty || 0) - parseFloat(lateStats.total_fulfilled || 0)));
     const lateItemsCount = parseFloat(lateStats.late_qty || 0);
