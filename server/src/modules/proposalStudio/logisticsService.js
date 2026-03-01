@@ -143,7 +143,7 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
         await knex('proposal_lines').where({ id: u.id }).update({ predicted_ship_date: u.predicted_ship_date });
     }
 
-    return { success: true, updated: updates.length };
+    return { success: true, updated: batchUpdates.length };
 }
 
 /**
@@ -191,7 +191,7 @@ async function calculatePreview(proposalId, { order_date, rules, manual_override
             const cat = (line.production_category || '').trim().toLowerCase();
             const b = lineBrandId;
 
-            rule =
+            let rule =
                 rules.find(r => finish && r.target.toLowerCase() === `finish:${b}:${finish}`) ||
                 rules.find(r => series && r.target.toLowerCase() === `collection:${b}:${series}`) ||
                 rules.find(r => cat && r.target.toLowerCase() === `category:${b}:${cat}`) ||
