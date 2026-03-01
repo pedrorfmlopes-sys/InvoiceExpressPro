@@ -10,7 +10,12 @@ async function updateProposalLogistics(id, { order_date, lead_time_weeks, notes,
     if (order_date !== undefined) updates.order_confirmation_date = order_date ? new Date(order_date) : null;
     if (lead_time_weeks !== undefined) updates.general_lead_time_weeks = lead_time_weeks;
     if (notes !== undefined) updates.logistics_notes = notes;
-    if (rules !== undefined) updates.lead_time_rules = rules; // Knex handles object-to-json conversion
+
+    // Postgres Fix: Never pass an empty string to a JSONB column. 
+    // It must be a valid JSON object/array or NULL.
+    if (rules !== undefined) {
+        updates.lead_time_rules = (rules && Array.isArray(rules) && rules.length > 0) ? rules : null;
+    }
 
     await knex('custom_proposals').where({ id }).update(updates);
 
