@@ -10,7 +10,7 @@ async function updateProposalLogistics(id, { order_date, lead_time_weeks, notes,
     if (order_date !== undefined) updates.order_confirmation_date = order_date ? new Date(order_date) : null;
     if (lead_time_weeks !== undefined) updates.general_lead_time_weeks = lead_time_weeks;
     if (notes !== undefined) updates.logistics_notes = notes;
-    if (rules !== undefined) updates.lead_time_rules = JSON.stringify(rules);
+    if (rules !== undefined) updates.lead_time_rules = rules; // Knex handles object-to-json conversion
 
     await knex('custom_proposals').where({ id }).update(updates);
 
@@ -34,7 +34,7 @@ async function updateLineLogistics(proposalId, lineIds, updates) {
             lead_time_weeks: updates.lead_time_weeks,
             production_category: updates.category,
             is_manual_override: updates.manual_override || false,
-            // If manual date provided directly, set it
+            // If manual date provided directly, set it as Date object
             predicted_ship_date: updates.manual_date ? new Date(updates.manual_date) : undefined
         });
 
@@ -75,7 +75,7 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
     const lines = await query;
 
     // 3. Process each line
-    const updates = [];
+    const batchUpdates = [];
 
     for (const line of lines) {
         // Determine Context (Brand + Rules)
@@ -121,14 +121,14 @@ async function recalculateShipDates(proposalId, specificLineIds = null) {
         // Calculate (using line-specific brand context)
         const shipDate = await calculateShipDate(startDate, leadTime, lineBrandId);
 
-        updates.push({
+        batchUpdates.push({
             id: line.id,
-            predicted_ship_date: shipDate ? shipDate.getTime() : null
+            predicted_ship_date: shipDate ? new Date(shipDate) : null
         });
     }
 
     // 4. Batch Update
-    for (const u of updates) {
+    for (const u of batchUpdates) {
         await knex('proposal_lines').where({ id: u.id }).update({ predicted_ship_date: u.predicted_ship_date });
     }
 

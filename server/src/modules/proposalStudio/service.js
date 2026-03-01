@@ -255,15 +255,9 @@ class ProposalStudioService {
         if (Object.keys(header).length > 0) {
             await knex('custom_proposals').where({ id }).update({
                 ...header,
-                branding_config: header.branding_config !== undefined
-                    ? (header.branding_config ? JSON.stringify(header.branding_config) : null)
-                    : undefined,
-                metadata: header.metadata !== undefined
-                    ? (typeof header.metadata === 'string' ? header.metadata : JSON.stringify(header.metadata))
-                    : undefined,
-                lead_time_rules: header.lead_time_rules !== undefined
-                    ? (typeof header.lead_time_rules === 'string' ? header.lead_time_rules : JSON.stringify(header.lead_time_rules))
-                    : undefined,
+                branding_config: header.branding_config !== undefined ? header.branding_config : undefined,
+                metadata: header.metadata !== undefined ? header.metadata : undefined,
+                lead_time_rules: header.lead_time_rules !== undefined ? header.lead_time_rules : undefined,
                 updated_at: new Date()
             });
         }
@@ -371,17 +365,8 @@ class ProposalStudioService {
         }
 
         // Serialize JSON fields for PostgreSQL compatibility
-        // (SQLite accepts raw objects, PostgreSQL requires JSON strings)
+        // (SQLite accepts raw objects, PostgreSQL requires JSON strings - Knex handles this)
         const safeData = { ...data };
-        if (safeData.metadata !== undefined && typeof safeData.metadata !== 'string') {
-            safeData.metadata = JSON.stringify(safeData.metadata);
-        }
-        if (safeData.branding_config !== undefined && typeof safeData.branding_config !== 'string') {
-            safeData.branding_config = safeData.branding_config ? JSON.stringify(safeData.branding_config) : null;
-        }
-        if (safeData.lead_time_rules !== undefined && typeof safeData.lead_time_rules !== 'string') {
-            safeData.lead_time_rules = safeData.lead_time_rules ? JSON.stringify(safeData.lead_time_rules) : null;
-        }
 
         await knex('custom_proposals').where({ id }).update({
             ...safeData,
