@@ -244,8 +244,27 @@ class ProposalPdfEngine {
         let totalSiva = 0;
 
         this.proposal.lines.forEach(line => {
-            const qty = line.quantity || 0;
-            const price = line.unit_price_commercial || 0;
+            const qty = parseFloat(line.quantity || 0);
+            const price = parseFloat(line.unit_price_commercial || 0);
+            const isComment = !line.sku && qty === 0 && price === 0;
+
+            if (isComment) {
+                const fullDescription = (line.description || ' ').replace(/\{.*?\}/g, '').trim() || ' ';
+                const descLines = this.splitTextToLines(fullDescription, 9, this.width - (this.margin * 2) - 10);
+                const rHeight = Math.max(15, (descLines.length * 10) + 10);
+
+                this.checkSpace(rHeight);
+
+                let dy = 0;
+                descLines.forEach(dl => {
+                    this.drawText(dl, this.margin + 5, 9, this.fontB, rgb(0.2, 0.2, 0.2));
+                    dy += 10;
+                });
+
+                this.y -= (rHeight + 5);
+                return;
+            }
+
             const discPercent = line.discount_commercial_percent || 0;
             const lineTotal = qty * price * (1 - (discPercent / 100));
             totalSiva += lineTotal;

@@ -376,14 +376,13 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                     // Dynamic Predicted Date Calculation (Same as in Reconciliation Service)
                     const effectiveLeadWeeks = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
                     let predictedDate = line.predicted_ship_date;
-                    const isComment = !line.sku && !parseFloat(line.quantity || 0) && !parseFloat(line.unit_price_commercial || 0);
+                    const isComment = !line.sku && (!line.quantity || parseFloat(line.quantity) === 0) && (!line.unit_price_commercial || parseFloat(line.unit_price_commercial) === 0);
 
                     if (isComment) {
                         return (
                             <View key={idx} style={[styles.tableRow, { backgroundColor: '#F9FAFB' }]} wrap={false}>
-                                <Text style={styles.colCode}></Text>
-                                <View style={{ width: '88%', padding: 2 }}>
-                                    <Text style={styles.commentDesc}>{line.description}</Text>
+                                <View style={{ width: '100%', padding: 4 }}>
+                                    <Text style={styles.commentDesc}>{line.description || ' '}</Text>
                                 </View>
                             </View>
                         );

@@ -39,17 +39,21 @@ class CatalogService {
         })).filter(r => r.finish_code && r.group_code);
 
         for (const row of rows) {
-            // Check if exists
+            // Check if exists for this brand AND finish code AND group
             const existing = await knex('catalog_finishes')
-                .where({ brand, finish_code: row.finish_code })
+                .where({
+                    brand,
+                    finish_code: row.finish_code,
+                    group_code: row.group_code
+                })
                 .first();
 
             if (existing) {
                 await knex('catalog_finishes')
                     .where({ id: existing.id })
-                    .update({ ...row, created_at: undefined });
+                    .update({ ...row, created_at: undefined, updated_at: new Date() });
             } else {
-                await knex('catalog_finishes').insert({ ...row, id: uuidv4() });
+                await knex('catalog_finishes').insert({ ...row, id: uuidv4(), updated_at: new Date() });
             }
         }
     }
@@ -416,9 +420,10 @@ class CatalogService {
     async searchItems(brand, query) {
         let q = knex('catalog_items');
 
-        // Se a brand não for "TODAS", filtramos especificamente por uma marca.
-        if (brand && brand.toUpperCase() !== 'TODAS') {
-            q = q.where('brand', 'LIKE', `%${brand}%`);
+        // Se a brand for uma tag genérica ou "TODAS", pesquisa globalmente
+        const b = brand ? brand.toUpperCase() : 'TODAS';
+        if (b !== 'TODAS' && b !== 'MULTIMARCAS' && b !== 'OTHER' && b !== 'GERAL' && b !== 'MULTIMARCA') {
+            q = q.where('brand', 'LIKE', `%${b}%`);
         }
 
         if (query) {
@@ -582,25 +587,38 @@ class CatalogService {
             const attemptMatch = async (sku, handle, finishCode) => {
                 if (!sku || sku.length < 2) return null;
 
-                let finish = null;
+                // 1. Get ALL candidate finishes for this code
+                let finishes = [];
                 if (finishCode) {
-                    finish = await knex('catalog_finishes').where({ brand: 'nicolazzi', finish_code: finishCode }).first();
-                }
-                const groupCode = finish ? finish.group_code : null;
-
-                // 1. Exact Match (SKU + Handle + Group)
-                let item = await this.findItem('nicolazzi', sku, handle, groupCode);
-
-                // 2. Fuzzy Match (SKU + Handle, ignore group)
-                if (!item && handle) {
-                    item = await knex('catalog_items')
-                        .where({ brand: 'nicolazzi', sku: sku.trim(), handle: handle.trim() })
-                        .first();
+                    finishes = await knex('catalog_finishes').where({ brand: 'nicolazzi', finish_code: finishCode });
                 }
 
-                if (item) {
-                    return { item, finish, finishCode, success: true, fuzzy: !finish || item.finish_group !== groupCode };
+                // 2. If no finishes found or no code, try finding item first
+                if (finishes.length === 0) {
+                    const item = await this.findItem('nicolazzi', sku, handle, null);
+                    if (item) return { item, finish: null, finishCode, success: true };
+                    return null;
                 }
+
+                // 3. Try to find an item that matches one of our candidate groups
+                for (const f of finishes) {
+                    const groupCode = f.group_code;
+                    const item = await this.findItem('nicolazzi', sku, handle, groupCode);
+                    if (item) {
+                        return { item, finish: f, finishCode, success: true, fuzzy: false };
+                    }
+                }
+
+                // 4. Fallback search: Ignore group if we still don't have a match
+                const itemOnly = await knex('catalog_items')
+                    .where({ brand: 'nicolazzi', sku: sku.trim(), handle: handle.trim() })
+                    .first();
+
+                if (itemOnly) {
+                    // Return the first finish if we couldn't match the group exactly
+                    return { item: itemOnly, finish: finishes[0], finishCode, success: true, fuzzy: true };
+                }
+
                 return null;
             };
 
@@ -900,15 +918,16 @@ class CatalogService {
         return { success: true };
     }
 
-    async updateFinish(brand, finishCode, data) {
+    async updateFinish(brand, id, data) {
         await knex('catalog_finishes')
-            .where({ brand, finish_code: finishCode })
+            .where({ id, brand })
             .update({
+                ...(data.finishCode !== undefined && { finish_code: data.finishCode }),
+                ...(data.groupCode !== undefined && { group_code: data.groupCode }),
                 ...(data.leadTimeWeeks !== undefined && { lead_time_weeks: data.leadTimeWeeks }),
                 ...(data.leadTimeUnit !== undefined && { lead_time_unit: data.leadTimeUnit }),
                 ...(data.description !== undefined && { description_pt: data.description }),
                 ...(data.name !== undefined && { name_en: data.name }),
-                ...(data.groupCode !== undefined && { group_code: data.groupCode }),
                 updated_at: new Date()
             });
         return { success: true };
@@ -918,7 +937,7 @@ class CatalogService {
         const { finishCode, groupCode, name, description, leadTimeWeeks, leadTimeUnit } = data;
         if (!finishCode) throw new Error('Finish code is required');
         const existing = await knex('catalog_finishes')
-            .where({ brand, finish_code: finishCode })
+            .where({ brand, finish_code: finishCode, group_code: groupCode || '' })
             .first();
         if (existing) {
             await knex('catalog_finishes')
@@ -946,8 +965,9 @@ class CatalogService {
         return { success: true };
     }
 
-    async deleteFinish(brand, finishCode) {
-        await knex('catalog_finishes').where({ brand, finish_code: finishCode }).delete();
+    async deleteFinish(brand, id) {
+        if (!id) throw new Error('Finish ID is required for deletion');
+        await knex('catalog_finishes').where({ brand, id }).delete();
         return { success: true };
     }
 

@@ -25,6 +25,7 @@ router.get('/docs', coreController.listDocs);
 router.get('/docs/:id', coreController.getDocJson); // RESTful alias for Phase 21 linking
 router.get('/docs/:id/view', coreController.viewDoc); // NEW (Unified)
 router.get('/docs/:id/json', coreController.getDocJson); // NEW (Unified)
+router.put('/docs/:id/json', coreController.saveDocJson); // NEW (Unified)
 router.patch('/docs/:id', coreController.updateDoc);
 router.delete('/docs/:id', coreController.deleteDoc); // NEW (Unified)
 router.post('/docs/finalize', coreController.finalizeDoc);

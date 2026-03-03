@@ -377,6 +377,26 @@ exports.getDocJson = async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
+exports.saveDocJson = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const project = req.project || 'default';
+        const { payload } = req.body;
+
+        const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+        if (!data) throw new Error('Valid payload required');
+
+        // Redirect to extraction save logic (Unified Persistence)
+        req.params.type = data.brand || 'v2_universal';
+        req.body = data;
+
+        return await exports.saveExtractionData(req, res);
+    } catch (e) {
+        console.error(`[V2 Save JSON] Error for doc ${req.params.id}:`, e.message);
+        res.status(500).json({ error: e.message });
+    }
+};
+
 exports.finalizeDoc = async (req, res) => {
     try {
         const project = req.project || 'default';

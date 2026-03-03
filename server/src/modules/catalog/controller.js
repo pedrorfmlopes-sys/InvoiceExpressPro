@@ -230,10 +230,10 @@ class CatalogController {
 
     async updateFinish(req, res) {
         try {
-            const { brand, finishCode, leadTimeWeeks, leadTimeUnit, description, name, groupCode } = req.body;
-            if (!brand || !finishCode) return res.status(400).json({ error: 'Missing parameters' });
+            const { brand, id, finishCode, leadTimeWeeks, leadTimeUnit, description, name, groupCode } = req.body;
+            if (!brand || !id) return res.status(400).json({ error: 'Missing parameters (brand or id)' });
 
-            await CatalogService.updateFinish(brand, finishCode, { leadTimeWeeks, leadTimeUnit, description, name, groupCode });
+            await CatalogService.updateFinish(brand, id, { finishCode, leadTimeWeeks, leadTimeUnit, description, name, groupCode });
             res.json({ success: true });
         } catch (error) {
             console.error('[CatalogController] Update finish failed:', error);
@@ -256,10 +256,10 @@ class CatalogController {
 
     async deleteFinish(req, res) {
         try {
-            const { brand, finishCode } = req.body;
-            if (!brand || !finishCode) return res.status(400).json({ error: 'Missing parameters' });
+            const { brand, id } = req.body;
+            if (!brand || !id) return res.status(400).json({ error: 'Missing parameters (brand or id)' });
 
-            await CatalogService.deleteFinish(brand, finishCode);
+            await CatalogService.deleteFinish(brand, id);
             res.json({ success: true });
         } catch (error) {
             console.error('[CatalogController] Delete finish failed:', error);

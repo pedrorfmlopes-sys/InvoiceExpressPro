@@ -81,13 +81,14 @@ const CatalogManagementTab = ({ project }) => {
                 await Promise.all(rows.map(f =>
                     api.patch('/api/catalog/finishes', {
                         brand: selectedBrand.id,
+                        id: f.id,
                         finishCode: f.finish_code,
                         name: f.name_en || f.name_it || '',
                         groupCode: f.group_code || '',
                         leadTimeWeeks: f.lead_time_weeks,
                         leadTimeUnit: f.lead_time_unit || 'weeks',
                         description: f.description_pt || null
-                    }).catch(e => console.error('Save failed for', f.finish_code, e))
+                    }).catch(e => console.error('Save failed for', f.id, e))
                 ));
             }
             setSavedFeedback(true);
@@ -172,13 +173,13 @@ const CatalogManagementTab = ({ project }) => {
             ));
         } else {
             setBrandFinishes(prev => prev.map(f =>
-                selectedRows.has(f.finish_code) ? { ...f, lead_time_weeks: weeks, lead_time_unit: bulkApply.unit } : f
+                selectedRows.has(f.id) ? { ...f, lead_time_weeks: weeks, lead_time_unit: bulkApply.unit } : f
             ));
-            await Promise.all([...selectedRows].map(finishCode =>
+            await Promise.all([...selectedRows].map(id =>
                 api.patch('/api/catalog/finishes', {
-                    brand: selectedBrand.id, finishCode,
+                    brand: selectedBrand.id, id,
                     leadTimeWeeks: weeks, leadTimeUnit: bulkApply.unit
-                }).catch(err => console.error('Bulk save failed for', finishCode, err))
+                }).catch(err => console.error('Bulk save failed for', id, err))
             ));
         }
         setSelectedRows(new Set()); // Clear selection after apply
@@ -325,9 +326,9 @@ const CatalogManagementTab = ({ project }) => {
     };
 
     // Generic save for a finish field — called on blur
-    const saveFinish = async (finishCode, patch) => {
+    const saveFinish = async (id, patch) => {
         try {
-            await api.patch('/api/catalog/finishes', { brand: selectedBrand.id, finishCode, ...patch });
+            await api.patch('/api/catalog/finishes', { brand: selectedBrand.id, id, ...patch });
         } catch (err) {
             console.error('Failed to save finish', err);
             // Do NOT reload — keep the local state to avoid losing user edits
@@ -339,14 +340,15 @@ const CatalogManagementTab = ({ project }) => {
         setBrandFinishes(prev => [newRow, ...prev]);
     };
 
-    const deleteFinish = async (finishCode) => {
-        if (!finishCode) {
-            setBrandFinishes(prev => prev.filter(f => f.finish_code !== finishCode));
+    const deleteFinish = async (id) => {
+        if (!id) {
+            // If it's a new row without id, we can't reliably delete by id yet, 
+            // but new rows are handled differently anyway.
             return;
         }
-        setBrandFinishes(prev => prev.filter(f => f.finish_code !== finishCode));
+        setBrandFinishes(prev => prev.filter(f => f.id !== id));
         try {
-            await api.delete('/api/catalog/finishes', { data: { brand: selectedBrand.id, finishCode } });
+            await api.delete('/api/catalog/finishes', { data: { brand: selectedBrand.id, id } });
         } catch (err) {
             console.error('Failed to delete finish', err);
             loadBrandFinishes();
@@ -1238,14 +1240,14 @@ const CatalogManagementTab = ({ project }) => {
                                                 <tr className="border-b border-white/10">
                                                     <th className="py-2 pr-3 w-8">
                                                         <div
-                                                            onClick={() => selectAllVisible(brandFinishes, f => f.finish_code)}
+                                                            onClick={() => selectAllVisible(brandFinishes, f => f.id)}
                                                             className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${brandFinishes.filter(f => !f._isNew).length > 0 &&
-                                                                brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.finish_code))
+                                                                brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.id))
                                                                 ? 'bg-indigo-500 border-indigo-500'
                                                                 : 'border-gray-600 hover:border-indigo-400'
                                                                 }`}
                                                         >
-                                                            {brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.finish_code)) &&
+                                                            {brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.id)) &&
                                                                 <FiCheck size={10} className="text-white" />}
                                                         </div>
                                                     </th>
@@ -1261,20 +1263,21 @@ const CatalogManagementTab = ({ project }) => {
                                             <tbody>
                                                 {brandFinishes.map((f, idx) => {
                                                     const unit = f.lead_time_unit || 'weeks';
+                                                    const rowKey = f.id || `new-${idx}`;
                                                     return (
-                                                        <tr key={f.finish_code || `new-${idx}`} className={`border-b border-white/5 group transition-all ${selectedRows.has(f.finish_code) ? 'bg-indigo-500/8' : 'hover:bg-white/3'
+                                                        <tr key={rowKey} className={`border-b border-white/5 group transition-all ${selectedRows.has(rowKey) ? 'bg-indigo-500/10' : 'hover:bg-white/3'
                                                             }`}>
                                                             {/* Row checkbox */}
                                                             <td className="py-2 pr-3">
                                                                 {!f._isNew && (
                                                                     <div
-                                                                        onClick={() => toggleRowSelection(f.finish_code)}
-                                                                        className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${selectedRows.has(f.finish_code)
+                                                                        onClick={() => toggleRowSelection(rowKey)}
+                                                                        className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${selectedRows.has(rowKey)
                                                                             ? 'bg-indigo-500 border-indigo-500'
                                                                             : 'border-gray-600 hover:border-indigo-400'
                                                                             }`}
                                                                     >
-                                                                        {selectedRows.has(f.finish_code) && <FiCheck size={10} className="text-white" />}
+                                                                        {selectedRows.has(rowKey) && <FiCheck size={10} className="text-white" />}
                                                                     </div>
                                                                 )}
                                                             </td>
@@ -1284,13 +1287,16 @@ const CatalogManagementTab = ({ project }) => {
                                                                     type="text"
                                                                     defaultValue={f.finish_code}
                                                                     placeholder="COD..."
-                                                                    readOnly={!f._isNew}
                                                                     onBlur={e => {
+                                                                        const newVal = e.target.value;
                                                                         if (f._isNew) {
-                                                                            setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, finish_code: e.target.value } : r));
+                                                                            setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, finish_code: newVal } : r));
+                                                                        } else if (f.id) {
+                                                                            setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, finish_code: newVal } : r));
+                                                                            saveFinish(f.id, { finishCode: newVal });
                                                                         }
                                                                     }}
-                                                                    className={`bg-transparent border-b outline-none py-1 w-full font-black text-blue-400 text-[11px] uppercase tracking-tight placeholder-gray-700 ${f._isNew ? 'border-blue-500/50' : 'border-transparent cursor-default'}`}
+                                                                    className={`bg-transparent border-b outline-none py-1 w-full font-black text-blue-400 text-[11px] uppercase tracking-tight placeholder-gray-700 ${f._isNew ? 'border-blue-500/50' : 'border-transparent focus:border-blue-500/50'}`}
                                                                 />
                                                             </td>
                                                             {/* Group */}
@@ -1302,8 +1308,8 @@ const CatalogManagementTab = ({ project }) => {
                                                                     onBlur={e => {
                                                                         const newVal = e.target.value;
                                                                         setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, group_code: newVal } : r));
-                                                                        if (!f._isNew && f.finish_code) {
-                                                                            saveFinish(f.finish_code, { groupCode: newVal });
+                                                                        if (!f._isNew && f.id) {
+                                                                            saveFinish(f.id, { groupCode: newVal });
                                                                         }
                                                                     }}
                                                                     className="bg-transparent border-b border-white/10 outline-none py-1 w-full text-gray-400 text-[11px] placeholder-gray-700 focus:border-blue-500/50 transition-all"
@@ -1318,8 +1324,8 @@ const CatalogManagementTab = ({ project }) => {
                                                                     onBlur={e => {
                                                                         const val = e.target.value;
                                                                         setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, name_en: val } : r));
-                                                                        if (!f._isNew && f.finish_code) {
-                                                                            saveFinish(f.finish_code, { name: val });
+                                                                        if (!f._isNew && f.id) {
+                                                                            saveFinish(f.id, { name: val });
                                                                         }
                                                                     }}
                                                                     className="bg-transparent border-b border-white/10 outline-none py-1 w-full text-white font-bold text-[11px] placeholder-gray-700 focus:border-blue-500/50 transition-all"
@@ -1329,10 +1335,10 @@ const CatalogManagementTab = ({ project }) => {
                                                             <td className="py-2 pr-4">
                                                                 <select
                                                                     value={unit}
-                                                                    onChange={e => {
+                                                                    onBlur={e => {
                                                                         const newUnit = e.target.value;
                                                                         setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, lead_time_unit: newUnit } : r));
-                                                                        if (!f._isNew && f.finish_code) saveFinish(f.finish_code, { leadTimeUnit: newUnit });
+                                                                        if (!f._isNew && f.id) saveFinish(f.id, { leadTimeUnit: newUnit });
                                                                     }}
                                                                     className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-white text-[11px] outline-none focus:border-blue-500/50 w-full"
                                                                 >
@@ -1352,7 +1358,7 @@ const CatalogManagementTab = ({ project }) => {
                                                                     }}
                                                                     onBlur={e => {
                                                                         const weeks = toWeeks(e.target.value, unit);
-                                                                        if (!f._isNew && f.finish_code) saveFinish(f.finish_code, { leadTimeWeeks: weeks, leadTimeUnit: unit });
+                                                                        if (!f._isNew && f.id) saveFinish(f.id, { leadTimeWeeks: weeks, leadTimeUnit: unit });
                                                                     }}
                                                                     className="bg-black/40 border border-white/10 rounded-lg py-1 px-2 text-center text-[11px] font-mono text-white outline-none focus:border-blue-500/50 w-full"
                                                                 />
@@ -1366,8 +1372,8 @@ const CatalogManagementTab = ({ project }) => {
                                                                     onBlur={e => {
                                                                         const val = e.target.value;
                                                                         setBrandFinishes(prev => prev.map((r, i) => i === idx ? { ...r, description_pt: val } : r));
-                                                                        if (!f._isNew && f.finish_code) {
-                                                                            saveFinish(f.finish_code, { description: val });
+                                                                        if (!f._isNew && f.id) {
+                                                                            saveFinish(f.id, { description: val });
                                                                         }
                                                                     }}
                                                                     onKeyDown={e => {
@@ -1388,11 +1394,11 @@ const CatalogManagementTab = ({ project }) => {
                                                                     </button>
                                                                 ) : (
                                                                     <button
-                                                                        onClick={() => deleteFinish(f.finish_code)}
-                                                                        className="p-1 rounded text-gray-700 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                                                                        onClick={() => deleteFinish(f.id)}
+                                                                        className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all"
                                                                         title="Eliminar"
                                                                     >
-                                                                        <FiX size={14} />
+                                                                        <FiTrash2 size={13} />
                                                                     </button>
                                                                 )}
                                                             </td>
@@ -1400,7 +1406,7 @@ const CatalogManagementTab = ({ project }) => {
                                                     );
                                                 })}
                                                 {brandFinishes.length === 0 && (
-                                                    <tr><td colSpan={7} className="py-8 text-center text-gray-600 italic">Nenhum acabamento encontrado. Clique em "Nova Linha" ou importe um ficheiro.</td></tr>
+                                                    <tr><td colSpan={8} className="py-8 text-center text-gray-600 italic">Nenhum acabamento encontrado. Clique em "Nova Linha" ou importe um ficheiro.</td></tr>
                                                 )}
                                             </tbody>
                                         </table>

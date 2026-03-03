@@ -13,8 +13,8 @@ async function getOrCreateCalendar(brandId) {
             id,
             brand_id: brandId,
             name: brandId,
-            created_at: Date.now(),
-            updated_at: Date.now()
+            created_at: knex.fn.now(),
+            updated_at: knex.fn.now()
         });
         cal = await knex('factory_calendars').where({ id }).first();
     }
@@ -56,9 +56,9 @@ router.post('/calendar/:brandId/events', async (req, res) => {
             description,
             start_date,
             end_date,
-            is_recurring: is_recurring ? 1 : 0,
-            created_at: Date.now(),
-            updated_at: Date.now()
+            is_recurring: Boolean(is_recurring),
+            created_at: knex.fn.now(),
+            updated_at: knex.fn.now()
         });
 
         const created = await knex('calendar_events').where({ id }).first();
