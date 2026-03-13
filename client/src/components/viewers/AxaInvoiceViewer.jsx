@@ -29,6 +29,32 @@ export default function AxaInvoiceViewer({
     const [reconciling, setReconciling] = useState(false); // [NEW] Reconciliation state
     const [showReconViewer, setShowReconViewer] = useState(false); // [NEW] Detail Viewer
     const [itemFilter, setItemFilter] = useState('');
+    const [focusedSku, setFocusedSku] = useState(null);
+
+    const handleSkuFocus = (idx, val) => {
+        setFocusedSku({ idx, val });
+    };
+
+    const handleSkuBlur = async (idx, finalVal) => {
+        if (!focusedSku || focusedSku.idx !== idx) return;
+        const original = focusedSku.val;
+        if (original && finalVal && original !== finalVal) {
+            if (window.confirm(`Pretende que o sistema lembre esta correção de código?\n\nOriginal: ${original}\nNovo: ${finalVal}`)) {
+                try {
+                    await api.post('/api/catalog/aliases', {
+                        brand: 'AXA',
+                        originalSku: original,
+                        correctedSku: finalVal
+                    });
+                    alert('Correção memorizada com sucesso!');
+                } catch (err) {
+                    console.error('Erro ao memorizar código:', err);
+                    alert('Erro ao gravar a correção no sistema.');
+                }
+            }
+        }
+        setFocusedSku(null);
+    };
 
     // --- Actions (Delegated to Container via onDataChange) ---
 
@@ -283,7 +309,10 @@ export default function AxaInvoiceViewer({
                                         <td className="p-2 text-center text-gray-600 border-r border-[#222]">{idx + 1}</td>
                                         <td className="p-0 border-r border-[#222]">
                                             <input className="w-full h-full bg-transparent px-2 py-2 outline-none text-yellow-500 font-mono font-bold focus:bg-[#222]"
-                                                value={line.code || line.sku || ''} onChange={e => updateLine(idx, 'code', e.target.value)} />
+                                                value={line.code || line.sku || ''} onChange={e => updateLine(idx, 'code', e.target.value)}
+                                                onFocus={() => handleSkuFocus(idx, line.code || line.sku || '')}
+                                                onBlur={(e) => handleSkuBlur(idx, e.target.value)}
+                                            />
                                         </td>
                                         <td className="p-0 border-r border-[#222]">
                                             <input className="w-full h-full bg-transparent px-2 py-2 outline-none text-gray-300 focus:bg-[#222]"

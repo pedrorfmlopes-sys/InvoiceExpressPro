@@ -259,6 +259,30 @@ async function process(text, pdfBuffer) {
         };
     }
 
+    // Detect Brand for Alias learning
+    let detectedBrand = null;
+    if (/NICOLAZZI/i.test(effectiveText)) detectedBrand = 'nicolazzi';
+    else if (/Ritmonio/i.test(effectiveText)) detectedBrand = 'ritmonio';
+    else if (/AXA/i.test(effectiveText) || /COLAVENE/i.test(effectiveText)) detectedBrand = 'axa';
+    else if (/FIMA/i.test(effectiveText)) detectedBrand = 'fima';
+    else if (/SCARABEO/i.test(effectiveText)) detectedBrand = 'scarabeo';
+
+    let finalLines = (extractedData.lines || []).map(l => ({
+        ...l,
+        sku: l.sku || l.code,
+        qty: l.qty || l.quantity,
+        price: l.price || l.unitPrice
+    }));
+
+    if (detectedBrand && finalLines.length > 0) {
+        try {
+            const AliasService = require('../modules/catalog/aliasService');
+            finalLines = await AliasService.applyAliases(detectedBrand, finalLines);
+        } catch (e) {
+            console.error('[Engine] Alias application failed:', e);
+        }
+    }
+
     const normalized = {
         docType: extractedData.docType || docType || 'other',
         docNumber: extractedData.docNumber || extractedData.metadata?.doc_number,
@@ -269,12 +293,7 @@ async function process(text, pdfBuffer) {
         entities: extractedData.entities,
         totals: extractedData.totals,
         total: extractedData.totals?.gross || extractedData.totals?.total || extractedData.total || 0,
-        lines: (extractedData.lines || []).map(l => ({
-            ...l,
-            sku: l.sku || l.code,
-            qty: l.qty || l.quantity,
-            price: l.price || l.unitPrice
-        })),
+        lines: finalLines,
         docRefs: extractedData.docRefs,
         projectRef: extractedData.projectRef || extractedData.metadata?.project_ref, // [FIXED] Reliable mapping
         shippingMarks: extractedData.shippingMarks || (extractedData.metadata?.client_ref ? extractedData.metadata.client_ref : null) || (extractedData.docRefs?.customerOrder?.number ? extractedData.docRefs.customerOrder.number : null),

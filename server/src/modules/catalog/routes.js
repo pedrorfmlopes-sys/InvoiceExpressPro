@@ -29,4 +29,10 @@ router.get('/export', requireAuth, CatalogController.exportLibrary);
 router.post('/import', requireAuth, upload.single('file'), CatalogController.importLibrary);
 router.delete('/clear', requireAuth, requireRole('admin'), CatalogController.clearCatalog);
 
+// Alias Routes
+router.post('/aliases', requireAuth, CatalogController.learnAlias);
+router.get('/aliases', requireAuth, CatalogController.getAliases);
+router.delete('/aliases/:id', requireAuth, CatalogController.deleteAlias);
+
+
 module.exports = router;

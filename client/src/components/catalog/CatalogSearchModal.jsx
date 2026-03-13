@@ -101,6 +101,9 @@ const CatalogSearchModal = ({ brand, initialSku, onClose, onSelect, onCreateNew 
                         >
                             <option value="NICOLAZZI" className="bg-gray-900">Nicolazzi</option>
                             <option value="RITMONIO" className="bg-gray-900">Ritmonio</option>
+                            <option value="AXA" className="bg-gray-900">AXA</option>
+                            <option value="FIMA" className="bg-gray-900">Fima</option>
+                            <option value="SCARABEO" className="bg-gray-900">Scarabeo</option>
                             <option value="TODAS" className="bg-gray-900">Todas as Marcas</option>
                         </select>
                     </div>

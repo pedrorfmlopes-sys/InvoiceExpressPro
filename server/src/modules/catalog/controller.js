@@ -6,6 +6,47 @@ const path = require('path');
 
 class CatalogController {
 
+    // --- ALIASES ---
+    async learnAlias(req, res) {
+        try {
+            const { brand, originalSku, correctedSku } = req.body;
+            if (!brand || !originalSku || !correctedSku) {
+                return res.status(400).json({ error: 'Faltam campos obrigatórios' });
+            }
+            const AliasService = require('./aliasService');
+            const result = await AliasService.learnAlias(brand, originalSku, correctedSku);
+            res.json(result);
+        } catch (error) {
+            console.error('[CatalogController] Learn alias failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async getAliases(req, res) {
+        try {
+            const { brand } = req.query;
+            const AliasService = require('./aliasService');
+            const aliases = await AliasService.getAliases(brand);
+            res.json(aliases);
+        } catch (error) {
+            console.error('[CatalogController] Get aliases failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async deleteAlias(req, res) {
+        try {
+            const { id } = req.params;
+            const AliasService = require('./aliasService');
+            const result = await AliasService.deleteAlias(id);
+            res.json(result);
+        } catch (error) {
+            console.error('[CatalogController] Delete alias failed:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    // --- EXISTING ---
     async inspectCatalog(req, res) {
         try {
             if (!req.file) {

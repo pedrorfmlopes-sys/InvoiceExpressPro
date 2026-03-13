@@ -608,7 +608,7 @@ class CatalogService {
         // Se a brand for uma tag genérica ou "TODAS", pesquisa globalmente
         const b = brand ? brand.toUpperCase() : 'TODAS';
         if (b !== 'TODAS' && b !== 'MULTIMARCAS' && b !== 'OTHER' && b !== 'GERAL' && b !== 'MULTIMARCA') {
-            q = q.where('brand', 'LIKE', `%${b}%`);
+            q = q.whereRaw('LOWER(brand) = LOWER(?)', [brand]);
         }
 
         if (query) {
