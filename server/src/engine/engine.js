@@ -8,6 +8,7 @@ const nicolazziCoords = require('./nicolazziInvoiceCoordsExtraction');
 const nicolazziProforma = require('./nicolazziProformaTableExtraction');
 
 async function process(text, pdfBuffer) {
+    console.log("[Engine] V2.1 Process Started - Category Check Enabled");
     let effectiveText = text;
 
     // 0. Pre-check
@@ -23,8 +24,8 @@ async function process(text, pdfBuffer) {
         };
     }
 
-    // 1. High Fidelity Text Support (Nicolazzi / Ritmonio)
-    if (pdfBuffer && (/NICOLAZZI/i.test(text) || /Ritmonio/i.test(text))) {
+    // 1. High Fidelity Text Support (Nicolazzi / Ritmonio / Scarabeo)
+    if (pdfBuffer && (/NICOLAZZI/i.test(text) || /Ritmonio/i.test(text) || /SCARABEO/i.test(text))) {
         try {
             const popplerText = await pdfBufferToTextPoppler(pdfBuffer); // Ensure await if async, usually is promise
             if (popplerText && popplerText.length > 100) {
@@ -106,6 +107,136 @@ async function process(text, pdfBuffer) {
         }
     }
 
+    // Gating for AXA Order Confirmation (OC)
+    // CRITICAL: Used \b(Ordine|OC)\b to prevent "documento" from triggering "OC"!
+    if (!extractedData && pdfBuffer && /AXA|COLAVENE/i.test(effectiveText) && (/\b(Ordine|OC)\b/i.test(effectiveText))) {
+        try {
+            const axaOrder = require('./axaOrderExtraction');
+            console.log("[Engine] Attempting AXA Order Confirmation Extraction...");
+            extractedData = await axaOrder.processOrderConfirmation(pdfBuffer);
+            if (extractedData) {
+                console.log("[Engine] AXA Order Confirmation Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] AXA Order Confirmation Extraction Error:", e);
+        }
+    }
+
+    // Gating for AXA Proformas
+    if (!extractedData && pdfBuffer && /AXA|COLAVENE/i.test(effectiveText) && (/Proforma|Pro-forma/i.test(effectiveText))) {
+        try {
+            const axaProforma = require('./axaProformaExtraction');
+            console.log("[Engine] Attempting AXA Proforma Extraction...");
+            extractedData = await axaProforma.processProforma(pdfBuffer);
+            if (extractedData) {
+                console.log("[Engine] AXA Proforma Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] AXA Proforma Extraction Error:", e);
+        }
+    }
+
+    // Gating for AXA Invoices (Fattura)
+    if (!extractedData && pdfBuffer && /AXA|COLAVENE/i.test(effectiveText) && (/Fattura|Invoice/i.test(effectiveText)) && !(/Proforma|Pro-forma/i.test(effectiveText))) {
+        try {
+            const axaInvoice = require('./axaInvoiceExtraction');
+            console.log("[Engine] Attempting AXA Invoice Extraction...");
+            extractedData = await axaInvoice.processInvoice(pdfBuffer);
+            if (extractedData) {
+                console.log("[Engine] AXA Invoice Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] AXA Invoice Extraction Error:", e);
+        }
+    }
+
+    // Gating for FIMA Order Confirmation (CONFIRMACION PEDIDO)
+    if (!extractedData && pdfBuffer && /FIMA/i.test(effectiveText) && /CONFIRMACION PEDIDO/i.test(effectiveText)) {
+        try {
+            const fimaOrder = require('./fimaOrderExtraction');
+            console.log("[Engine] Attempting FIMA Order Confirmation Extraction...");
+            extractedData = await fimaOrder.processOrderConfirmation(pdfBuffer);
+            if (extractedData) {
+                console.log("[Engine] FIMA Order Confirmation Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] FIMA Order Confirmation Extraction Error:", e);
+        }
+    }
+
+    // Gating for FIMA Proforma
+    if (!extractedData && pdfBuffer && /FIMA/i.test(effectiveText) && /\bPROFORMA\b/i.test(effectiveText) && !/CONFIRMACION PEDIDO/i.test(effectiveText)) {
+        try {
+            const fimaProforma = require('./fimaProformaExtraction');
+            console.log("[Engine] Attempting FIMA Proforma Extraction...");
+            extractedData = await fimaProforma.processProforma(pdfBuffer);
+            if (extractedData) {
+                console.log("[Engine] FIMA Proforma Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] FIMA Proforma Extraction Error:", e);
+        }
+    }
+
+    // Gating for SCARABEO Invoice (High Priority)
+    if (!extractedData && pdfBuffer && /SCARABEO/i.test(effectiveText) && /Covering Invoice/i.test(effectiveText)) {
+        try {
+            const scarabeoInvoice = require('./scarabeoInvoiceExtraction');
+            console.log("[Engine] Attempting SCARABEO Covering Invoice Extraction...");
+            extractedData = await scarabeoInvoice.processInvoice(pdfBuffer);
+            if (extractedData) {
+                extractedData.docType = 'fatura';
+                console.log("[Engine] SCARABEO Covering Invoice Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] SCARABEO Covering Invoice Error:", e);
+        }
+    }
+
+    // Gating for SCARABEO Proforma
+    if (!extractedData && pdfBuffer && /SCARABEO/i.test(effectiveText) && /Pro-Forma/i.test(effectiveText)) {
+        try {
+            const scarabeoProforma = require('./scarabeoProformaExtraction');
+            console.log("[Engine] Attempting SCARABEO Proforma Coords Extraction...");
+            extractedData = await scarabeoProforma.processProforma(pdfBuffer);
+            if (extractedData) {
+                extractedData.docType = 'scarabeo_proforma';
+                console.log("[Engine] SCARABEO Proforma Coords Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] SCARABEO Proforma Extraction Error:", e);
+        }
+    }
+
+    // Gating for SCARABEO Invoice (General Fallback)
+    if (!extractedData && pdfBuffer && /SCARABEO/i.test(effectiveText) && /Invoice/i.test(effectiveText)) {
+        try {
+            const scarabeoInvoice = require('./scarabeoInvoiceExtraction');
+            console.log("[Engine] Attempting SCARABEO Invoice Coords Extraction (Fallback)...");
+            extractedData = await scarabeoInvoice.processInvoice(pdfBuffer);
+            if (extractedData) {
+                extractedData.docType = 'fatura';
+                console.log("[Engine] SCARABEO Invoice Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] SCARABEO Invoice Error:", e);
+        }
+    }
+
+    // Gating for FIMA Invoice (Factura)
+    if (!extractedData && pdfBuffer && /FIMA/i.test(effectiveText) && /Factura/i.test(effectiveText)) {
+        try {
+            const fimaInvoice = require('./fimaInvoiceExtraction');
+            console.log("[Engine] Attempting FIMA Invoice Extraction...");
+            extractedData = await fimaInvoice.processInvoice(pdfBuffer);
+            if (extractedData) {
+                console.log("[Engine] FIMA Invoice Extraction Successful.");
+            }
+        } catch (e) {
+            console.error("[Engine] FIMA Invoice Extraction Error:", e);
+        }
+    }
+
     // Fallback to Text Extractor
     if (!extractedData) {
         extractedData = extractFromText(effectiveText);
@@ -118,14 +249,26 @@ async function process(text, pdfBuffer) {
     const validation = validate(extractedData, docType);
 
     // 5. Assemble Final Object (Canonical Shape)
+    if (!extractedData) {
+        extractedData = {
+            docType: 'other',
+            metadata: {},
+            entities: { supplier: {}, customer: {} },
+            totals: {},
+            lines: []
+        };
+    }
+
     const normalized = {
         docType: extractedData.docType || docType || 'other',
-        docNumber: extractedData.docNumber,
+        docNumber: extractedData.docNumber || extractedData.metadata?.doc_number,
         currency: 'EUR', // Assumption for V2
-        date: extractedData.dates?.issued || extractedData.date, // [CRITICAL FIX] Map for Viewer
+        date: extractedData.dates?.issued || extractedData.date || extractedData.metadata?.doc_date, // [CRITICAL FIX] Map for Viewer
         dates: extractedData.dates,
+        metadata: extractedData.metadata || {}, // [CRITICAL FIX] Pass through raw metadata
         entities: extractedData.entities,
         totals: extractedData.totals,
+        total: extractedData.totals?.gross || extractedData.totals?.total || extractedData.total || 0,
         lines: (extractedData.lines || []).map(l => ({
             ...l,
             sku: l.sku || l.code,
@@ -133,8 +276,8 @@ async function process(text, pdfBuffer) {
             price: l.price || l.unitPrice
         })),
         docRefs: extractedData.docRefs,
-        projectRef: extractedData.projectRef, // [NEW] Pass through Project Ref
-        shippingMarks: extractedData.shippingMarks || (extractedData.docRefs?.customerOrder?.number ? extractedData.docRefs.customerOrder.number : null), // [CRITICAL FIX] Pass through Shipping Marks
+        projectRef: extractedData.projectRef || extractedData.metadata?.project_ref, // [FIXED] Reliable mapping
+        shippingMarks: extractedData.shippingMarks || (extractedData.metadata?.client_ref ? extractedData.metadata.client_ref : null) || (extractedData.docRefs?.customerOrder?.number ? extractedData.docRefs.customerOrder.number : null),
 
         confidence: validation.confidence,
         needsReview: validation.needsReview,
@@ -147,9 +290,12 @@ async function process(text, pdfBuffer) {
             textSample: text.substring(0, 1000)
         }
     };
-
     return normalized;
 }
+
+// NOTE: Auto-reconciliation is handled in the controller AFTER saving. 
+// Wait, looking at the code above, the auto-reconciliation is NOT in engine.js. It's in the respective controllers!
+// I'll leave engine.js as is here and move to the controller/service modifications.
 
 module.exports = {
     process

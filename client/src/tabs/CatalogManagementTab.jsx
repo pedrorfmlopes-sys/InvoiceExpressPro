@@ -7,7 +7,8 @@ import CalendarManager from '../components/logistics/CalendarManager';
 const BRANDS_CONFIG = [
     { id: 'nicolazzi', name: 'Nicolazzi', color: 'amber' },
     { id: 'ritmonio', name: 'Ritmonio', color: 'blue' },
-    { id: 'bette', name: 'Bette', color: 'green' }
+    { id: 'bette', name: 'Bette', color: 'green' },
+    { id: 'axa', name: 'AXA', color: 'red' }
 ];
 
 const UNIT_OPTIONS = [
@@ -449,22 +450,53 @@ const CatalogManagementTab = ({ project }) => {
             });
             setInspectData(res.data);
 
-            // Auto-detect sheet
+            // Auto-detect sheet — matches Nicolazzi, Ritmonio and AXA patterns
             const sheets = res.data.sheets || [];
-            const itemSheetObj = sheets.find(s => s.name.toLowerCase().includes('tabela') || s.name.toLowerCase().includes('items')) || sheets[0];
-            const finishSheetObj = sheets.find(s => s.name.toLowerCase().includes('acabamento') || s.name.toLowerCase().includes('finishes'));
+            const itemSheetObj =
+                sheets.find(s => s.name.toLowerCase().includes('tabela')) ||
+                sheets.find(s => s.name.toLowerCase().includes('items')) ||
+                sheets.find(s => s.name.toLowerCase().includes('listino')) ||
+                sheets.find(s => s.name.toLowerCase().includes('pricelist')) ||
+                sheets[0];
+
+            const finishSheetObj =
+                sheets.find(s => s.name.toLowerCase().includes('acabamento')) ||
+                sheets.find(s => s.name.toLowerCase().includes('finishes')) ||
+                sheets.find(s => s.name.toLowerCase().includes('finish'));
+
+            // Auto-detect columns from the item sheet headers using keywords
+            // Returns the first header that matches any of the keyword fragments
+            const autoDetectCol = (headers, ...keywords) => {
+                return headers.find(h => keywords.some(kw => h.toLowerCase().includes(kw.toLowerCase()))) || '';
+            };
+
+            let autoColumns = { sku: 'Codigo', description_pt: 'Des.PT', price: 'PVP', collection: 'Série' };
+            if (itemSheetObj?.headers?.length > 0) {
+                const h = itemSheetObj.headers;
+                // For description, prefer the LAST matching header (i > 2 equivalent)
+                const descHeaders = h.filter((hdr, i) =>
+                    i > 2 && (hdr.toLowerCase().includes('descri') || hdr.toLowerCase().includes('descrip'))
+                );
+                autoColumns = {
+                    collection: autoDetectCol(h, 'collezione', 'collection', 'serie', 'série', 'colecao', 'coleção'),
+                    sku: autoDetectCol(h, 'articolo', 'cod. art', 'codigo', 'código', 'sku', 'ref', 'item'),
+                    description_pt: descHeaders[descHeaders.length - 1] || autoDetectCol(h, 'descri', 'descrip'),
+                    price: autoDetectCol(h, 'prezzo', 'price', 'pvp', 'preco', 'preço'),
+                };
+            }
 
             setMapping(prev => ({
                 ...prev,
                 itemSheetName: itemSheetObj ? itemSheetObj.name : '',
-                finishSheetName: finishSheetObj ? finishSheetObj.name : ''
+                finishSheetName: finishSheetObj ? finishSheetObj.name : '',
+                columns: { ...prev.columns, ...autoColumns }
             }));
 
-            // If auto-detected item sheet has the collection column, fetch immediately
-            if (itemSheetObj) {
-                const hasCol = itemSheetObj.headers.includes('Série');
-                if (hasCol) fetchCollections(itemSheetObj.name, 'Série');
+            // Fetch collections using the auto-detected collection column
+            if (itemSheetObj && autoColumns.collection) {
+                fetchCollections(itemSheetObj.name, autoColumns.collection);
             }
+
 
         } catch (err) {
             alert('Falha na inspeção: ' + (err.response?.data?.error || err.message));

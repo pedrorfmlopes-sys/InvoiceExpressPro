@@ -4,12 +4,22 @@ import NicolazziGoldViewer from './NicolazziGoldViewer'; // Classic Layout (Fixe
 import NicolazziProformaViewer from './NicolazziProformaViewer'; // Modern Layout
 import NicolazziProformaContainer from './NicolazziProformaContainer';
 import RitmonioContainer from './RitmonioContainer';
+import AxaOrderContainer from './AxaOrderContainer';
+import AxaInvoiceContainer from './AxaInvoiceContainer';
+import AxaProformaContainer from './AxaProformaContainer';
+import FimaOrderContainer from './FimaOrderContainer';
+import FimaProformaContainer from './FimaProformaContainer';
+import FimaInvoiceContainer from './FimaInvoiceContainer';
+import ScarabeoProformaContainer from './ScarabeoProformaContainer';
+import ScarabeoInvoiceContainer from './ScarabeoInvoiceContainer';
 
 // Helper to safely get supplier name
 const getSupplierName = (doc) => {
-    if (!doc || !doc.supplier) return '';
-    if (typeof doc.supplier === 'string') return doc.supplier.toUpperCase();
-    if (typeof doc.supplier === 'object' && doc.supplier.name) return doc.supplier.name.toUpperCase();
+    if (!doc) return '';
+    const mainSupplier = doc.supplier || (doc.entities?.supplier?.name);
+    if (!mainSupplier) return '';
+    if (typeof mainSupplier === 'string') return mainSupplier.toUpperCase();
+    if (typeof mainSupplier === 'object' && mainSupplier.name) return mainSupplier.name.toUpperCase();
     return '';
 };
 
@@ -48,6 +58,92 @@ const viewers = [
         Component: RitmonioContainer
     },
     {
+        name: 'AXA C.Pedido (OC)',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isAxa = supplier.includes('AXA') || supplier.includes('COLAVENE') || doc.supplier === 'AXA';
+            const isOrder = type.includes('c_pedido') || type.includes('order_confirmation') || type.includes('conferma') || type.includes('ordine');
+            return isAxa && isOrder;
+        },
+        Component: AxaOrderContainer
+    },
+    {
+        name: 'AXA Invoice',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isAxa = supplier.includes('AXA') || supplier.includes('COLAVENE') || doc.supplier === 'AXA';
+            const isInvoice = type.includes('fatura') || type.includes('invoice') || type.includes('fattura') || type.includes('ft') || doc.type === 'invoice';
+            return isAxa && isInvoice;
+        },
+        Component: AxaInvoiceContainer
+    },
+    {
+        name: 'AXA Proforma (PA)',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isAxa = supplier.includes('AXA') || supplier.includes('COLAVENE') || doc.supplier === 'AXA';
+            const isProforma = type.includes('proforma') || type.includes('pro-forma');
+            return isAxa && isProforma;
+        },
+        Component: AxaProformaContainer
+    },
+    {
+        name: 'FIMA C.Pedido',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            return (supplier.includes('FIMA') || doc.supplier === 'FIMA') && (type.includes('c_pedido') || type.includes('confirmacion') || type.includes('confirmacao'));
+        },
+        Component: FimaOrderContainer
+    },
+    {
+        name: 'FIMA Proforma',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            return (supplier.includes('FIMA') || doc.supplier === 'FIMA') && type.includes('proforma');
+        },
+        Component: FimaProformaContainer
+    },
+    {
+        name: 'FIMA Invoice',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            return (supplier.includes('FIMA') || doc.supplier === 'FIMA') && (type.includes('invoice') || type.includes('fatura') || type.includes('factura'));
+        },
+        Component: FimaInvoiceContainer
+    },
+    {
+        name: 'SCARABEO Proforma',
+        match: (doc) => {
+            const supplier = getSupplierName(doc);
+            const type = (doc.docType || '').toLowerCase();
+            const typeManual = (doc.type || '').toLowerCase();
+            const isScarabeo = supplier.includes('SCARABEO') || doc.supplier === 'SCARABEO';
+            if (!isScarabeo) return false;
+            // Catch anything explicitly proforma OR anything that isn't an invoice (defaulting to the starter doc)
+            return type.includes('proforma') || typeManual === 'source' || (!type.includes('invoice') && !type.includes('fatura'));
+        },
+        Component: ScarabeoProformaContainer
+    },
+    {
+        name: 'SCARABEO Invoice',
+        match: (doc) => {
+            const supplier = getSupplierName(doc);
+            const type = (doc.docType || '').toLowerCase();
+            const typeManual = (doc.type || '').toLowerCase();
+            const isScarabeo = supplier.includes('SCARABEO') || doc.supplier === 'SCARABEO';
+            if (!isScarabeo) return false;
+            // Catch anything that smells like invoice, fatura, or even order confirmation (since Scarabeo invoices are often mislabeled as such)
+            return type.includes('invoice') || type.includes('fatura') || type.includes('factura') || type === 'scarabeo_invoice' || typeManual === 'invoice' || typeManual === 'order_confirmation' || type.includes('c_pedido');
+        },
+        Component: ScarabeoInvoiceContainer
+    },
+    {
         name: 'Simple PDF Viewer',
         match: () => true, // Fallback for everything else
         Component: SimpleDocViewer
@@ -55,6 +151,14 @@ const viewers = [
 ];
 
 export function getViewer(doc) {
+    if (!doc) return null;
     const entry = viewers.find(v => v.match(doc));
+    if (entry && (entry.name.includes('SCARABEO'))) {
+        console.log(`[ViewerRegistry] Matched ${entry.name} for doc:`, doc.id, {
+            supplier: getSupplierName(doc),
+            docType: doc.docType,
+            type: doc.type
+        });
+    }
     return entry ? entry.Component : null;
 }

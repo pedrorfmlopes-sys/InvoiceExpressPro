@@ -311,7 +311,7 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
         { key: 'archived', label: 'Status', width: 80, render: (r) => r.archived ? <span className="text-[var(--text-muted)] text-xs font-bold bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">Archived</span> : <span className="text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30 px-2 py-1 rounded text-xs font-bold">Active</span> },
         {
             key: 'docType', label: 'Type', width: 120,
-            editable: true, type: 'select', options: ['fatura', 'recibo', 'nota_credito', 'guia_remessa', 'proforma', 'other']
+            editable: true, type: 'select', options: ['fatura', 'recibo', 'nota_credito', 'guia_remessa', 'proforma', 'c_pedido', 'other']
         },
         { key: 'docNumber', label: 'Doc #', width: 120, editable: true },
         { key: 'date', label: 'Date', width: 100, editable: true, type: 'date' },
@@ -322,7 +322,7 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
             label: 'Entrega',
             width: 200,
             render: (r) => {
-                const isProforma = (r.docType || '').toLowerCase().includes('proforma');
+                const isProforma = (r.docType || '').toLowerCase().includes('proforma') || (r.docType || '').toLowerCase().includes('c_pedido');
                 if (isProforma) {
                     const avgProgress = r.associatedProposals?.length > 0
                         ? Math.round(r.associatedProposals.reduce((sum, p) => sum + (p.progress || 0), 0) / r.associatedProposals.length)
@@ -541,6 +541,7 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
                         <option value="nota_credito">Nota Credito</option>
                         <option value="guia_remessa">Guia Remessa</option>
                         <option value="proforma">Proforma</option>
+                        <option value="c_pedido">C. Pedido</option>
                     </select>
 
                     <select
@@ -636,8 +637,8 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
                                 </tr>
                             );
 
-                            const proformaDocs = docs.filter(d => (d.docType || '').toLowerCase().includes('proforma'));
-                            const otherDocs = docs.filter(d => !(d.docType || '').toLowerCase().includes('proforma'));
+                            const proformaDocs = docs.filter(d => (d.docType || '').toLowerCase().includes('proforma') || (d.docType || '').toLowerCase().includes('c_pedido'));
+                            const otherDocs = docs.filter(d => !(d.docType || '').toLowerCase().includes('proforma') && !(d.docType || '').toLowerCase().includes('c_pedido'));
 
                             return (
                                 <>

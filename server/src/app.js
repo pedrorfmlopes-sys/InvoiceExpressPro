@@ -107,7 +107,9 @@ app.use('/api/extraction', require('./modules/extraction'));
 app.use('/api/proposals', require('./modules/proposalStudio/router'));
 app.use('/api/nicolazzi', require('./modules/nicolazziReconciliation/router')); // Nicolazzi specific reconciliation
 app.use('/api/ritmonio', require('./modules/ritmonioReconciliation/router')); // Ritmonio specific reconciliation
+app.use('/api/axa-fima', require('./modules/axaFimaReconciliation/router')); // AXA & FIMA 3-doc reconciliation
 app.use('/api/reconciliation', require('./modules/nicolazziReconciliation/router')); // Unified reconciliation
+
 app.use('/api/logistics', require('./modules/logistics/router')); // Factory calendar & logistics
 app.use('/api/crm', require('./modules/crm/router'));
 app.use('/api/catalog', require('./modules/catalog/routes'));

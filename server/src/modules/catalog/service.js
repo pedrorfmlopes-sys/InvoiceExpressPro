@@ -362,6 +362,191 @@ class CatalogService {
         return { success: true, stats: { createdCount, updatedCount, skippedCount: rawItemData.length - items.length } };
     }
 
+    async processAxaExcel(filePath, mappings = {}) {
+        const workbook = XLSX.readFile(filePath);
+        const brand = 'axa';
+
+        // Diagnostic: log what the frontend actually sent
+        console.log('[CatalogService] AXA processAxaExcel called. mappings received:', JSON.stringify({
+            itemSheetName: mappings.itemSheetName,
+            finishSheetName: mappings.finishSheetName,
+            columns: mappings.columns,
+            clearBeforeImport: mappings.clearBeforeImport,
+            allowedCollections: mappings.allowedCollections?.length
+        }));
+
+        const allowedCollections = mappings.allowedCollections || null;
+
+        // 1. Process Finishes from "AXA Finishes" sheet
+        const fSheetName = mappings.finishSheetName ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('finish')) ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('acabamento'));
+
+        // Load finish codes into memory for fast lookup (cross-DB compatible)
+        const validFinishCodes = new Set();
+        if (fSheetName && workbook.Sheets[fSheetName]) {
+            console.log(`[CatalogService] AXA: Processing finishes from "${fSheetName}"`);
+            const rawFin = XLSX.utils.sheet_to_json(workbook.Sheets[fSheetName], { header: 1, defval: '' });
+            const finRows = rawFin.slice(1); // skip header row
+
+            for (const row of finRows) {
+                const code = String(row[0] || '').trim();
+                const nameEn = String(row[1] || '').trim();
+                const nameIt = String(row[2] || '').trim();
+                const namePt = String(row[3] || '').trim();
+                if (!code) continue;
+
+                validFinishCodes.add(code.toUpperCase());
+
+                // Upsert into catalog_finishes (Knex API only — cross-DB safe)
+                const existing = await knex('catalog_finishes')
+                    .where({ brand, finish_code: code })
+                    .first();
+
+                const finishRow = {
+                    brand,
+                    finish_code: code,
+                    group_code: 'STANDARD',
+                    name_en: nameEn || null,
+                    name_it: nameIt || null,
+                    description_pt: namePt || null,
+                    updated_at: new Date()
+                };
+
+                if (existing) {
+                    await knex('catalog_finishes').where({ id: existing.id }).update(finishRow);
+                } else {
+                    await knex('catalog_finishes').insert({ ...finishRow, id: uuidv4(), created_at: new Date() });
+                }
+            }
+
+            console.log(`[CatalogService] AXA: ${validFinishCodes.size} finish codes loaded`);
+        }
+
+        // 2. Process Items
+        const iSheetName = mappings.itemSheetName ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('listino') || s.toLowerCase().includes('pricelist')) ||
+            workbook.SheetNames[0];
+
+        const itemSheet = workbook.Sheets[iSheetName];
+        if (!itemSheet) throw new Error(`AXA item sheet not found: ${iSheetName}`);
+
+        if (mappings.clearBeforeImport) {
+            console.log(`[CatalogService] AXA: Clearing existing items`);
+            await knex('catalog_items').where({ brand }).delete();
+        }
+
+        // Use header:1 to get raw arrays then map manually (avoids duplicate-header issues)
+        const rawAll = XLSX.utils.sheet_to_json(itemSheet, { header: 1, defval: '' });
+        const headers = rawAll[0].map(h => String(h).trim());
+        const rawRows = rawAll.slice(1);
+
+        // Priority order: (1) exact user-selected header name, (2) keyword search, (3) positional fallback
+        const userCols = mappings.columns || {};
+        const byName = (name) => name ? headers.findIndex(h => h === name) : -1;
+        const byKw = (...kws) => headers.findIndex(h => kws.some(kw => h.toLowerCase().includes(kw.toLowerCase())));
+
+        const colIdx = {
+            collection: byName(userCols.collection) >= 0 ? byName(userCols.collection) : byKw('collezione', 'collection') >= 0 ? byKw('collezione', 'collection') : 0,
+            sku: byName(userCols.sku) >= 0 ? byName(userCols.sku) : byKw('articolo', 'cod. art') >= 0 ? byKw('articolo', 'cod. art') : 1,
+            description: byName(userCols.description_pt) >= 0 ? byName(userCols.description_pt)
+                : (() => { const i = headers.findIndex((h, idx) => (h.toLowerCase().includes('descrizione') || h.toLowerCase().includes('description')) && idx > 2); return i >= 0 ? i : 4; })(),
+            price: byName(userCols.price) >= 0 ? byName(userCols.price) : byKw('prezzo', 'price') >= 0 ? byKw('prezzo', 'price') : 5,
+            ean: byName(userCols.ean) >= 0 ? byName(userCols.ean) : byKw('ean') >= 0 ? byKw('ean') : 3,
+        };
+
+        console.log(`[CatalogService] AXA: Headers detected:`, headers);
+        console.log(`[CatalogService] AXA: Column indices resolved:`, colIdx);
+        console.log(`[CatalogService] AXA: Processing ${rawRows.length} rows...`);
+
+        let createdCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+        let filteredCount = 0;
+
+        // Load existing SKUs for this brand into a Map (Knex API — cross-DB safe)
+        const existingItems = await knex('catalog_items')
+            .where({ brand })
+            .select('id', 'sku', 'finish_group');
+
+        const existingMap = new Map();
+        existingItems.forEach(item => {
+            const key = `${String(item.sku).toLowerCase()}|${String(item.finish_group || '').toLowerCase()}`;
+            existingMap.set(key, item.id);
+        });
+
+        const toInsert = [];
+        const toUpdate = [];
+
+        for (const row of rawRows) {
+            const sku = String(row[colIdx.sku] || '').trim();
+            if (!sku) { skippedCount++; continue; }
+
+            const series = String(row[colIdx.collection] || '').trim();
+            if (allowedCollections && allowedCollections.length > 0 && !allowedCollections.includes(series)) {
+                filteredCount++;
+                continue;
+            }
+
+            // Detect finish code from last 2 chars of SKU
+            const skuUpper = sku.toUpperCase();
+            const last2 = skuUpper.slice(-2);
+            const finishCode = validFinishCodes.has(last2) ? last2 : '';
+
+            const descRaw = String(row[colIdx.description] || row[2] || '').trim();
+            const eanRaw = String(row[colIdx.ean] || '').trim();
+            const priceRaw = row[colIdx.price];
+
+            const itemData = {
+                brand,
+                sku,
+                series,
+                finish_group: finishCode,
+                description_pt: descRaw || null,
+                price: typeof priceRaw === 'number' ? priceRaw : parseFloat(String(priceRaw).replace(',', '.')) || 0,
+                // Store EAN in extra_json for future use (Knex serialises this fine on both DBs)
+                extra_json: eanRaw ? JSON.stringify({ ean: eanRaw }) : null,
+                source: 'Import Automatic',
+                updated_at: new Date()
+            };
+
+            const key = `${sku.toLowerCase()}|${finishCode.toLowerCase()}`;
+            const existingId = existingMap.get(key);
+
+            if (existingId) {
+                toUpdate.push({ id: existingId, ...itemData });
+            } else {
+                toInsert.push({ ...itemData, id: uuidv4(), created_at: new Date() });
+            }
+        }
+
+        // Batch inserts (Knex — cross-DB safe)
+        if (toInsert.length > 0) {
+            const CHUNK = 500;
+            for (let i = 0; i < toInsert.length; i += CHUNK) {
+                await knex('catalog_items').insert(toInsert.slice(i, i + CHUNK));
+                createdCount += Math.min(CHUNK, toInsert.length - i);
+            }
+        }
+
+        // Batch updates
+        if (toUpdate.length > 0) {
+            const CHUNK = 200;
+            for (let i = 0; i < toUpdate.length; i += CHUNK) {
+                await knex.transaction(async trx => {
+                    for (const item of toUpdate.slice(i, i + CHUNK)) {
+                        const { id, ...data } = item;
+                        await trx('catalog_items').where({ id }).update(data);
+                    }
+                });
+                updatedCount += Math.min(CHUNK, toUpdate.length - i);
+            }
+        }
+
+        console.log(`[CatalogService] AXA import done. Created: ${createdCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}, Filtered: ${filteredCount}`);
+        return { success: true, stats: { createdCount, updatedCount, skippedCount, filteredCount } };
+    }
+
     // The original upsertItems method is now largely redundant as its logic is integrated into processNicolazziExcel.
     // However, to maintain the structure and avoid breaking other potential calls,
     // I'm keeping it but noting its reduced role or potential for removal.
@@ -510,7 +695,7 @@ class CatalogService {
             let finishCode = item.finish_group || '';
             const series = item.series;
 
-            // 1. Resolve Finish (Ritmonio Suffix logic)
+            // 1a. Resolve Finish (Ritmonio Suffix logic)
             if (b === 'ritmonio') {
                 const finishMap = await knex('catalog_finishes').where({ brand: 'ritmonio' });
                 const upperSku = cleanSku.toUpperCase();
@@ -529,6 +714,24 @@ class CatalogService {
                         finishNote = techDesc ? `${techDesc}${timeStr}` : `${item.description_pt || ''}${timeStr}`;
                         break;
                     }
+                }
+            }
+
+            // 1b. Resolve Finish (AXA — stored in finish_group during import)
+            if (b === 'axa' && item.finish_group) {
+                const axaFinish = await knex('catalog_finishes')
+                    .where({ brand: 'axa', finish_code: item.finish_group })
+                    .first();
+                if (axaFinish) {
+                    finish = axaFinish;
+                    finishCode = axaFinish.finish_code;
+                    if (axaFinish.lead_time_weeks != null) {
+                        leadTimeWeeks = axaFinish.lead_time_weeks;
+                    }
+                    const namePt = axaFinish.description_pt || axaFinish.name_en || '';
+                    const leadDays = axaFinish.lead_time_weeks ? Math.round(axaFinish.lead_time_weeks * 5) : null;
+                    const timeStr = leadDays ? ` | Produção: ${leadDays} dias úteis` : '';
+                    finishNote = namePt ? `${namePt}${timeStr}` : `${item.description_pt || ''}${timeStr}`;
                 }
             }
 

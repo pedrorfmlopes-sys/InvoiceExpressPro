@@ -289,7 +289,9 @@ async function getProposalFulfillmentDetails(proposalId) {
                 const unlinkedInvoicesQuery = knex('documents')
                     .where(function () {
                         this.where('supplier', 'like', '%NICOLAZZI%')
-                            .orWhere('supplier', 'like', '%Nicolazzi%');
+                            .orWhere('supplier', 'like', '%Nicolazzi%')
+                            .orWhere('supplier', 'like', '%SCARABEO%')
+                            .orWhere('supplier', 'like', '%Scarabeo%');
                     })
                     .where('rawJson', 'like', `%${token}%`);
 
@@ -522,7 +524,7 @@ async function resetAllMatchings(brand = 'ALL') {
     return await knex.transaction(async (trx) => {
         // 1. Identify all relevant invoices/proformas to re-process for this brand
         const query = trx('documents')
-            .whereIn('docType', ['invoice', 'fatura', 'packing_list', 'proforma']);
+            .whereIn('docType', ['invoice', 'fatura', 'packing_list', 'proforma', 'scarabeo_invoice', 'scarabeo_proforma']);
 
         if (brandLabel !== 'ALL') {
             query.where(function () {
@@ -643,7 +645,9 @@ async function discoverMatches() {
     const unlinkedInvoices = await knex('documents')
         .where(function () {
             this.where('supplier', 'like', '%NICOLAZZI%')
-                .orWhere('supplier', 'like', '%Nicolazzi%');
+                .orWhere('supplier', 'like', '%Nicolazzi%')
+                .orWhere('supplier', 'like', '%SCARABEO%')
+                .orWhere('supplier', 'like', '%Scarabeo%');
         })
         .whereIn('docType', ['invoice', 'fatura', 'packing_list'])
         .whereNotIn('id', linkedDocIdsQuery)

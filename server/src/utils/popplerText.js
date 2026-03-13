@@ -15,13 +15,23 @@ function pdfBufferToTextPoppler(pdfBuffer) {
     fs.writeFileSync(pdfPath, pdfBuffer);
 
     try {
-        return execFileSync(exe, ["-layout", "-enc", "UTF-8", pdfPath, "-"], {
+        const output = execFileSync(exe, ["-layout", "-enc", "UTF-8", pdfPath, "-"], {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
+            maxBuffer: 10 * 1024 * 1024, // 10MB
         });
+        return output;
+    } catch (err) {
+        console.error(`[Poppler] pdftotext failed with exe: ${exe}. Error:`, err.message);
+        throw new Error(`Falha na extração de PDF (Poppler): ${err.message}`);
     } finally {
-        try { fs.unlinkSync(pdfPath); } catch { }
-        try { fs.rmdirSync(tmpDir); } catch { }
+        try {
+            if (fs.existsSync(tmpDir)) {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            }
+        } catch (e) {
+            console.warn("[Poppler] Cleanup failed:", e.message);
+        }
     }
 }
 

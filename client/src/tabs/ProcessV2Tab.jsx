@@ -29,6 +29,8 @@ function normalizeDocType(val, availableTypes = []) {
     if (v.includes('fatura') || v === 'invoice') return 'fatura';
     if (v.includes('recibo') || v === 'receipt') return 'recibo';
     if (v.includes('guia') || v === 'delivery') return 'guia_remessa';
+    if (v.includes('proforma')) return 'proforma';
+    if (v.includes('pedido') || v.includes('order')) return 'c_pedido';
 
     // 3. If it's a known custom slug content (e.g. from DB) but didn't match above rules?
     // We assume the value itself is the slug if not 'other'

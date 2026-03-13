@@ -85,6 +85,12 @@ class ConfigService {
                 labelPt: "Fatura-Recibo",
                 synonyms: ["Cash Invoice", "FR"],
                 keywords: ["fatura-recibo", "pronto pagamento"]
+            },
+            {
+                id: "c_pedido",
+                labelPt: "C. Pedido",
+                synonyms: ["Order Confirmation", "Confirmation of Order", "Confirmação de Pedido", "order_confirmation"],
+                keywords: ["c. pedido", "order confirmation", "confirmação de pedido", "order_confirmation"]
             }
         ];
     }
