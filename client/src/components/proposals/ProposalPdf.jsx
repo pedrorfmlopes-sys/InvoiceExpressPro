@@ -243,14 +243,30 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
     const shipping = parseFloat(proposal.metadata?.shipping_cost || 0);
     const globalDiscPercent = parseFloat(proposal.metadata?.global_discount || 0);
 
-    // Calculate Discount Value based on (Sum + Shipping)
-    // Common practice: Discount applies to merchandise, but sometimes shipping too.
-    // Let's apply to (TotalSiva + Shipping) to be generous, or just TotalSiva?
-    // Usually "Global Discount" on a proposal applies to the subtotal.
-    // Let's do: (TotalSiva + Shipping) * (Percent / 100)
-    const discountValue = (totalSiva + shipping) * (globalDiscPercent / 100);
+    // Packaging Costs Calculation
+    let packagingTotal = 0;
+    const pkCosts = proposal.metadata?.packaging_costs || [];
+    pkCosts.forEach(cost => {
+        if (!cost.enabled) return;
+        if (cost.type === 'fixed') {
+            packagingTotal += parseFloat(cost.value || 0);
+        } else {
+            const baseVal = cost.base === 'liquid' ? totalSiva : (totalSiva + shipping);
+            packagingTotal += baseVal * (parseFloat(cost.value || 0) / 100);
+        }
+    });
 
-    const taxBase = totalSiva + shipping - discountValue;
+    const packagingBreakdown = pkCosts
+        .filter(c => c.enabled)
+        .map(c => {
+            const val = parseFloat(c.value || 0);
+            const displayVal = c.type === 'fixed' ? `${val.toFixed(2)} €` : `${val}%`;
+            return `${c.description}: ${displayVal}`;
+        })
+        .join('; ');
+
+    const discountValue = (totalSiva + shipping) * (globalDiscPercent / 100);
+    const taxBase = totalSiva + shipping + packagingTotal - discountValue;
     const iva = taxBase * 0.23;
     const totalCiva = taxBase + iva;
 
@@ -446,6 +462,17 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                                 <Text style={{ fontSize: 8, color: '#4B5563' }}>{userObs}</Text>
                             </View>
                         ) : null}
+
+                        {pkCosts.filter(c => c.enabled).length > 0 && (
+                            <View style={{ marginTop: 8 }}>
+                                <Text style={{ fontSize: 7, fontWeight: 'bold', marginBottom: 2, color: '#6B7280', textTransform: 'uppercase' }}>Resumo de Embalagem:</Text>
+                                {pkCosts.filter(c => c.enabled).map((c, i) => (
+                                    <Text key={i} style={{ fontSize: 7, color: '#6B7280' }}>
+                                        • {c.description}: {c.type === 'percent' ? `${c.value}%` : fmtMoney(c.value)}
+                                    </Text>
+                                ))}
+                            </View>
+                        )}
                     </View>
 
                     {/* RIGHT: Totals */}
@@ -460,6 +487,13 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                                 <View style={styles.totalRow}>
                                     <Text style={styles.totalLabel}>Portes/Envio:</Text>
                                     <Text style={styles.totalValue}>{fmtMoney(shipping)}</Text>
+                                </View>
+                            )}
+
+                            {packagingTotal > 0 && (
+                                <View style={styles.totalRow}>
+                                    <Text style={styles.totalLabel}>Embalagem e Manuseamento:</Text>
+                                    <Text style={styles.totalValue}>{fmtMoney(packagingTotal)}</Text>
                                 </View>
                             )}
 

@@ -41,15 +41,67 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
     const [previewBackupData, setPreviewBackupData] = useState(null); // Snapshot to show in preview modal (Phase 20)
     const [previewBackupId, setPreviewBackupId] = useState(null); // Phase 31: Track specific backup ID being previewed
 
-    // Column Visibility & Order
-    // Initial order needs to match COLUMNS_DEF keys roughly
-    const [columnOrder, setColumnOrder] = useState([
+    // --- Persisted View Settings ---
+    const getStored = (key, fallback) => {
+        try {
+            const val = localStorage.getItem(`corev2_view_${project}_${key}`);
+            return val ? JSON.parse(val) : fallback;
+        } catch (e) { return fallback; }
+    };
+
+    const initialOrder = [
         'archived', 'docType', 'docNumber', 'date', 'supplier', 'customer', 'shipTo', 'total',
-        'associatedProposals', 'sub_project_id', 'category_id', 'scope', 'links'
-    ]);
-    const [visibleCols, setVisibleCols] = useState(new Set(columnOrder));
+        'sub_project_id', 'category_id', 'scope', 'links'
+    ];
+
+    const [columnOrder, setColumnOrder] = useState(() => getStored('colOrder', initialOrder));
+    const [visibleCols, setVisibleCols] = useState(() => new Set(getStored('visibleCols', initialOrder)));
+    
+    // Flexible Grouping System
+    const [groupList, setGroupList] = useState(() => getStored('groupList', [
+        { id: 'g1', label: 'Proformas & Encomendas Em Curso', filters: [{ field: 'docType', values: ['proforma', 'c_pedido'] }] }
+    ]));
+    const [catchAllLabel, setCatchAllLabel] = useState(() => getStored('catchAllLabel', 'Restantes Documentos (Faturas, Recibos, Etc)'));
+    const [vistas, setVistas] = useState(() => getStored('vistas', []));
+    const [currentVista, setCurrentVista] = useState(null);
+
     const [colManagerOpen, setColManagerOpen] = useState(false);
     const [draggedCol, setDraggedCol] = useState(null);
+
+    // Save settings when they change
+    useEffect(() => {
+        localStorage.setItem(`corev2_view_${project}_colOrder`, JSON.stringify(columnOrder));
+        localStorage.setItem(`corev2_view_${project}_visibleCols`, JSON.stringify(Array.from(visibleCols)));
+        localStorage.setItem(`corev2_view_${project}_groupList`, JSON.stringify(groupList));
+        localStorage.setItem(`corev2_view_${project}_catchAllLabel`, JSON.stringify(catchAllLabel));
+        localStorage.setItem(`corev2_view_${project}_vistas`, JSON.stringify(vistas));
+    }, [columnOrder, visibleCols, groupList, catchAllLabel, vistas, project]);
+
+    const handleSaveVista = (name) => {
+        if (!name) return;
+        const newVista = {
+            id: Date.now().toString(),
+            name,
+            columnOrder,
+            visibleCols: Array.from(visibleCols),
+            groupList,
+            catchAllLabel
+        };
+        setVistas(prev => [...prev.filter(v => v.name !== name), newVista]);
+    };
+
+    const handleLoadVista = (view) => {
+        setColumnOrder(view.columnOrder);
+        setVisibleCols(new Set(view.visibleCols));
+        if (view.groupList) setGroupList([...view.groupList]); // Force new array for reactivity
+        if (view.catchAllLabel) setCatchAllLabel(view.catchAllLabel);
+        setCurrentVista(view.name);
+    };
+
+    const handleDeleteVista = (id) => {
+        setVistas(prev => prev.filter(v => v.id !== id));
+        if (currentVista === vistas.find(v => v.id === id)?.name) setCurrentVista(null);
+    };
 
     // Link Modal
     const [linkModalOpen, setLinkModalOpen] = useState(false);
@@ -148,6 +200,22 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
     };
 
 
+    // -- Metadata Discovery --
+    const getAvailableMetadata = useCallback(() => {
+        const types = new Set();
+        const suppliers = new Set();
+        const customers = new Set();
+        docs.forEach(d => {
+            if (d.docType) types.add(d.docType);
+            if (d.supplier) suppliers.add(d.supplier);
+            if (d.customer) customers.add(d.customer);
+        });
+        return {
+            types: Array.from(types).sort(),
+            suppliers: Array.from(suppliers).sort(),
+            customers: Array.from(customers).sort()
+        };
+    }, [docs]);
     const handleBulkDelete = async () => {
         if (!confirm(`Tem a certeza que quer APAGAR ${selectedIds.size} documentos?\nEsta ação é irreversível.`)) return;
         try {
@@ -362,21 +430,26 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
             )
         },
         {
-            key: 'links', label: 'Links', width: 60, type: 'custom', render: (r) => (
-                r.linkCount > 0 ? (
-                    <button className="badge bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 hover:scale-110 transition-transform cursor-pointer px-2 py-0.5 rounded text-xs font-bold" onClick={(e) => { e.stopPropagation(); setViewLinksDoc(r); }}>
-                        🔗 {r.linkCount}
+            key: 'links', label: 'Links', width: 80, type: 'custom', render: (r) => {
+                const totalLinks = r.totalRelatedCount || 0;
+                return (
+                    <button 
+                        className={`badge transition-all cursor-pointer px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1 border ${
+                            totalLinks > 0 
+                            ? 'bg-blue-500/10 text-blue-400 dark:bg-blue-900/40 dark:text-blue-300 border-blue-500/20 shadow-lg shadow-blue-500/10 hover:scale-110' 
+                            : 'bg-gray-500/5 text-gray-500/30 border-gray-500/10 hover:bg-gray-500/20 hover:text-gray-400'
+                        }`} 
+                        onClick={(e) => { e.stopPropagation(); setViewLinksDoc(r); }}
+                    >
+                        <IconLink /> {totalLinks > 0 ? totalLinks : ''}
                     </button>
-                ) : <span className="opacity-20">-</span>
-            )
+                );
+            }
         },
         { key: 'actions', label: 'Actions', width: 140, type: 'action' }
     ];
 
-    const activeColumns = columnOrder
-        .filter(key => visibleCols.has(key))
-        .map(key => COLUMNS_DEF.find(c => c.key === key))
-        .filter(Boolean);
+    // Columns Def moved above or kept as is if it's static
 
     // -- Renderers --
     const renderCell = (row, col) => {
@@ -384,7 +457,6 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
         const val = row[col.key];
 
         if (isEditing) {
-            // ... (Same editing logic)
             if (col.type === 'select' || col.type === 'lookup') {
                 const opts = col.type === 'lookup' ? col.options : col.options.map(o => ({ id: o, name: o }));
                 return (
@@ -440,6 +512,233 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
         );
     };
 
+    const renderLayoutManager = () => {
+        if (!colManagerOpen) return null;
+        const { types, suppliers, customers } = getAvailableMetadata();
+
+        const addGroup = () => {
+            const newGroup = {
+                id: Date.now().toString(),
+                label: 'Novo Grupo',
+                filters: [{ field: 'docType', values: [] }]
+            };
+            setGroupList([...groupList, newGroup]);
+        };
+
+        const removeGroup = (id) => {
+            setGroupList(groupList.filter(g => g.id !== id));
+        };
+
+        const updateGroup = (id, updates) => {
+            setGroupList(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
+        };
+
+        const addFilter = (groupId) => {
+            const group = groupList.find(g => g.id === groupId);
+            updateGroup(groupId, { filters: [...group.filters, { field: 'supplier', values: [] }] });
+        };
+
+        const removeFilter = (groupId, filterIdx) => {
+            setGroupList(prev => prev.map(g => {
+                if (g.id !== groupId) return g;
+                const nextFilters = [...g.filters];
+                nextFilters.splice(filterIdx, 1);
+                return { ...g, filters: nextFilters };
+            }));
+        };
+
+        const toggleFilterValue = (groupId, filterIdx, value) => {
+            setGroupList(prev => prev.map(g => {
+                if (g.id !== groupId) return g;
+                const filter = g.filters[filterIdx];
+                const nextValues = filter.values.includes(value)
+                    ? filter.values.filter(v => v !== value)
+                    : [...filter.values, value];
+                
+                const nextFilters = [...g.filters];
+                nextFilters[filterIdx] = { ...filter, values: nextValues };
+                return { ...g, filters: nextFilters };
+            }));
+        };
+
+        return createPortal(
+            <div className="fixed inset-0 z-[1000] flex items-center justify-end p-6 pointer-events-none">
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setColManagerOpen(false)}></div>
+                <div className="w-[500px] h-full max-h-[90vh] bg-[#0c1015] border border-white/10 rounded-2xl shadow-2xl flex flex-col p-6 animate-in slide-in-from-right-8 pointer-events-auto relative overflow-hidden ring-1 ring-white/5">
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex flex-col">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00E5FF]">Personalizar Vista</h3>
+                            <span className="text-[9px] opacity-40 uppercase tracking-widest font-bold">Configuração de Grupos e Colunas</span>
+                        </div>
+                        <button onClick={() => setColManagerOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors text-white/40 hover:text-white">✕</button>
+                    </div>
+
+                    <div className="flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                        {/* 1. Saved Views */}
+                        <section>
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-tighter opacity-50">Vistas Salvas</h4>
+                                <button 
+                                    className="bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 rounded px-2 py-1 text-[9px] font-black uppercase tracking-widest hover:bg-[#00E5FF] hover:text-black transition-all"
+                                    onClick={() => {
+                                        const name = prompt("Nome da Vista:");
+                                        if (name) handleSaveVista(name);
+                                    }}
+                                >
+                                    + Guardar como Vista
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {vistas.map(v => (
+                                    <div key={v.id} className="flex items-center bg-white/5 border border-white/5 rounded-lg overflow-hidden group hover:border-white/20 transition-all">
+                                        <button 
+                                            className={`px-3 py-1.5 text-[10px] font-bold transition-colors ${currentVista === v.name ? 'bg-[#00E5FF] text-black' : 'hover:bg-white/5 text-white/70'}`}
+                                            onClick={() => handleLoadVista(v)}
+                                        >
+                                            {v.name}
+                                        </button>
+                                        <button 
+                                            className="px-2 py-1.5 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 border-l border-white/5 transition-all"
+                                            onClick={() => handleDeleteVista(v.id)}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        <div className="h-px bg-white/5"></div>
+
+                        {/* 2. Advanced Document Grouping */}
+                        <section>
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-tighter text-[#FFB300]">Agrupamento Dinâmico</h4>
+                                <button className="text-[9px] font-black uppercase text-white/40 hover:text-white transition-colors" onClick={addGroup}>+ Novo Grupo</button>
+                            </div>
+
+                            <div className="flex flex-col gap-4">
+                                {groupList.map((g, grpIdx) => (
+                                    <div key={g.id} className="bg-white/5 border border-white/5 rounded-xl p-4 flex flex-col gap-4 group/box relative">
+                                        <button className="absolute top-2 right-2 text-white/20 hover:text-red-500 transition-colors" onClick={() => removeGroup(g.id)}>✕</button>
+                                        
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[8px] font-black uppercase tracking-widest text-[#FFB300]/60">Nome do Grupo</label>
+                                            <input 
+                                                className="bg-black/40 border border-white/10 rounded px-3 py-2 text-xs font-bold focus:border-[#FFB300]/50 outline-none transition-all"
+                                                value={g.label}
+                                                onChange={e => updateGroup(g.id, { label: e.target.value })}
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-col gap-3">
+                                            {g.filters.map((f, fIdx) => (
+                                                <div key={fIdx} className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col gap-3">
+                                                    <div className="flex justify-between items-center">
+                                                        <select 
+                                                            className="bg-transparent text-[9px] font-black uppercase tracking-widest text-white/40 outline-none"
+                                                            value={f.field}
+                                                            onChange={e => {
+                                                                const next = [...g.filters];
+                                                                next[fIdx] = { ...f, field: e.target.value, values: [] };
+                                                                updateGroup(g.id, { filters: next });
+                                                            }}
+                                                        >
+                                                            <option value="docType">TIPO DE DOCUMENTO</option>
+                                                            <option value="supplier">MARCA / ENTIDADE</option>
+                                                            <option value="customer">CLIENTE / ENTIDADE</option>
+                                                        </select>
+                                                        <button className="text-[10px] text-white/20 hover:text-red-400" onClick={() => removeFilter(g.id, fIdx)}>Apagar Filtro</button>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {(f.field === 'docType' ? types : f.field === 'supplier' ? suppliers : customers).map(val => (
+                                                            <button 
+                                                                key={val}
+                                                                className={`px-2 py-1 rounded text-[8px] font-bold uppercase tracking-tighter transition-all border ${f.values.includes(val) ? 'bg-[#00E5FF]/20 border-[#00E5FF]/40 text-[#00E5FF]' : 'bg-white/5 border-white/5 text-white/20 hover:text-white/40'}`}
+                                                                onClick={() => toggleFilterValue(g.id, fIdx, val)}
+                                                            >
+                                                                {val}
+                                                            </button>
+                                                        ))}
+                                                        { (f.field === 'docType' ? types : f.field === 'supplier' ? suppliers : customers).length === 0 && <span className="text-[9px] opacity-20 italic">Sem dados disponíveis...</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <button className="text-[9px] font-bold text-white/20 hover:text-white/60 transition-colors py-1 border border-dashed border-white/5 rounded" onClick={() => addFilter(g.id)}>+ Adicionar Condição</button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Catch-all edit */}
+                                <div className="p-4 border border-dashed border-white/10 rounded-xl flex flex-col gap-1">
+                                    <label className="text-[8px] font-black uppercase tracking-widest text-white/20">Grupo Final (Outros)</label>
+                                    <input 
+                                        className="bg-transparent border-0 p-0 text-xs font-bold text-white/40 focus:text-white transition-all outline-none"
+                                        value={catchAllLabel}
+                                        onChange={e => setCatchAllLabel(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </section>
+
+                        <div className="h-px bg-white/5"></div>
+
+                        {/* 3. Columns Visibility */}
+                        <section className="flex-1">
+                            <h4 className="text-[10px] font-black uppercase tracking-tighter text-[#00C853] mb-4">Colunas Visíveis</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                                {COLUMNS_DEF.filter(c => c.key !== 'actions').map(c => (
+                                    <label key={c.key} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group/col ${visibleCols.has(c.key) ? 'bg-[#00C853]/5 border-[#00C853]/20 text-white' : 'bg-white/5 border-white/5 text-white/20 hover:border-white/10'}`}>
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${visibleCols.has(c.key) ? 'bg-[#00C853] border-[#00C853]' : 'border-white/20'}`}>
+                                            {visibleCols.has(c.key) && <span className="text-[10px] text-black font-black">✓</span>}
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest truncate">{c.label}</span>
+                                        <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={visibleCols.has(c.key)}
+                                            onChange={() => {
+                                                const next = new Set(visibleCols);
+                                                visibleCols.has(c.key) ? next.delete(c.key) : next.add(c.key);
+                                                setVisibleCols(next);
+                                            }}
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+
+                    <div className="pt-6 mt-4 border-t border-white/10 flex flex-col gap-4">
+                        <button className="text-[9px] font-bold text-white/20 hover:text-white uppercase tracking-widest self-start" onClick={() => {
+                            if(confirm("Deseja repor as definições originais?")) {
+                                setColumnOrder(initialOrder);
+                                setVisibleCols(new Set(initialOrder));
+                                setGroupList([{ id: 'g1', label: 'Proformas & Encomendas Em Curso', filters: [{ field: 'docType', values: ['proforma', 'c_pedido'] }] }]);
+                                setCatchAllLabel('Restantes Documentos (Faturas, Recibos, Etc)');
+                                setCurrentVista(null);
+                            }
+                        }}>Repor Predefinições</button>
+                        
+                        <button 
+                            className="btn primary py-4 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-[#00E5FF]/10 text-xs"
+                            onClick={() => setColManagerOpen(false)}
+                        >
+                            Concluir Personalização
+                        </button>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        );
+    };
+
+    const activeColumns = columnOrder
+        .filter(key => visibleCols.has(key))
+        .map(key => COLUMNS_DEF.find(c => c.key === key))
+        .filter(Boolean);
+
     return (
         <div className="flex flex-col gap-4 h-[calc(100vh-100px)] fade-in relative" {...getRootProps()}>
             {/* Drop Overlay */}
@@ -482,34 +781,17 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
                         )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 relative">
                         <button className="btn" onClick={reload}>Refresh</button>
-                        <button className="btn primary" onClick={() => setColManagerOpen(!colManagerOpen)}>Columns</button>
-                        {/* Column Manager Popover logic */}
-                        {colManagerOpen && (
-                            <div className="absolute top-full right-0 mt-2 z-50 bg-[var(--card)] border border-[var(--border)] p-4 rounded-xl shadow-xl w-64 grid grid-cols-1 gap-2 animate-in fade-in zoom-in-95 duration-100">
-                                <h4 className="font-bold mb-2 text-xs uppercase tracking-wider opacity-50">Visible Columns</h4>
-                                {COLUMNS_DEF.map(c => (
-                                    <label key={c.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-[var(--bg-base)] p-1 rounded">
-                                        <input
-                                            type="checkbox"
-                                            checked={visibleCols.has(c.key)}
-                                            onChange={e => {
-                                                const newSet = new Set(visibleCols);
-                                                e.target.checked ? newSet.add(c.key) : newSet.delete(c.key);
-                                                setVisibleCols(newSet);
-                                            }}
-                                        />
-                                        {c.label}
-                                    </label>
-                                ))}
-                            </div>
-                        )}
+                        <button className={`btn transition-all ${colManagerOpen ? 'primary scale-105 shadow-lg' : 'hover:scale-105'}`} onClick={() => setColManagerOpen(!colManagerOpen)}>
+                            {currentVista ? `Vista: ${currentVista}` : 'Layout'}
+                        </button>
+                        {renderLayoutManager()}
                     </div>
                 </div>
 
                 {/* Advanced Filters Row */}
-                <div className="flex flex-wrap gap-2 items-center text-sm border-t border-[var(--border)] pt-4">
+                <div className="flex flex-wrap gap-2 items-center text-sm border-t border-white/5 pt-4">
                     <select
                         className="input-sm w-32"
                         value={filters.archived || 'false'}
@@ -625,41 +907,69 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
                                     <td className="p-2 border-l border-[var(--border)] sticky right-0 bg-[var(--surface)] z-20 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] group-hover:bg-[var(--surface-hover)]">
                                         <div className="flex gap-2 justify-center">
                                             <button className="btn-icon text-xs text-blue-500 hover:scale-110 transition-transform" onClick={() => viewRowPdf(row)} title="View"><IconEye /></button>
-                                            <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => handleLinkClick([row])} title="Link"><IconLink /></button>
+                                            
+                                            {/* Quick Proposal Button (✨) - Restore requested by user */}
+                                            {((row.docType || '').toLowerCase().includes('proforma') || (row.docType || '').toLowerCase().includes('c_pedido')) && (
+                                                <button 
+                                                    className="btn-icon text-xs text-amber-500 hover:scale-110 transition-transform" 
+                                                    onClick={() => handleCreateProposal(row)} 
+                                                    title="Criar Proposta Rápida (✨)"
+                                                >
+                                                    ✨
+                                                </button>
+                                            )}
+
                                             <button className="btn-icon text-xs text-amber-500 hover:scale-110 transition-transform" onClick={() => setViewBackupsDoc(row)} title="History/Backups">🕒</button>
                                             <button className="btn-icon text-xs hover:scale-110 transition-transform" onClick={() => updateDoc(row.id, { archived: !row.archived })} title={row.archived ? "Restore" : "Archive"}>
                                                 {row.archived ? <IconUnarchive /> : <IconArchive />}
                                             </button>
                                             <button className="btn-icon text-xs text-red-500 hover:scale-110 transition-transform" onClick={() => deleteRow(row.id)} title="Delete"><IconTrash /></button>
-                                            <button className="btn-icon text-xs text-green-500 hover:scale-110 transition-transform" onClick={() => handleCreateProposal(row)} title="Criar Proposta">📝</button>
                                         </div>
                                     </td>
                                 </tr>
                             );
 
-                            const proformaDocs = docs.filter(d => (d.docType || '').toLowerCase().includes('proforma') || (d.docType || '').toLowerCase().includes('c_pedido'));
-                            const otherDocs = docs.filter(d => !(d.docType || '').toLowerCase().includes('proforma') && !(d.docType || '').toLowerCase().includes('c_pedido'));
+                            // Modified Grouping Logic
+                            let remainingDocs = [...docs];
+                            const groupsToRender = groupList.map(group => {
+                                const activeFilters = group.filters.filter(f => f.values && f.values.length > 0);
+
+                                // If no filters have values, this group matches nothing (prevents matching all)
+                                if (activeFilters.length === 0) return { ...group, docs: [] };
+
+                                const matched = remainingDocs.filter(d => {
+                                    // All ACTIVE filters must match (AND)
+                                    return activeFilters.every(f => {
+                                        const docVal = (d[f.field] || '').toString().toLowerCase();
+                                        return f.values.some(v => docVal.includes(v.toLowerCase()));
+                                    });
+                                });
+                                remainingDocs = remainingDocs.filter(d => !matched.find(m => m.id === d.id));
+                                return { ...group, docs: matched };
+                            });
 
                             return (
                                 <>
-                                    {proformaDocs.length > 0 && (
-                                        <>
-                                            <tr className="bg-[var(--surface-hover)]">
-                                                <td colSpan={100} className="px-5 py-3 text-[11px] font-black tracking-widest text-[#00E5FF] uppercase border-y border-[#333] shadow-md bg-[#0a0f12]">
-                                                    Proformas & Encomendas Em Curso
-                                                </td>
-                                            </tr>
-                                            {proformaDocs.map(row => renderRow(row))}
-                                        </>
-                                    )}
-                                    {otherDocs.length > 0 && (
+                                    {groupsToRender.map((group, idx) => (
+                                        group.docs.length > 0 && (
+                                            <React.Fragment key={group.id || idx}>
+                                                <tr className="bg-[var(--surface-hover)]">
+                                                    <td colSpan={100} className="px-5 py-3 text-[11px] font-black tracking-widest text-[#00E5FF] uppercase border-y border-[#333] shadow-md bg-[#0a0f12]">
+                                                        {group.label}
+                                                    </td>
+                                                </tr>
+                                                {group.docs.map(row => renderRow(row))}
+                                            </React.Fragment>
+                                        )
+                                    ))}
+                                    {remainingDocs.length > 0 && (
                                         <>
                                             <tr className="bg-[var(--surface-hover)]">
                                                 <td colSpan={100} className="px-5 py-3 text-[11px] font-black tracking-widest text-gray-400 uppercase border-y border-[#333] shadow-inner bg-[#101010]">
-                                                    Restantes Documentos (Faturas, Recibos, Etc)
+                                                    {catchAllLabel}
                                                 </td>
                                             </tr>
-                                            {otherDocs.map(row => renderRow(row))}
+                                            {remainingDocs.map(row => renderRow(row))}
                                         </>
                                     )}
                                 </>
@@ -679,95 +989,113 @@ export default function CoreV2Tab({ project, setEditingProposalId }) {
                 onLink={handleLinkConfirm}
             />}
 
-            {/* Links Popover */}
+            {/* Combined Links & Proposals Popover */}
             {viewLinksDoc && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewLinksDoc(null)}></div>
-                    <GlassCard className="w-full max-w-lg p-6 relative z-10 border-[var(--accent-primary)]/30">
+                    <GlassCard className="w-full max-w-lg p-6 relative z-10 border-[var(--accent-primary)]/30 overflow-hidden">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold flex items-center gap-2">🔗 Documentos Vinculados</h3>
-                            <button onClick={() => setViewLinksDoc(null)} className="opacity-50 hover:opacity-100 text-xl">✕</button>
+                            <h3 className="text-xl font-bold flex items-center gap-2">🔗 Vínculos do Documento</h3>
+                            <button onClick={() => setViewLinksDoc(null)} className="opacity-50 hover:opacity-100 text-xl p-1">✕</button>
                         </div>
-                        <div className="flex flex-col gap-3">
-                            {viewLinksDoc.references?.map((ref, idx) => (
-                                <div key={idx} className="bg-white/5 p-3 rounded-xl border border-white/10 flex justify-between items-center hover:bg-white/10 transition-colors">
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-amber-500">{ref.groupType || 'Link'}</span>
-                                        <span className="text-sm font-mono">{ref.extDocId || ref.docNumber}</span>
+                        
+                        <div className="flex flex-col gap-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                            {/* 1. Associated Proposals */}
+                            {(viewLinksDoc.associatedProposals?.length > 0) && (
+                                <div className="flex flex-col gap-2">
+                                    <h4 className="text-[10px] uppercase tracking-widest text-amber-500 font-black flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+                                        Propostas Associadas (Portal Studio)
+                                    </h4>
+                                    <div className="flex flex-col gap-2">
+                                        {viewLinksDoc.associatedProposals.map(p => (
+                                            <div key={p.id} className="bg-amber-500/5 p-3 rounded-xl border border-amber-500/10 flex justify-between items-center hover:bg-amber-500/10 transition-colors group">
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-gray-200">{p.name}</span>
+                                                    <span className="text-[9px] uppercase tracking-tighter text-amber-500/60 font-mono">{p.status || 'Draft'}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setViewLinksDoc(null);
+                                                        setEditingProposalId(p.id);
+                                                    }}
+                                                    className="text-[9px] font-black uppercase bg-amber-500 text-black px-3 py-1.5 rounded-lg hover:scale-105 transition-all"
+                                                >
+                                                    Abrir Studio
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            setViewLinksDoc(null);
-                                            // Assuming onView is a prop or function available in this scope
-                                            // If not, this might need adjustment based on how linked docs are viewed
-                                            // For now, let's assume viewRowPdf can handle it if ref.id is a doc ID
-                                            viewRowPdf(ref); // Changed from onView to viewRowPdf
-                                        }}
-                                        className="text-[10px] font-bold uppercase tracking-wider bg-white/10 px-3 py-1.5 rounded-lg hover:bg-amber-500 hover:text-black transition-all"
-                                    >
-                                        Abrir
-                                    </button>
                                 </div>
-                            ))}
+                            )}
+
+                            {/* 2. Manual Linked Documents */}
+                            <div className="flex flex-col gap-2">
+                                <h4 className="text-[10px] uppercase tracking-widest text-blue-400 font-black flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full"></span>
+                                    Documentos Relacionados
+                                </h4>
+                                <div className="flex flex-col gap-2">
+                                    {docLinksData.length > 0 ? docLinksData.map((ref, idx) => (
+                                        <div key={idx} className="bg-white/5 p-3 rounded-xl border border-white/10 flex justify-between items-center hover:bg-white/10 transition-colors group">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-blue-400 uppercase">{ref.docType || 'DOC'}</span>
+                                                <span className="text-sm font-mono text-gray-200">{ref.docNumber}</span>
+                                                <span className="text-[9px] text-gray-500">{ref.supplier}</span>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleUnlink(ref)}
+                                                    className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
+                                                    title="Dissociar"
+                                                >
+                                                    <IconTrash />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setViewLinksDoc(null);
+                                                        viewRowPdf(ref);
+                                                    }}
+                                                    className="text-[10px] font-bold uppercase tracking-wider bg-white/10 px-3 py-1.5 rounded-lg group-hover:bg-blue-500 group-hover:text-black transition-all"
+                                                >
+                                                    Visualizar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="p-4 bg-white/5 border border-dashed border-white/10 rounded-xl text-center text-[10px] text-gray-500 italic">
+                                            Nenhum outro documento vinculado manualmente.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="mt-8 pt-6 border-t border-white/10 flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setViewLinksDoc(null);
+                                    handleLinkClick([viewLinksDoc]);
+                                }}
+                                className="flex-1 py-3 bg-[var(--surface-base)] hover:bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl text-xs font-black transition-all"
+                            >
+                                🔗 Vincular Manualmente
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setViewLinksDoc(null);
+                                    handleCloneToProposal(viewLinksDoc);
+                                }}
+                                className="flex-1 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-black transition-all"
+                            >
+                                ✨ Nova Proposta
+                            </button>
                         </div>
                     </GlassCard>
                 </div>
             )}
 
-            {/* Proposals Popover (Phase 21) */}
-            {viewProposalsDoc && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewProposalsDoc(null)}></div>
-                    <GlassCard className="w-full max-w-md p-6 relative z-10 border-amber-500/30 bg-gray-950/90">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-black flex items-center gap-3">
-                                <span className="w-8 h-8 bg-amber-500 rounded flex items-center justify-center text-black text-xs font-black">PS</span>
-                                Propostas Associadas
-                            </h3>
-                            <button onClick={() => setViewProposalsDoc(null)} className="opacity-50 hover:opacity-100 text-xl">✕</button>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            {viewProposalsDoc.associatedProposals?.map((p, idx) => (
-                                <div key={p.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center hover:bg-white/10 transition-colors group">
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full 
-                                                ${p.status === 'accepted' ? 'bg-green-500' : ''}
-                                                ${p.status === 'sent' ? 'bg-blue-400' : ''}
-                                                ${p.status === 'rejected' ? 'bg-red-500' : ''}
-                                                ${p.status === 'closed_other' ? 'bg-orange-400' : ''}
-                                                ${(!p.status || p.status === 'draft') ? 'bg-gray-400' : ''}
-                                            `}></span>
-                                            <span className="text-sm font-bold group-hover:text-amber-500 transition-colors">{p.name}</span>
-                                        </div>
-                                        <span className="text-[10px] uppercase tracking-wider opacity-40 font-bold ml-4">
-                                            {p.status || 'Rascunho'}
-                                        </span>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setViewProposalsDoc(null);
-                                            setEditingProposalId(p.id);
-                                        }}
-                                        className="text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 px-4 py-2 rounded-lg hover:bg-amber-500 hover:text-black transition-all border border-amber-500/20"
-                                    >
-                                        Editar
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                        <button
-                            onClick={() => {
-                                setViewProposalsDoc(null);
-                                handleCloneToProposal(viewProposalsDoc);
-                            }}
-                            className="w-full mt-6 py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all"
-                        >
-                            + Criar Nova Proposta
-                        </button>
-                    </GlassCard>
-                </div>
-            )}
 
             {/* Isolated Backup Preview (Phase 20) */}
             {previewBackupData && (

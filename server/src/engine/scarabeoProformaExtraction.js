@@ -42,11 +42,66 @@ function extractFromText(text) {
         extracted.metadata.client_ref = extracted.shippingMarks;
     }
 
-    // 1.6 Project Reference (e.g., EXPO ORDER)
-    const projectMatch = text.match(/(EXPO\s*ORDER|PROJECT:?\s*[^\n]+)/i);
-    if (projectMatch) {
-        extracted.metadata.project_ref = projectMatch[0].trim();
-        extracted.projectRef = extracted.metadata.project_ref; // [NEW] Top-level for Engine
+    // [New] Free-text just above lines header as Project Ref fallback
+    if (!extracted.projectRef) {
+        const lineHeaderIdx = lines.findIndex(l => 
+            l.includes('Good or Service Code') || 
+            l.includes('Description of Good') ||
+            l.includes('Codice merce o serviço') ||
+            l.includes('Descrizione merce o serviço')
+        );
+        if (lineHeaderIdx !== -1) {
+            // 1. Check lines BELOW (Primary for Scarabeo table-based refs)
+            let candidates = [];
+            for (let i = lineHeaderIdx + 1; i < lineHeaderIdx + 10; i++) {
+                const candidate = lines[i]?.trim();
+                if (!candidate) continue;
+                const isSkuLine = candidate.match(/^([A-Z0-9a-z-]{3,20})\s+.*(NR|KG|PCS|GR|MT|LT|NR\.|PARA|FORNI|BOX)\s+.*[\d,\.]+/);
+                if (isSkuLine) break;
+                
+                if (candidate.match(/^(Good|Description|U\.M\.|Quantity|Price|Amount|Segue|Continued|Codice|Descrizione|Quantità|Prezzo|Sconti|Importo)/i)) continue;
+
+                if (candidate.length > 5 && !candidate.match(/^[0-9\s,\.]+$/)) {
+                    candidates.push(candidate);
+                }
+            }
+            if (candidates.length > 0) {
+                const important = candidates.find(c => c.match(/^(ENCOMENDA|ORDEM|PEDIDO|MOCK\s*UP)/i)) || 
+                                  candidates.find(c => c.match(/^(REF|PROJ|PROJECT|Ord\.\s*n)/i));
+                let finalRef = (important || candidates.join(' / ')).trim();
+                // Clean trailing VAT codes (e.g. " ... 40")
+                finalRef = finalRef.replace(/\s+\d{2}$/, '');
+                extracted.projectRef = finalRef;
+                extracted.metadata.project_ref = extracted.projectRef;
+            }
+
+            // 2. Fallback to lines ABOVE (Only if nothing found below)
+            if (!extracted.projectRef) {
+                for (let i = lineHeaderIdx - 1; i > Math.max(0, lineHeaderIdx - 6); i--) {
+                    const candidate = lines[i]?.trim();
+                    if (candidate && !candidate.match(/^(Good|Document|Page|REA|Cap\.|REA|Codice|REA|REA|IBAN|SWIFT|BIC|Our Bank|Intesa|Cod\.|Pag\.|TRANSFER|Payment|PAGAMENTO)/i) && candidate.length > 5 && !candidate.match(/\d{2}\/\d{2}\/\d{4}/) && !candidate.match(/^[0-9\s,\.]+$/) && !candidate.includes('IT ') && !candidate.includes('ABI:') && !candidate.includes('CARCAVELOS')) {
+                        extracted.projectRef = candidate;
+                        extracted.metadata.project_ref = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Default Ship Marks for Proforma (Numeric part of Doc Number)
+    if (!extracted.shippingMarks && extracted.docNumber) {
+        const numPart = extracted.docNumber.split('/')[0].replace(/\D/g, '');
+        if (numPart) {
+            extracted.shippingMarks = numPart;
+            extracted.metadata.client_ref = numPart;
+        }
+    }
+
+    // Ensure docRefs has something for the UI
+    if (extracted.docNumber) {
+        extracted.docRefs = [extracted.docNumber];
+        extracted.metadata.ddt_ref = extracted.docNumber;
     }
 
     // 2. Customer & Shipping ROI-Based Extraction
@@ -62,8 +117,8 @@ function extractFromText(text) {
         return null;
     };
 
-    // A. Consignee / Billing (Messrs / Spett.le)
-    const consigneeBlock = findBlock(['Messrs:', 'Spett.le', 'Customer:', 'Cliente:', 'Invoicing to:']);
+    // A. Consignee / Billing (Messrs / Spett.le / Consignee)
+    const consigneeBlock = findBlock(['Messrs:', 'Spett.le', 'Customer:', 'Cliente:', 'Invoicing to:', 'Consignee:']);
     if (consigneeBlock) {
         const arr = [];
         for (let i = consigneeBlock.row + 1; i < consigneeBlock.row + 12; i++) {
@@ -157,7 +212,20 @@ function extractFromText(text) {
     const p = parseFloat(extracted.totals.packaging);
     let g = parseFloat(extracted.totals.gross || 0);
 
-    if (g === 0 || (g === n && (t > 0 || p > 0))) {
+    // [FIX] If gross was high but we suspect it already includes N+T+P, we prioritize the extracted 'Document total Euro'
+    // Scarabeo layout: Net (Total) + Shipment + Packaging = Document Total Euro.
+    if (g > 0 && n > 0 && Math.abs(g - (n + t + p)) > 1) {
+        // If (n + t + p) equals gross, we are good.
+        // If not, maybe 'n' was caught incorrectly (e.g. caught Document Total as Net).
+        if (Math.abs(n - g) < 1) {
+            // Net was caught as Gross. Try to re-identify Net from 1 line above or below if possible, 
+            // but for now let's just ensure we don't ADD p/t to g again.
+        } else if (Math.abs(g - (n + t + p)) < 1) {
+             // Matching perfectly.
+        }
+    }
+
+    if (g === 0) {
         g = n + t + p;
         extracted.totals.gross = g.toFixed(2);
     }

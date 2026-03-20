@@ -84,6 +84,20 @@ async function reconcileOrderConfirmation(ocId, forceProposalId = null) {
                 .whereNotIn('status', ['cancelled', 'faturado'])
                 .first();
 
+            // Fallback: If no match by number, try matching project_ref (FIMA specific "project_note" vs proposal "project_ref")
+            if (!proposal && data.metadata?.project_note) {
+                const projectNote = data.metadata.project_note.trim();
+                if (projectNote.length > 2) {
+                    proposal = await trx('custom_proposals')
+                        .where(function() {
+                            this.where('project_ref', projectNote)
+                                .orWhereRaw("json_extract(metadata, '$.client_project_name') = ?", [projectNote]);
+                        })
+                        .whereNotIn('status', ['cancelled', 'faturado'])
+                        .first();
+                }
+            }
+
             if (!proposal) {
                 return { success: false, reason: `No proposal found for reference "${mark}"` };
             }
@@ -193,24 +207,67 @@ async function reconcileInvoiceInternal(invoiceId, forceProposalId = null, exist
 
         if (linesToInsert.length > 0) await trx('document_lines').insert(linesToInsert);
 
-        // Match by SKU → create fulfillments
+        // Match by SKU → create fulfillments with Quantity Distribution
         const proposalLines = await trx('proposal_lines').where({ proposal_id: proposal.id });
         const fulfillments = [];
 
+        // Pre-fetch existing fulfillments for these proposal lines to calculate remaining quantity
+        const prevFulfillments = await trx('proposal_fulfillments')
+            .whereIn('proposal_line_id', proposalLines.map(p => p.id));
+        
+        // Map: Proposal Line ID -> Total previously fulfilled quantity
+        const prevFulfMap = {};
+        for (const f of prevFulfillments) {
+            prevFulfMap[f.proposal_line_id] = (prevFulfMap[f.proposal_line_id] || 0) + parseFloat(f.quantity_fulfilled || 0);
+        }
+
+        // Group proposal lines by SKU
+        const pLinesBySku = {};
+        for (const p of proposalLines) {
+            const sku = (p.sku || '').trim().toUpperCase();
+            if (!sku) continue;
+            if (!pLinesBySku[sku]) pLinesBySku[sku] = [];
+            
+            const ordered = parseFloat(p.quantity || 0);
+            const fulfilled = prevFulfMap[p.id] || 0;
+            const remaining = Math.max(0, ordered - fulfilled);
+            
+            pLinesBySku[sku].push({ ...p, remaining });
+        }
+
+        // Distribute invoice quantities
         for (const invLine of linesToInsert) {
-            if (!invLine.sku) continue;
-            const pLine = proposalLines.find(
-                p => (p.sku || '').trim().toUpperCase() === invLine.sku.toUpperCase()
-            );
-            if (pLine) {
-                fulfillments.push({
-                    id: crypto.randomUUID(),
-                    proposal_line_id: pLine.id,
-                    doc_line_id: invLine.id,
-                    document_id: invoiceId,
-                    proposal_id: proposal.id,
-                    quantity_fulfilled: invLine.quantity
-                });
+            const sku = (invLine.sku || '').trim().toUpperCase();
+            if (!sku || !pLinesBySku[sku] || pLinesBySku[sku].length === 0) continue;
+
+            let qtyToDistribute = parseFloat(invLine.quantity || 0);
+            const targetLines = pLinesBySku[sku];
+
+            for (let i = 0; i < targetLines.length; i++) {
+                if (qtyToDistribute <= 0) break;
+
+                const pLine = targetLines[i];
+                let qtyForThisLine = 0;
+
+                if (pLine.remaining > 0) {
+                    qtyForThisLine = Math.min(qtyToDistribute, pLine.remaining);
+                } else if (i === targetLines.length - 1 && qtyToDistribute > 0) {
+                    qtyForThisLine = qtyToDistribute;
+                }
+
+                if (qtyForThisLine > 0) {
+                    fulfillments.push({
+                        id: crypto.randomUUID(),
+                        proposal_line_id: pLine.id,
+                        doc_line_id: invLine.id,
+                        document_id: invoiceId,
+                        proposal_id: proposal.id,
+                        quantity_fulfilled: qtyForThisLine
+                    });
+                    
+                    qtyToDistribute -= qtyForThisLine;
+                    pLine.remaining = Math.max(0, pLine.remaining - qtyForThisLine);
+                }
             }
         }
 
@@ -361,6 +418,20 @@ async function discoverOcMatches() {
                 .where('proposal_number', mark)
                 .whereNotIn('status', ['cancelled', 'faturado'])
                 .first();
+        }
+
+        // Fallback discovery by project
+        if (!match && data.metadata?.project_note) {
+            const projectNote = data.metadata.project_note.trim();
+            if (projectNote.length > 2) {
+                match = await knex('custom_proposals')
+                    .where(function() {
+                        this.where('project_ref', projectNote)
+                            .orWhereRaw("json_extract(metadata, '$.client_project_name') = ?", [projectNote]);
+                    })
+                    .whereNotIn('status', ['cancelled', 'faturado'])
+                    .first();
+            }
         }
 
         matches.push({

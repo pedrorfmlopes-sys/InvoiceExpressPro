@@ -133,11 +133,60 @@ function extractFromText(text) {
         extracted.totals.gross = parseFloat(safeConvertNumber(dtMatch[1])).toFixed(2);
     }
 
-    // 1.6 Project Reference (e.g., EXPO ORDER)
-    const projectMatch = text.match(/(EXPO\s*ORDER|PROJECT:?\s*[^\n]+)/i);
+    // 1.6 Project Reference
+    const projectMatch = text.match(/(?:EXPO\s*ORDER|PROJECT:?\s*[^\n]+|PRESUPUESTO\s*DD\.\s*\d{2}\/\d{2}\/\d{4})/i);
     if (projectMatch) {
         extracted.metadata.project_ref = projectMatch[0].trim();
-        extracted.projectRef = extracted.metadata.project_ref; // [NEW] Top-level for Engine
+        extracted.projectRef = extracted.metadata.project_ref; 
+    }
+
+    // [New] Free-text fallback
+    if (!extracted.projectRef) {
+        const lineHeaderIdx = lines.findIndex(l => 
+            l.includes('Good or Service Code') || 
+            l.includes('Description of Good') ||
+            l.includes('Codice merce o servizio') ||
+            l.includes('Descrizione merce o servizio')
+        );
+        if (lineHeaderIdx !== -1) {
+            // 1. BELOW (Collect potential project info before the first SKU) - Primary for Scarabeo
+            let candidates = [];
+            for (let i = lineHeaderIdx + 1; i < lineHeaderIdx + 10; i++) {
+                const candidate = lines[i]?.trim();
+                if (!candidate) continue;
+                // Stop if we hit a SKU line (has a code and a U.M. marker)
+                if (candidate.match(/^([A-Z0-9a-z-]{3,20})\s+.*(NR|KG|PCS|GR|MT|LT|NR\.|PARA|FORNI|BOX)\s+.*[\d,\.]+/)) break;
+                
+                // Exclude header labels
+                if (candidate.match(/^(Good|Description|U\.M\.|Quantity|Price|Amount|Segue|Continued|Codice|Descrizione|Quantità|Prezzo|Sconti|Importo)/i)) continue;
+                
+                if (candidate.length > 5 && !candidate.match(/^[0-9\s,\.]+$/)) {
+                    candidates.push(candidate);
+                }
+            }
+            if (candidates.length > 0) {
+                // Prioritize ENCOMENDA/ORDEM then others
+                const important = candidates.find(c => c.match(/^(ENCOMENDA|ORDEM|PEDIDO|MOCK\s*UP)/i)) || 
+                                  candidates.find(c => c.match(/^(REF|PROJ|PROJECT|Ord\.\s*n)/i));
+                let finalRef = (important || candidates.join(' / ')).trim();
+                // Clean trailing VAT codes (e.g. " ... 40")
+                finalRef = finalRef.replace(/\s+\d{2}$/, '');
+                extracted.projectRef = finalRef;
+                extracted.metadata.project_ref = extracted.projectRef;
+            }
+
+            // 2. Fallback to lines ABOVE
+            if (!extracted.projectRef) {
+                for (let i = lineHeaderIdx - 1; i > Math.max(0, lineHeaderIdx - 6); i--) {
+                    const candidate = lines[i]?.trim();
+                    if (candidate && !candidate.match(/^(Good|Document|Page|REA|Cap\.|REA|Codice|REA|REA|IBAN|SWIFT|BIC|Our Bank|Intesa|Cod\.|Pag\.|TRANSFER|Payment|PAGAMENTO)/i) && candidate.length > 5 && !candidate.match(/\d{2}\/\d{2}\/\d{4}/) && !candidate.match(/^[0-9\s,\.]+$/) && !candidate.includes('IT ') && !candidate.includes('ABI:') && !candidate.includes('CARCAVELOS')) {
+                        extracted.projectRef = candidate;
+                        extracted.metadata.project_ref = candidate;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     // Safety fallback
@@ -146,7 +195,16 @@ function extractFromText(text) {
     const p = parseFloat(extracted.totals.packaging);
     let g = parseFloat(extracted.totals.gross || 0);
 
-    if (g === 0 || (g === n && (t > 0 || p > 0))) {
+    // [FIX] If gross was high but we suspect it already includes N+T+P, we prioritize the extracted 'Document total Euro'
+    if (g > 0 && n > 0 && Math.abs(g - (n + t + p)) > 1) {
+        if (Math.abs(n - g) < 1) {
+            // Net was caught as Gross. 
+        } else if (Math.abs(g - (n + t + p)) < 1) {
+             // Matching perfectly.
+        }
+    }
+
+    if (g === 0) {
         g = n + t + p;
         extracted.totals.gross = g.toFixed(2);
     }

@@ -261,6 +261,9 @@ export default function ProcessV2Tab({ project }) {
 
     const updateRow = async (id, field, value) => {
         setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+        if (activeReviewRow && activeReviewRow.id === id) {
+            setActiveReviewRow(prev => ({ ...prev, [field]: value }));
+        }
         try {
             await api.patch(`/api/corev2/docs/${id}?project=${project}`, { [field]: value });
         } catch (e) {

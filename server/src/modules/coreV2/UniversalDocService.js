@@ -108,6 +108,21 @@ class UniversalDocService {
                         .where({ original_doc_id: c.id })
                         .update({ original_doc_id: id });
 
+                    // Phase 21: Migrate Proposals that were cloned from this doc
+                    await innerTrx('custom_proposals')
+                        .where({ original_doc_id: c.id })
+                        .update({ original_doc_id: id });
+
+                    // Phase 21: Migrate Fulfillments linked to this doc
+                    await innerTrx('proposal_fulfillments')
+                        .where({ document_id: c.id })
+                        .update({ document_id: id });
+
+                    // Phase 21: Migrate Manual Links
+                    await innerTrx('doc_links')
+                        .where({ doc_id: c.id })
+                        .update({ doc_id: id });
+
                     await Adapter.deleteDoc(project, c.id, innerTrx);
                 }
             }

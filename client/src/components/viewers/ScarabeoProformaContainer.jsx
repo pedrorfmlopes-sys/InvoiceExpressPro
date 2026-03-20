@@ -122,9 +122,20 @@ export default function ScarabeoProformaContainer({ doc, onClose, updateRow, onF
         try {
             setSaving(true);
             const project = doc.project || 'default';
-            await api.post(`/api/corev2/docs/${doc.id}/finalize?project=${project}`);
+            
+            // Delegate to parent if available (correct API call happens there)
+            if (onFinalize) {
+                await onFinalize(doc.id);
+            } else {
+                // Fallback for direct finalize (ensuring correct URL)
+                await api.post(`/api/corev2/docs/finalize?project=${project}`, { 
+                    id: doc.id,
+                    docType: scarabeoData.metadata?.doc_type || doc.docType,
+                    docNumber: scarabeoData.metadata?.doc_number || doc.docNumber
+                });
+            }
+            
             setIsDirty(false);
-            if (onFinalize) onFinalize(doc.id);
             onClose();
         } catch (err) {
             alert('Erro ao finalizar: ' + (err.response?.data?.error || err.message));

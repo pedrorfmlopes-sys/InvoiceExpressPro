@@ -49,6 +49,29 @@ class ProposalStudioService {
         return { id: proposalId, message: 'Nova Proposta criada com sucesso!' };
     }
 
+    async getBrandSettings(brandId) {
+        if (!brandId) return null;
+        return knex('brand_settings').where({ brand_id: brandId.toLowerCase() }).first();
+    }
+
+    async saveBrandSettings(brandId, settings) {
+        const existing = await this.getBrandSettings(brandId);
+        const data = {
+            brand_id: brandId.toLowerCase(),
+            packaging_cost_type: settings.packagingCostType,
+            packaging_cost_value: settings.packagingCostValue,
+            packaging_cost_base: settings.packagingCostBase,
+            updated_at: new Date()
+        };
+
+        if (existing) {
+            await knex('brand_settings').where({ id: existing.id }).update(data);
+        } else {
+            await knex('brand_settings').insert({ ...data, id: uuidv4() });
+        }
+        return this.getBrandSettings(brandId);
+    }
+
     /**
      * Clones an existing extraction into a new custom proposal.
      */
@@ -98,14 +121,14 @@ class ProposalStudioService {
             brand_id: doc.supplier && /NICOLAZZI/i.test(doc.supplier) ? 'nicolazzi' : (/RITMONIO/i.test(doc.supplier) ? 'ritmonio' : 'other'),
 
             client_ref: doc.customer || cust.name || sourceData.customer,
-            project_ref: project || doc.project || sourceData.customerRef,
+            project_ref: project || doc.project || 'default', // Workspace context is mandatory for visibility
             status: 'draft',
             original_doc_id: docId,
             metadata: JSON.stringify({
                 doc_date: sourceData.senderDate || doc.docDate || (sourceData.dates && sourceData.dates.issued),
                 doc_number: sourceData.docNumber || doc.docNumber,
                 our_ref: sourceData.ourRef || (sourceData.docRefs && sourceData.docRefs.customerRef),
-                client_project_name: sourceData.customerRef || sourceData.projectLabel || (sourceData.docRefs && (sourceData.docRefs.customerOrder?.number || sourceData.docRefs.customerRef)) || '',
+                client_project_name: sourceData.customerRef || sourceData.projectLabel || (sourceData.docRefs && (sourceData.docRefs.customerOrder?.number || sourceData.docRefs.customerRef)) || sourceData.metadata?.project_note || '',
                 client_vat: vat,
                 client_email: cust.email || sourceData.customerEmail,
                 client_phone: cust.phone || sourceData.customerPhone,
@@ -113,7 +136,8 @@ class ProposalStudioService {
                 shipping_address: deliveryAddress,
                 shipping_is_billing: !deliveryAddress || deliveryAddress === billingAddress,
                 show_technical_details: true,
-                notes: ''
+                notes: '',
+                packaging_costs: [] // Will be populated after lines are created
             }),
             created_at: new Date(),
             updated_at: new Date()
@@ -154,6 +178,58 @@ class ProposalStudioService {
             await knex('proposal_lines').insert(proposalLines);
         }
 
+        // 6. Final Sub-Total logic for Packaging Costs
+        const packagingCosts = [];
+        const brandsInDoc = new Set();
+        proposalLines.forEach(l => {
+            const b = l.brand_id || (l.extra_attributes && JSON.parse(l.extra_attributes).brand_id) || proposal.brand_id;
+            if (b) brandsInDoc.add(b.toLowerCase());
+        });
+
+        for (const bid of brandsInDoc) {
+            const settings = await this.getBrandSettings(bid);
+            if (settings && settings.packaging_cost_value > 0) {
+                packagingCosts.push({
+                    brandId: bid,
+                    enabled: true,
+                    type: settings.packaging_cost_type,
+                    value: settings.packaging_cost_value,
+                    base: settings.packaging_cost_base,
+                    description: `Custo Embalagem ${bid.toUpperCase()}`
+                });
+            }
+        }
+
+        // Add extracted packaging cost if exists in source
+        if (sourceData.metadata?.packaging_cost || sourceData.packagingCost) {
+            const val = parseFloat(sourceData.metadata?.packaging_cost || sourceData.packagingCost);
+            if (val > 0) {
+                const supplier = (doc.supplier || '').toLowerCase();
+                const existing = packagingCosts.find(p => p.brandId === supplier);
+                if (existing) {
+                    existing.value = val;
+                    existing.type = 'fixed';
+                    existing.enabled = true;
+                } else {
+                    packagingCosts.push({
+                        brandId: supplier || 'other',
+                        enabled: true,
+                        type: 'fixed',
+                        value: val,
+                        base: 'liquid',
+                        description: 'Custo Embalagem (Extraído)'
+                    });
+                }
+            }
+        }
+
+        if (packagingCosts.length > 0) {
+            const currentMetadata = JSON.parse(proposal.metadata);
+            currentMetadata.packaging_costs = packagingCosts;
+            await knex('custom_proposals')
+                .where({ id: proposalId })
+                .update({ metadata: JSON.stringify(currentMetadata) });
+        }
 
         return { proposalId, linesCount: proposalLines.length };
     }
@@ -175,6 +251,8 @@ class ProposalStudioService {
             .select(
                 'custom_proposals.*',
                 'documents.docNumber as source_doc_number',
+                'documents.docType as source_doc_type',
+                'documents.supplier as source_supplier',
                 subquery,
                 shipDateQuery
             )
@@ -195,11 +273,64 @@ class ProposalStudioService {
                 this.where('custom_proposals.name', 'like', term)
                     .orWhere('custom_proposals.client_ref', 'like', term)
                     .orWhere('documents.docNumber', 'like', term)
-                    .orWhere('custom_proposals.metadata', 'like', term);
+                    .orWhere('custom_proposals.metadata', 'like', term)
+                    .orWhereExists(function () {
+                        this.select('*')
+                            .from('proposal_lines')
+                            .whereRaw('proposal_lines.proposal_id = custom_proposals.id')
+                            .andWhere(function () {
+                                this.where('proposal_lines.sku', 'like', term)
+                                    .orWhere('proposal_lines.description', 'like', term);
+                            });
+                    });
             });
         }
 
-        return await q;
+        const proposals = await q;
+
+        // --- PHASE 21: Fetch associated documents ---
+        const proposalIds = proposals.map(p => p.id);
+        if (proposalIds.length > 0) {
+            // 1. Fulfillment links
+            const fulfillmentDocs = await knex('proposal_fulfillments')
+                .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
+                .join('documents', 'proposal_fulfillments.document_id', 'documents.id')
+                .whereIn('proposal_lines.proposal_id', proposalIds)
+                .select(
+                    'proposal_lines.proposal_id',
+                    'documents.id',
+                    'documents.docNumber',
+                    'documents.docType',
+                    'documents.supplier'
+                )
+                .distinct();
+
+            const docsMap = {};
+            fulfillmentDocs.forEach(d => {
+                if (!docsMap[d.proposal_id]) docsMap[d.proposal_id] = [];
+                docsMap[d.proposal_id].push(d);
+            });
+
+            proposals.forEach(p => {
+                const docs = docsMap[p.id] || [];
+                // Also include the original_doc if it's not already there
+                if (p.original_doc_id) {
+                    const alreadyPresent = docs.some(d => d.id === p.original_doc_id);
+                    if (!alreadyPresent) {
+                        docs.unshift({
+                            id: p.original_doc_id,
+                            docNumber: p.source_doc_number,
+                            docType: p.source_doc_type,
+                            supplier: p.source_supplier,
+                            proposal_id: p.id
+                        });
+                    }
+                }
+                p.associatedDocuments = docs;
+            });
+        }
+
+        return proposals;
     }
 
     async getConsolidatedProposalsData(project, filters = {}) {
@@ -234,6 +365,41 @@ class ProposalStudioService {
             return val; // Already an object
         };
 
+        // --- PHASE 21: Fetch associated documents ---
+        // 1. Original doc
+        let associatedDocuments = [];
+        if (proposal.original_doc_id) {
+            const orgDoc = await knex('documents').where({ id: proposal.original_doc_id }).first();
+            if (orgDoc) {
+                associatedDocuments.push({
+                    id: orgDoc.id,
+                    docNumber: orgDoc.docNumber,
+                    docType: orgDoc.docType,
+                    supplier: orgDoc.supplier,
+                    isOriginal: true
+                });
+            }
+        }
+
+        // 2. Fulfillments
+        const fulfillmentDocs = await knex('proposal_fulfillments')
+            .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
+            .join('documents', 'proposal_fulfillments.document_id', 'documents.id')
+            .where('proposal_lines.proposal_id', id)
+            .select(
+                'documents.id',
+                'documents.docNumber',
+                'documents.docType',
+                'documents.supplier'
+            )
+            .distinct();
+
+        fulfillmentDocs.forEach(d => {
+            if (!associatedDocuments.some(existing => existing.id === d.id)) {
+                associatedDocuments.push(d);
+            }
+        });
+
         return {
             ...proposal,
             branding_config: safeParse(proposal.branding_config),
@@ -241,12 +407,13 @@ class ProposalStudioService {
             lines: lines.map(l => ({
                 ...l,
                 extra_attributes: safeParse(l.extra_attributes)
-            }))
+            })),
+            associatedDocuments
         };
     }
 
     async updateProposal(id, data) {
-        const { lines, ...header } = data;
+        const { lines, associatedDocuments, ...header } = data;
 
         if (header.status === 'accepted') {
             await this.handleAcceptedStatus(id);
@@ -263,10 +430,10 @@ class ProposalStudioService {
                 if (header.metadata !== undefined) updates.metadata = knex.raw('?::jsonb', [JSON.stringify(header.metadata || {})]);
                 if (header.lead_time_rules !== undefined) updates.lead_time_rules = knex.raw('?::jsonb', [JSON.stringify(header.lead_time_rules || [])]);
             } else {
-                // SQLite (Production)
-                updates.branding_config = (header.branding_config && typeof header.branding_config === 'object') ? header.branding_config : null;
-                updates.metadata = (header.metadata && typeof header.metadata === 'object') ? header.metadata : null;
-                updates.lead_time_rules = (header.lead_time_rules && Array.isArray(header.lead_time_rules)) ? header.lead_time_rules : null;
+                // SQLite (Production) - Must explicitly stringify JSON columns
+                updates.branding_config = (header.branding_config && typeof header.branding_config === 'object') ? JSON.stringify(header.branding_config) : null;
+                updates.metadata = (header.metadata && typeof header.metadata === 'object') ? JSON.stringify(header.metadata) : null;
+                updates.lead_time_rules = (header.lead_time_rules && Array.isArray(header.lead_time_rules)) ? JSON.stringify(header.lead_time_rules) : null;
             }
 
             await knex('custom_proposals').where({ id }).update(updates);
@@ -375,7 +542,7 @@ class ProposalStudioService {
         }
 
         const isPg = knex.client.config.client === 'pg' || knex.client.config.client === 'postgres';
-        const safeData = { ...data };
+        const { associatedDocuments, lines, ...safeData } = data;
 
         if (isPg) {
             // Explicitly cast JSONB columns for Postgres

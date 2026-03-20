@@ -9,6 +9,36 @@ export default function ScarabeoInvoiceViewer({
     const [showPdf, setShowPdf] = useState(true);
     const [reprocessing, setReprocessing] = useState(false);
     const [reconciling, setReconciling] = useState(false);
+    const [focusedSku, setFocusedSku] = useState(null);
+
+    const handleSkuFocus = (idx, val) => {
+        setFocusedSku({ idx, val });
+    };
+
+    const handleSkuBlur = async (idx, finalVal) => {
+        if (!focusedSku || focusedSku.idx !== idx) return;
+        const original = focusedSku.val;
+        if (original && finalVal && original !== finalVal) {
+            if (window.confirm(`Pretende que o sistema lembre esta correção de código?\n\nOriginal: ${original}\nNovo: ${finalVal}`)) {
+                try {
+                    await fetch('/api/catalog/aliases', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            brand: 'SCARABEO',
+                            originalSku: original,
+                            correctedSku: finalVal
+                        })
+                    });
+                    alert('Correção memorizada com sucesso!');
+                } catch (err) {
+                    console.error('Erro ao memorizar código:', err);
+                    alert('Erro ao gravar a correção no sistema.');
+                }
+            }
+        }
+        setFocusedSku(null);
+    };
 
     if (loading) {
         return (
@@ -276,7 +306,11 @@ export default function ScarabeoInvoiceViewer({
                                         <td className="p-2 text-center text-gray-600 border-r border-[#222]">{idx + 1}</td>
                                         <td className="p-0 border-r border-[#222]">
                                             <input className="w-full h-full bg-transparent px-2 py-2 outline-none text-yellow-500 font-mono font-bold focus:bg-[#222]"
-                                                value={line.sku || line.code || ''} onChange={e => handleLineChange(idx, 'sku', e.target.value)} />
+                                                value={line.sku || line.code || ''} 
+                                                onChange={e => handleLineChange(idx, 'sku', e.target.value)}
+                                                onFocus={e => handleSkuFocus(idx, e.target.value)}
+                                                onBlur={e => handleSkuBlur(idx, e.target.value)}
+                                            />
                                         </td>
                                         <td className="p-0 border-r border-[#222]">
                                             <input className="w-full h-full bg-transparent px-2 py-2 outline-none text-gray-300 focus:bg-[#222]"

@@ -137,12 +137,6 @@ class ProposalPdfEngine {
 
         this.currentPage.drawText('Contato:', { x: rightX, y: this.y - 10, size: 9, font: this.fontB });
         this.currentPage.drawText(safeText(proposal.metadata?.client_contact || ''), { x: rightX + 65, y: this.y - 10, size: 9, font: this.font });
-        this.y -= 14;
-
-        this.currentPage.drawText('Email:', { x: rightX, y: this.y - 10, size: 9, font: this.fontB });
-        this.currentPage.drawText(safeText(proposal.metadata?.client_email || ''), { x: rightX + 65, y: this.y - 10, size: 9, font: this.font });
-        this.y -= 14;
-
         this.y = Math.min(this.y, startY - 110) - 20;
 
         // Project Row
@@ -184,6 +178,10 @@ class ProposalPdfEngine {
         const footerY = this.margin + 40;
         this.currentPage.drawText('Pagamento por transferência bancária para o IBAN:', this.margin, footerY, { size: 8, font: this.fontB, color: rgb(0.4, 0.4, 0.4) });
         this.currentPage.drawText('BPI: PT50 0010 0000 5819 1020 0010 2', this.margin, footerY - 10, { size: 8, font: this.font, color: rgb(0.4, 0.4, 0.4) });
+
+        if (this.packagingBreakdown) {
+            this.currentPage.drawText(`Resumo Embalagem: ${this.packagingBreakdown}`, this.margin, footerY - 22, { size: 7, font: this.font, color: rgb(0.5, 0.5, 0.5) });
+        }
 
         this.currentPage.drawText('Este documento não serve de fatura', {
             x: this.width - this.margin - 150,
@@ -238,10 +236,49 @@ class ProposalPdfEngine {
     }
 
     process() {
+        let totalSiva = 0;
+
+        this.proposal.lines.forEach(line => {
+            const qty = parseFloat(line.quantity || 0);
+            const price = parseFloat(line.unit_price_commercial || 0);
+            const isComment = !line.sku && qty === 0 && price === 0;
+
+            if (isComment) {
+                return; // Skip comments for totalSiva calculation
+            }
+
+            const discPercent = line.discount_commercial_percent || 0;
+            const lineTotal = qty * price * (1 - (discPercent / 100));
+            totalSiva += lineTotal;
+        });
+
+        // Packaging Costs Calculation
+        let packagingTotal = 0;
+        const pkCosts = this.proposal.metadata?.packaging_costs || [];
+        pkCosts.forEach(cost => {
+            if (!cost.enabled) return;
+            if (cost.type === 'fixed') {
+                packagingTotal += parseFloat(cost.value || 0);
+            } else {
+                const shipping = parseFloat(this.proposal.metadata?.shipping_cost || 0);
+                const baseVal = cost.base === 'liquid' ? totalSiva : (totalSiva + shipping);
+                packagingTotal += baseVal * (parseFloat(cost.value || 0) / 100);
+            }
+        });
+
+        this.packagingBreakdown = pkCosts
+            .filter(c => c.enabled)
+            .map(c => {
+                const val = parseFloat(c.value || 0);
+                const displayVal = c.type === 'fixed' ? `${val.toFixed(2)} €` : `${val}%`;
+                return `${c.description}: ${displayVal}`;
+            })
+            .join('; ');
+
         this.addNewPage();
         this.drawTableHeaders();
 
-        let totalSiva = 0;
+        totalSiva = 0; // Reset for line processing
 
         this.proposal.lines.forEach(line => {
             const qty = parseFloat(line.quantity || 0);
@@ -361,16 +398,22 @@ class ProposalPdfEngine {
         };
 
         drawTotalLine('Total (s/IVA)', fmtEUR(totalSiva));
-        drawTotalLine('Embalagem', fmtEUR(0));
-        drawTotalLine('Portes', fmtEUR(0));
+        if (packagingTotal > 0) {
+            drawTotalLine('Embalagem/Manuseamento', fmtEUR(packagingTotal));
+        }
+        
+        const shipping = parseFloat(this.proposal.metadata?.shipping_cost || 0);
+        if (shipping > 0) {
+            drawTotalLine('Portes', fmtEUR(shipping));
+        }
 
-        const iva = totalSiva * 0.23;
+        const iva = (totalSiva + packagingTotal + shipping) * 0.23;
         drawTotalLine('IVA (23%)', fmtEUR(iva));
 
         this.y -= 5;
         this.currentPage.drawLine({ start: { x: totalsX, y: this.y }, end: { x: this.width - this.margin, y: this.y }, thickness: 0.5 });
         this.y -= 5;
-        drawTotalLine('Total (c/IVA)', fmtEUR(totalSiva + iva), true);
+        drawTotalLine('Total (c/IVA)', fmtEUR(totalSiva + packagingTotal + shipping + iva), true);
 
         // Technical Annex
         if (this.proposal.metadata?.show_technical_details) {
@@ -505,6 +548,20 @@ class ProposalExporter {
         const wb = xlsx.utils.book_new();
         const ws = xlsx.utils.json_to_sheet(rows);
         xlsx.utils.book_append_sheet(wb, ws, "Proposta");
+
+        // Add Packaging Summary if exists
+        const pkCosts = proposal.metadata?.packaging_costs || [];
+        if (pkCosts.filter(c => c.enabled).length > 0) {
+            const pkRows = pkCosts.filter(c => c.enabled).map(c => ({
+                'Descrição': c.description,
+                'Tipo': c.type === 'percent' ? 'Percentagem' : 'Fixo',
+                'Valor': c.value,
+                'Base': c.base || 'N/A'
+            }));
+            const wsPk = xlsx.utils.json_to_sheet(pkRows);
+            xlsx.utils.book_append_sheet(wb, wsPk, "Custos de Embalagem");
+        }
+
         return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
     }
 

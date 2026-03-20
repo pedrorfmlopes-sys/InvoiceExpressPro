@@ -7,6 +7,32 @@ export default function FimaInvoiceViewer({ doc, data, loading, saving, pdfUrl, 
     const [showPdf, setShowPdf] = useState(true);
     const [reprocessing, setReprocessing] = useState(false);
     const [itemFilter, setItemFilter] = useState('');
+    const [focusedSku, setFocusedSku] = useState(null);
+
+    const handleSkuFocus = (idx, val) => {
+        setFocusedSku({ idx, val });
+    };
+
+    const handleSkuBlur = async (idx, finalVal) => {
+        if (!focusedSku || focusedSku.idx !== idx) return;
+        const original = focusedSku.val;
+        if (original && finalVal && original !== finalVal) {
+            if (window.confirm(`Pretende que o sistema lembre esta correção de código?\n\nOriginal: ${original}\nNovo: ${finalVal}`)) {
+                try {
+                    await api.post('/api/catalog/aliases', {
+                        brand: 'FIMA',
+                        originalSku: original,
+                        correctedSku: finalVal
+                    });
+                    alert('Correção memorizada com sucesso!');
+                } catch (err) {
+                    console.error('Erro ao memorizar código:', err);
+                    alert('Erro ao gravar a correção no sistema.');
+                }
+            }
+        }
+        setFocusedSku(null);
+    };
 
     const safeData = data || { lines: [], totals: {}, metadata: {}, entities: {} };
     const meta = safeData.metadata || {};
@@ -130,7 +156,15 @@ export default function FimaInvoiceViewer({ doc, data, loading, saving, pdfUrl, 
                                 {filtered.map((line, idx) => (
                                     <tr key={idx} className="group hover:bg-[#1a1a1a]">
                                         <td className="p-2 text-center text-gray-600 border-r border-[#222]">{idx + 1}</td>
-                                        <td className="p-0 border-r border-[#222]"><input className="w-full bg-transparent px-2 py-1.5 outline-none text-amber-400 font-mono font-bold focus:bg-[#222]" value={line.sku || ''} onChange={e => updateLine(idx, 'sku', e.target.value)} /></td>
+                                        <td className="p-0 border-r border-[#222]">
+                                            <input 
+                                                className="w-full bg-transparent px-2 py-1.5 outline-none text-amber-400 font-mono font-bold focus:bg-[#222]" 
+                                                value={line.sku || ''} 
+                                                onChange={e => updateLine(idx, 'sku', e.target.value)}
+                                                onFocus={e => handleSkuFocus(idx, e.target.value)}
+                                                onBlur={e => handleSkuBlur(idx, e.target.value)}
+                                            />
+                                        </td>
                                         <td className="p-0 border-r border-[#222]"><input className="w-full bg-transparent px-2 py-1.5 outline-none text-gray-300 focus:bg-[#222]" value={line.description || ''} onChange={e => updateLine(idx, 'description', e.target.value)} /></td>
                                         <td className="p-0 border-r border-[#222]"><input className="w-full bg-transparent px-1 py-1.5 outline-none text-center text-blue-300 font-bold focus:bg-[#222]" value={line.quantity || ''} onChange={e => updateLine(idx, 'quantity', e.target.value)} /></td>
                                         <td className="p-0 border-r border-[#222]"><input className="w-full bg-transparent px-2 py-1.5 outline-none text-right font-mono text-gray-400 focus:bg-[#222]" value={line.unitPrice ?? ''} onChange={e => updateLine(idx, 'unitPrice', e.target.value)} /></td>

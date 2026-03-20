@@ -78,16 +78,35 @@ export default function FimaProformaContainer({ doc, onClose, updateRow, onFinal
         try {
             setSaving(true);
             const project = doc.project || 'default';
+            // 1. Sync data to DB
             await api.put(`/api/corev2/docs/${doc.id}/json?project=${project}`, { payload: currentData });
-            await api.post(`/api/corev2/docs/${doc.id}/finalize?project=${project}`);
+            
+            // 2. Delegate to parent if available (correct API call happens there)
+            if (onFinalize) {
+                await onFinalize(doc.id);
+            } else {
+                // Fallback for direct finalize (ensuring correct URL)
+                await api.post(`/api/corev2/docs/finalize?project=${project}`, { 
+                    id: doc.id,
+                    docType: currentData.metadata?.doc_type || doc.docType,
+                    docNumber: currentData.metadata?.doc_number || doc.docNumber
+                });
+            }
+            
             setIsDirty(false);
-            if (onFinalize) onFinalize(doc.id);
             onClose();
         } catch (err) {
             alert('Erro ao finalizar: ' + (err.response?.data?.error || err.message));
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleClose = () => {
+        if (isDirty) {
+            if (!confirm("Existem alterações não guardadas. Sair mesmo assim?")) return;
+        }
+        onClose();
     };
 
     return (
@@ -99,7 +118,7 @@ export default function FimaProformaContainer({ doc, onClose, updateRow, onFinal
             pdfUrl={pdfUrl}
             onDataChange={handleDataChange}
             onSave={handleSave}
-            onClose={onClose}
+            onClose={handleClose}
             onFinalize={handleFinalize}
             mode={mode}
         />

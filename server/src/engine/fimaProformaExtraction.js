@@ -23,7 +23,7 @@ async function processProforma(pdfBuffer) {
     }
 
     // Re-use OC parser (same table structure) then fix docType + extract IBAN
-    const result = parseOrderConfirmation(rawText);
+    const result = parseOrderConfirmation(rawText, { cleanRef: false });
     result.docType = 'fima_proforma';
 
     // Extract IBAN from raw text

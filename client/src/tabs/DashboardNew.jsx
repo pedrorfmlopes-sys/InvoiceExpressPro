@@ -29,6 +29,13 @@ export default function DashboardNew({ project }) {
     });
     const [statsLoading, setStatsLoading] = useState(true);
 
+    // Global Analytics (Profit / Margin)
+    const [analytics, setAnalytics] = useState({
+        profit: 0,
+        marginPercent: 0
+    });
+    const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
     // Load Data
     useEffect(() => {
         // 1. Load Recent Docs (Using CoreV2 Endpoint)
@@ -68,6 +75,24 @@ export default function DashboardNew({ project }) {
                 setHealthLoading(false);
             });
 
+        // 4. Load Global Analytics (Profit & Margin)
+        setAnalyticsLoading(true);
+        api.get('/api/reconciliation/analytics')
+            .then(res => {
+                const data = res.data;
+                if (data && data.realized && data.realized.margin) {
+                    setAnalytics({
+                        profit: data.realized.margin.net || 0,
+                        marginPercent: data.realized.margin.percent || 0
+                    });
+                }
+                setAnalyticsLoading(false);
+            })
+            .catch(err => {
+                console.error("Global analytics fetch failed", err);
+                setAnalyticsLoading(false);
+            });
+
     }, [project]);
 
     // Helpers
@@ -101,7 +126,7 @@ export default function DashboardNew({ project }) {
         <div className="flex flex-col gap-6 fade-in h-full overflow-y-auto pb-8 custom-scrollbar">
 
             {/* 1. Header & Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 shrink-0">
                 <StatCard
                     label="Receita do Mês"
                     value={fmtEUR(stats.monthRevenue)}
@@ -109,6 +134,22 @@ export default function DashboardNew({ project }) {
                     gradientVar="var(--grad-stat1)"
                     icon={<span>💰</span>}
                     loading={statsLoading}
+                />
+                <StatCard
+                    label="Lucro (Real)"
+                    value={fmtEUR(analytics.profit)}
+                    subtext="Todas as marcas"
+                    gradientVar="var(--grad-stat2)"
+                    icon={<span>📈</span>}
+                    loading={analyticsLoading}
+                />
+                <StatCard
+                    label="Margem (Real)"
+                    value={`${analytics.marginPercent.toFixed(1)}%`}
+                    subtext="Todas as marcas"
+                    gradientVar="var(--grad-stat1)"
+                    icon={<span>🎯</span>}
+                    loading={analyticsLoading}
                 />
                 <StatCard
                     label="Docs Pendentes"

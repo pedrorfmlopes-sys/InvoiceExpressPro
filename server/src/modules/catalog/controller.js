@@ -103,6 +103,8 @@ class CatalogController {
 
             if (typeof CatalogService[methodName] === 'function') {
                 result = await CatalogService[methodName](filePath, mappings);
+            } else if (brand.toLowerCase() === 'scarabeo') {
+                result = await CatalogService.processScarabeoExcel(filePath, mappings);
             } else {
                 return res.status(400).json({ error: `Brand "${brand}" is not supported yet for auto-processing` });
             }

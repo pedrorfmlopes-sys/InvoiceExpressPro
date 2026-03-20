@@ -131,12 +131,22 @@ export default function RitmonioContainer({ doc, onClose, updateRow, onFinalize,
         }
     };
 
-    const handleFinalize = async (dataToSave) => {
+    const handleFinalize = async (dataToSave = invoiceData) => {
         try {
             await handleSave(dataToSave);
-            if (onFinalize) await onFinalize(doc.id);
+            if (onFinalize) {
+                await onFinalize(doc.id);
+            } else {
+                const project = doc.project || 'default';
+                await api.post(`/api/corev2/docs/finalize?project=${project}`, { 
+                    id: doc.id,
+                    docType: doc.docType,
+                    docNumber: dataToSave.docNumber || doc.docNumber
+                });
+            }
         } catch (err) {
             console.error("[RitmonioContainer] Finalize Failed:", err);
+            alert("Erro ao finalizar.");
         }
     };
 
@@ -160,7 +170,7 @@ export default function RitmonioContainer({ doc, onClose, updateRow, onFinalize,
             onDataChange={handleDataChange}
             onSave={handleSave}
             onClose={handleClose}
-            onFinalize={onFinalize}
+            onFinalize={handleFinalize}
 
             mode={mode} // 'staging' or 'archive'
         />

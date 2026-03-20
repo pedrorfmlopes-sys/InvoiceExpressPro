@@ -38,17 +38,41 @@ class DbDocsAdapter {
         const docIds = rows.map(r => r.id);
         let proposalsMap = {};
         if (docIds.length > 0) {
-            const allProposals = await db('custom_proposals')
+            // 1. Direct clones
+            const clonedProposals = await db('custom_proposals')
                 .whereIn('original_doc_id', docIds)
                 .select('id', 'name', 'status', 'original_doc_id');
 
-            allProposals.forEach(p => {
-                if (!proposalsMap[p.original_doc_id]) proposalsMap[p.original_doc_id] = [];
-                proposalsMap[p.original_doc_id].push(p);
+            clonedProposals.forEach(p => {
+                const docId = p.original_doc_id;
+                if (!proposalsMap[docId]) proposalsMap[docId] = [];
+                proposalsMap[docId].push(p);
+            });
+
+            // 2. Fulfillments (linked via reconciliation)
+            const fulfillmentLinks = await db('proposal_fulfillments')
+                .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
+                .join('custom_proposals', 'proposal_lines.proposal_id', 'custom_proposals.id')
+                .whereIn('proposal_fulfillments.document_id', docIds)
+                .select(
+                    'custom_proposals.id',
+                    'custom_proposals.name',
+                    'custom_proposals.status',
+                    'proposal_fulfillments.document_id'
+                )
+                .distinct();
+
+            fulfillmentLinks.forEach(p => {
+                const docId = p.document_id;
+                if (!proposalsMap[docId]) proposalsMap[docId] = [];
+                if (!proposalsMap[docId].some(existing => existing.id === p.id)) {
+                    proposalsMap[docId].push(p);
+                }
             });
 
             // Enrichment: Calculate progress for each proposal
-            const proposalIds = allProposals.map(p => p.id);
+            const allFetchedProposals = Object.values(proposalsMap).flat();
+            const proposalIds = [...new Set(allFetchedProposals.map(p => p.id))];
             if (proposalIds.length > 0) {
                 const linesStats = await db('proposal_lines')
                     .whereIn('proposal_id', proposalIds)
@@ -67,7 +91,7 @@ class DbDocsAdapter {
                 const fulfillMap = {};
                 fulfillStats.forEach(s => fulfillMap[s.proposal_id] = parseFloat(s.fulfilled_qty || 0));
 
-                allProposals.forEach(p => {
+                allFetchedProposals.forEach(p => {
                     const total = linesMap[p.id] || 0;
                     const fulfilled = fulfillMap[p.id] || 0;
                     p.progress = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
@@ -89,15 +113,13 @@ class DbDocsAdapter {
 
                 // RESTORE rawJson as object for Viewer compatibility
                 // but keep it clean from string/nesting
-                const docWithRaw = {
+                return {
                     ...raw,
                     ...row,
                     references: refs,
-                    associatedProposals: proposalsMap[r.id] || []
+                    associatedProposals: proposalsMap[r.id] || [],
+                    rawJson: { ...raw }
                 };
-                docWithRaw.rawJson = { ...raw };
-
-                return docWithRaw;
             }),
             total,
             page: parseInt(page),
@@ -110,12 +132,9 @@ class DbDocsAdapter {
         const query = { id };
         if (project && project !== 'all') query.project = project;
 
-        console.log(`[Adapter] getDoc searching for: id=${id} (project=${project || 'any'})`);
         const r = await db('documents').where(query).first();
-        if (!r) {
-            console.log(`[Adapter] getDoc NOT FOUND for: id=${id}`);
-            return null;
-        }
+        if (!r) return null;
+
         const { rawJson: rawStr, ...row } = r;
         let raw = {};
         try {
@@ -124,20 +143,37 @@ class DbDocsAdapter {
             console.error("[Adapter] Failed to parse rawJson in getDoc", e);
         }
 
-        let docWithRaw = { ...raw, ...row };
-
-        // --- PHASE 21: Fetch associated proposals ---
-        const associatedProposals = await db('custom_proposals')
+        // 1. Direct clones
+        const clonedProposals = await db('custom_proposals')
             .where({ original_doc_id: id })
             .select('id', 'name', 'status');
+
+        // 2. Fulfillments
+        const fulfillmentLinks = await db('proposal_fulfillments')
+            .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
+            .join('custom_proposals', 'proposal_lines.proposal_id', 'custom_proposals.id')
+            .where('proposal_fulfillments.document_id', id)
+            .select('custom_proposals.id', 'custom_proposals.name', 'custom_proposals.status')
+            .distinct();
+
+        // Merge and deduplicate
+        const associatedProposals = [...clonedProposals];
+        fulfillmentLinks.forEach(p => {
+            if (!associatedProposals.some(existing => existing.id === p.id)) {
+                associatedProposals.push(p);
+            }
+        });
 
         // --- STORAGE UNIFICATION (Phase 2): No more Satellite Merges ---
         // The Main DB (documents table) is now the Single Source of Truth for both Staging and Final.
         // We rely on 'rawJson' being up-to-date from the unified save logic.
 
-        docWithRaw.associatedProposals = associatedProposals || [];
-        docWithRaw.rawJson = { ...raw }; // Restore for viewer
-        return docWithRaw;
+        return {
+            ...raw,
+            ...row,
+            associatedProposals,
+            rawJson: { ...raw }
+        };
     }
 
     async saveDocument(project, doc, trx = null) {

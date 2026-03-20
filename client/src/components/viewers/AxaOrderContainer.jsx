@@ -109,6 +109,28 @@ export default function AxaOrderContainer({ doc, onClose, updateRow, onFinalize,
         }
     };
 
+    const handleFinalize = async (dataToSave = axaData) => {
+        const saved = await handleSave(dataToSave);
+        if (!saved) return;
+        try {
+            setSaving(true);
+            const project = doc.project || 'default';
+            if (onFinalize) {
+                await onFinalize(doc.id);
+            } else {
+                await api.post(`/api/corev2/docs/finalize?project=${project}`, { 
+                    id: doc.id,
+                    docType: dataToSave.metadata?.doc_type || doc.docType,
+                    docNumber: dataToSave.metadata?.doc_number || doc.docNumber
+                });
+            }
+        } catch (err) {
+            alert('Erro ao finalizar: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleClose = () => {
         if (isDirty) {
             if (!confirm("Existem alterações não guardadas. Sair mesmo assim?")) return;
@@ -139,7 +161,7 @@ export default function AxaOrderContainer({ doc, onClose, updateRow, onFinalize,
             onDataChange={handleDataChange}
             onSave={handleSave}
             onClose={handleClose}
-            onFinalize={onFinalize}
+            onFinalize={handleFinalize}
             onReconcile={handleReconcile}
             mode={mode}
         />

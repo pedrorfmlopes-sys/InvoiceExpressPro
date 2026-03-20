@@ -1,5 +1,6 @@
 const CustomerService = require('./CustomerService');
 const SmartLookupService = require('./SmartLookupService');
+const ShippingAddressService = require('./ShippingAddressService');
 
 class CustomerController {
     async search(req, res) {
@@ -59,6 +60,35 @@ class CustomerController {
             const result = await SmartLookupService.lookup(q);
             if (!result) return res.status(404).json({ error: 'Nenhum resultado encontrado' });
             res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    // --- Shipping Addresses ---
+    async listShippingAddresses(req, res) {
+        try {
+            const results = await ShippingAddressService.list(req.project);
+            res.json(results);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async upsertShippingAddress(req, res) {
+        try {
+            const result = await ShippingAddressService.upsert(req.project, req.body);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async deleteShippingAddress(req, res) {
+        try {
+            const { id } = req.params;
+            await ShippingAddressService.delete(req.project, id);
+            res.json({ ok: true });
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

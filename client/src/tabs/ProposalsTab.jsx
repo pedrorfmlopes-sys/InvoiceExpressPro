@@ -22,6 +22,7 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
     const [filterDeadline, setFilterDeadline] = useState('all'); // all, on_time, overdue
     const [manageLogisticsId, setManageLogisticsId] = useState(null);
     const [viewFulfillmentId, setViewFulfillmentId] = useState(null);
+    const [viewDocsProposal, setViewDocsProposal] = useState(null); // Popover for docs
 
     useEffect(() => {
         loadProposals();
@@ -338,6 +339,7 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                 <th className="pb-4 font-bold">Referência</th>
                                 <th className="pb-4 font-bold">Saída Fabrica</th>
                                 <th className="pb-4 font-bold text-center">Prazo</th>
+                                <th className="pb-4 font-bold text-center">Docs</th>
                                 <th className="pb-4 font-bold text-right">Total (c/IVA)</th>
                                 <th className="pb-4 font-bold text-center">Estado</th>
                                 <th className="pb-4 font-bold text-right pr-4">Ações</th>
@@ -401,6 +403,22 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                                         </span>
                                                     );
                                                 })() : '-'}
+                                            </td>
+                                            <td className="py-4 text-center">
+                                                {p.associatedDocuments?.length > 0 ? (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setViewDocsProposal(p);
+                                                        }}
+                                                        className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-blue-500/30 transition-colors"
+                                                        title="Ver documentos associados"
+                                                    >
+                                                        {p.associatedDocuments.length} 📄
+                                                    </button>
+                                                ) : (
+                                                    <span className="opacity-20">-</span>
+                                                )}
                                             </td>
                                             <td className="py-4 text-right font-mono font-bold text-[var(--text-main)]">
                                                 {fmtEUR(total)}
@@ -508,6 +526,46 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                     />
                 )
             }
+
+            {/* Associated Documents Popover */}
+            {viewDocsProposal && createPortal(
+                <div 
+                    className="fixed inset-0 z-[8000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                    onClick={() => setViewDocsProposal(null)}
+                >
+                    <div 
+                        className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl max-w-md w-full animate-in zoom-in duration-200"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg flex items-center gap-2">📄 Documentos do Pedido</h3>
+                            <button onClick={() => setViewDocsProposal(null)} className="text-xl p-1 hover:bg-white/10 rounded-full transition-colors">✕</button>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {viewDocsProposal.associatedDocuments.map(doc => (
+                                <div key={doc.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors group">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-white capitalize">{doc.docType || 'Documento'} {doc.docNumber}</span>
+                                        <span className="text-[10px] text-gray-500">{doc.supplier}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => handleViewSource(doc.id)}
+                                        className="bg-[var(--accent-primary)] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                        Abrir
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <button 
+                            onClick={() => setViewDocsProposal(null)}
+                            className="w-full mt-6 py-2 bg-[var(--surface-base)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-xs font-bold transition-colors"
+                        >
+                            Fechar
+                        </button>
+                    </div>
+                </div>, document.body
+            )}
 
             {/* PDF Viewer Portal */}
             {

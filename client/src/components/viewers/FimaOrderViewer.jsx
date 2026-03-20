@@ -262,6 +262,16 @@ export default function FimaOrderViewer({ doc, data, loading, saving, pdfUrl, on
                                         🔗 Ligar à Proposta
                                     </button>
                                 )}
+                                {doc.associatedProposals?.length > 0 && (
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-purple-900/20 border border-purple-800/30 rounded">
+                                        <span className="text-[9px] text-purple-400 font-bold uppercase">Propostas:</span>
+                                        {doc.associatedProposals.map(p => (
+                                            <span key={p.id} className="px-2 py-0.5 bg-purple-900/40 text-purple-300 rounded text-[10px] font-mono border border-purple-800/50">
+                                                {p.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                                 {mode === 'staging' && (
                                     <button className="bg-green-700 hover:bg-green-600 text-white font-bold px-6 py-2 rounded"
                                         onClick={() => onFinalize(safeData)}>✔ FINALIZAR</button>

@@ -547,6 +547,318 @@ class CatalogService {
         return { success: true, stats: { createdCount, updatedCount, skippedCount, filteredCount } };
     }
 
+    async processFimaExcel(filePath, mappings = {}) {
+        const workbook = XLSX.readFile(filePath);
+        const brand = 'fima';
+
+        console.log('[CatalogService] FIMA processFimaExcel called. mappings:', JSON.stringify({
+            itemSheetName: mappings.itemSheetName,
+            finishSheetName: mappings.finishSheetName,
+            columns: mappings.columns,
+            clearBeforeImport: mappings.clearBeforeImport
+        }));
+
+        const allowedCollections = mappings.allowedCollections || null;
+
+        // 1. Process Finishes
+        const fSheetName = mappings.finishSheetName ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('finish')) ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('acabamento'));
+
+        const validFinishCodes = new Set();
+        if (fSheetName && workbook.Sheets[fSheetName]) {
+            console.log(`[CatalogService] FIMA: Processing finishes from "${fSheetName}"`);
+            const rawFin = XLSX.utils.sheet_to_json(workbook.Sheets[fSheetName], { header: 1, defval: '' });
+            const finRows = rawFin.slice(1);
+
+            for (const row of finRows) {
+                const code = String(row[0] || '').trim();
+                const namePt = String(row[1] || row[2] || '').trim();
+                const leadWeeks = row[3] ? parseFloat(row[3]) : null;
+                if (!code) continue;
+
+                validFinishCodes.add(code.toUpperCase());
+
+                const existing = await knex('catalog_finishes')
+                    .where({ brand, finish_code: code })
+                    .first();
+
+                const finishRow = {
+                    brand,
+                    finish_code: code,
+                    group_code: 'STANDARD',
+                    description_pt: namePt || null,
+                    lead_time_weeks: leadWeeks,
+                    updated_at: new Date()
+                };
+
+                if (existing) {
+                    await knex('catalog_finishes').where({ id: existing.id }).update(finishRow);
+                } else {
+                    await knex('catalog_finishes').insert({ ...finishRow, id: uuidv4(), created_at: new Date() });
+                }
+            }
+        }
+
+        // 2. Process Items
+        const iSheetName = mappings.itemSheetName ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('tabela')) ||
+            workbook.SheetNames[0];
+
+        const itemSheet = workbook.Sheets[iSheetName];
+        if (!itemSheet) throw new Error(`FIMA item sheet not found: ${iSheetName}`);
+
+        if (mappings.clearBeforeImport) {
+            console.log(`[CatalogService] FIMA: Clearing existing items`);
+            await knex('catalog_items').where({ brand }).delete();
+        }
+
+        const rawAll = XLSX.utils.sheet_to_json(itemSheet, { header: 1, defval: '' });
+        const headers = rawAll[0].map(h => String(h).trim());
+        const rawRows = rawAll.slice(1);
+
+        const userCols = mappings.columns || {};
+        const byName = (name) => name ? headers.findIndex(h => h === name) : -1;
+        const byKw = (...kws) => headers.findIndex(h => kws.some(kw => h.toLowerCase().includes(kw.toLowerCase())));
+
+        const colIdx = {
+            collection: byName(userCols.collection) >= 0 ? byName(userCols.collection) : byKw('serie', 'coleção') >= 0 ? byKw('serie', 'coleção') : 0,
+            sku: byName(userCols.sku) >= 0 ? byName(userCols.sku) : byKw('cod', 'sku', 'artigo') >= 0 ? byKw('cod', 'sku', 'artigo') : 1,
+            description: byName(userCols.description_pt) >= 0 ? byName(userCols.description_pt) : byKw('desc', 'nome') >= 0 ? byKw('desc', 'nome') : 2,
+            price: byName(userCols.price) >= 0 ? byName(userCols.price) : byKw('pvp', 'preço', 'price') >= 0 ? byKw('pvp', 'preço', 'price') : 3,
+        };
+
+        let createdCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+
+        const existingItems = await knex('catalog_items').where({ brand }).select('id', 'sku', 'finish_group');
+        const existingMap = new Map();
+        existingItems.forEach(item => {
+            const key = `${String(item.sku).toLowerCase()}|${String(item.finish_group || '').toLowerCase()}`;
+            existingMap.set(key, item.id);
+        });
+
+        const toInsert = [];
+        const toUpdate = [];
+
+        for (const row of rawRows) {
+            const sku = String(row[colIdx.sku] || '').trim();
+            if (!sku) { skippedCount++; continue; }
+
+            const series = String(row[colIdx.collection] || '').trim();
+            if (allowedCollections && allowedCollections.length > 0 && !allowedCollections.includes(series)) continue;
+
+            // FIMA Suffix Logic: Check if last 2 chars match a valid finish code
+            const last2 = sku.toUpperCase().slice(-2);
+            const finishCode = validFinishCodes.has(last2) ? last2 : '';
+
+            const itemData = {
+                brand,
+                sku,
+                series,
+                finish_group: finishCode,
+                description_pt: String(row[colIdx.description] || '').trim(),
+                price: parseFloat(String(row[colIdx.price] || 0).replace(',', '.')) || 0,
+                updated_at: new Date()
+            };
+
+            const key = `${sku.toLowerCase()}|${finishCode.toLowerCase()}`;
+            const existingId = existingMap.get(key);
+
+            if (existingId) {
+                toUpdate.push({ id: existingId, ...itemData });
+            } else {
+                toInsert.push({ ...itemData, id: uuidv4(), created_at: new Date() });
+            }
+        }
+
+        if (toInsert.length > 0) {
+            const CHUNK = 500;
+            for (let i = 0; i < toInsert.length; i += CHUNK) {
+                await knex('catalog_items').insert(toInsert.slice(i, i + CHUNK));
+                createdCount += toInsert.slice(i, i + CHUNK).length;
+            }
+        }
+
+        if (toUpdate.length > 0) {
+            for (const item of toUpdate) {
+                const { id, ...data } = item;
+                await knex('catalog_items').where({ id }).update(data);
+                updatedCount++;
+            }
+        }
+
+        return { success: true, stats: { createdCount, updatedCount, skippedCount } };
+    }
+
+    async processScarabeoExcel(filePath, mappings = {}) {
+        const workbook = XLSX.readFile(filePath);
+        const brand = 'scarabeo';
+
+        console.log('[CatalogService] SCARABEO processScarabeoExcel called');
+
+        const allowedCollections = mappings.allowedCollections || null;
+
+        // 1. Process Finishes
+        const fSheetName = mappings.finishSheetName ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('finish')) ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('acabamento'));
+
+        const validFinishCodes = new Set();
+        if (fSheetName && workbook.Sheets[fSheetName]) {
+            console.log(`[CatalogService] SCARABEO: Processing finishes from "${fSheetName}"`);
+            const rawFin = XLSX.utils.sheet_to_json(workbook.Sheets[fSheetName], { header: 1, defval: '' });
+            const finRows = rawFin.slice(1);
+
+            for (const row of finRows) {
+                const code = String(row[0] || '').trim();
+                const namePt = String(row[1] || row[2] || '').trim();
+                const leadWeeks = row[3] ? parseFloat(row[3]) : null;
+                if (!code) continue;
+
+                validFinishCodes.add(code.toUpperCase());
+
+                const existing = await knex('catalog_finishes')
+                    .where({ brand, finish_code: code })
+                    .first();
+
+                const finishRow = {
+                    brand,
+                    finish_code: code,
+                    group_code: 'STANDARD',
+                    description_pt: namePt || null,
+                    lead_time_weeks: leadWeeks,
+                    updated_at: new Date()
+                };
+
+                if (existing) {
+                    await knex('catalog_finishes').where({ id: existing.id }).update(finishRow);
+                } else {
+                    await knex('catalog_finishes').insert({ ...finishRow, id: uuidv4(), created_at: new Date() });
+                }
+            }
+        }
+
+        // 2. Process Items
+        const iSheetName = mappings.itemSheetName ||
+            workbook.SheetNames.find(s => s.toLowerCase().includes('tabela')) ||
+            workbook.SheetNames[0];
+
+        const itemSheet = workbook.Sheets[iSheetName];
+        if (!itemSheet) throw new Error(`SCARABEO item sheet not found: ${iSheetName}`);
+
+        if (mappings.clearBeforeImport) {
+            console.log(`[CatalogService] SCARABEO: Clearing existing items`);
+            await knex('catalog_items').where({ brand }).delete();
+        }
+
+        const rawAll = XLSX.utils.sheet_to_json(itemSheet, { header: 1, defval: '' });
+        const headers = rawAll[0].map(h => String(h).trim());
+        const rawRows = rawAll.slice(1);
+
+        const userCols = mappings.columns || {};
+        const byName = (name) => name ? headers.findIndex(h => h === name) : -1;
+        const byKw = (...kws) => headers.findIndex(h => kws.some(kw => h.toLowerCase().includes(kw.toLowerCase())));
+
+        const colIdx = {
+            collection: byName(userCols.collection) >= 0 ? byName(userCols.collection) : byKw('serie', 'coleção') >= 0 ? byKw('serie', 'coleção') : 0,
+            sku: byName(userCols.sku) >= 0 ? byName(userCols.sku) : byKw('cod', 'sku', 'artigo') >= 0 ? byKw('cod', 'sku', 'artigo') : 1,
+            description: byName(userCols.description_pt) >= 0 ? byName(userCols.description_pt) : byKw('desc', 'nome') >= 0 ? byKw('desc', 'nome') : 2,
+            price: byName(userCols.price) >= 0 ? byName(userCols.price) : byKw('pvp', 'preço', 'price') >= 0 ? byKw('pvp', 'preço', 'price') : 3,
+        };
+
+        let createdCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+
+        const existingItems = await knex('catalog_items').where({ brand }).select('id', 'sku', 'finish_group');
+        const existingMap = new Map();
+        existingItems.forEach(item => {
+            const key = `${String(item.sku).toLowerCase()}|${String(item.finish_group || '').toLowerCase()}`;
+            existingMap.set(key, item.id);
+        });
+
+        const toInsert = [];
+        const toUpdate = [];
+
+        for (const row of rawRows) {
+            const sku = String(row[colIdx.sku] || '').trim();
+            if (!sku) { skippedCount++; continue; }
+
+            const series = String(row[colIdx.collection] || '').trim();
+            if (allowedCollections && allowedCollections.length > 0 && !allowedCollections.includes(series)) continue;
+
+            const skuUpper = sku.toUpperCase();
+            let finishCode = '';
+
+            // Scarabeo Suffix Logic
+            if (skuUpper.includes('-')) {
+                const parts = skuUpper.split('-');
+                const last = parts.pop();
+                if (validFinishCodes.has(last)) finishCode = last;
+                else if (parts.length > 0) {
+                    // check if the part before last dash was actually the finish? 
+                    // unlikely, usually it's at the end.
+                }
+            }
+
+            if (!finishCode && skuUpper.includes('/')) {
+                const parts = skuUpper.split('/');
+                const last = parts.pop();
+                if (last.includes('-')) {
+                    const subLast = last.split('-').pop();
+                    if (validFinishCodes.has(subLast)) finishCode = subLast;
+                } else if (validFinishCodes.has(last)) {
+                    finishCode = last;
+                }
+            }
+
+            const itemData = {
+                brand,
+                sku,
+                series,
+                finish_group: finishCode,
+                description_pt: String(row[colIdx.description] || '').trim() || null,
+                price: typeof row[colIdx.price] === 'number' ? row[colIdx.price] : parseFloat(String(row[colIdx.price]).replace(',', '.')) || 0,
+                source: 'Import Automatic',
+                updated_at: new Date()
+            };
+
+            const key = `${sku.toLowerCase()}|${finishCode.toLowerCase()}`;
+            const existingId = existingMap.get(key);
+
+            if (existingId) {
+                toUpdate.push({ id: existingId, ...itemData });
+            } else {
+                toInsert.push({ ...itemData, id: uuidv4(), created_at: new Date() });
+            }
+        }
+
+        if (toInsert.length > 0) {
+            const CHUNK = 500;
+            for (let i = 0; i < toInsert.length; i += CHUNK) {
+                await knex('catalog_items').insert(toInsert.slice(i, i + CHUNK));
+                createdCount += Math.min(CHUNK, toInsert.length - i);
+            }
+        }
+
+        if (toUpdate.length > 0) {
+            const CHUNK = 200;
+            for (let i = 0; i < toUpdate.length; i += CHUNK) {
+                await knex.transaction(async trx => {
+                    for (const item of toUpdate.slice(i, i + CHUNK)) {
+                        const { id, ...data } = item;
+                        await trx('catalog_items').where({ id }).update(data);
+                    }
+                });
+                updatedCount += Math.min(CHUNK, toUpdate.length - i);
+            }
+        }
+
+        return { success: true, stats: { createdCount, updatedCount, skippedCount } };
+    }
+
     // The original upsertItems method is now largely redundant as its logic is integrated into processNicolazziExcel.
     // However, to maintain the structure and avoid breaking other potential calls,
     // I'm keeping it but noting its reduced role or potential for removal.
@@ -642,7 +954,15 @@ class CatalogService {
             }
         }
 
-        return q.limit(50).orderBy('sku', 'asc');
+        const results = await q.limit(50).orderBy('sku', 'asc');
+        
+        // If results are empty and we were filtering by brand, try a global fallback
+        if (results.length === 0 && b !== 'TODAS' && b !== 'MULTIMARCAS' && b !== 'OTHER' && b !== 'GERAL' && b !== 'MULTIMARCA') {
+            console.log(`[CatalogService] Search for brand ${brand} returned 0 results for "${query}". Trying global fallback.`);
+            return this.searchItems('TODAS', query);
+        }
+
+        return results;
     }
 
     /**
@@ -652,9 +972,8 @@ class CatalogService {
         if (!brand) return { error: 'Brand required' };
         const b = brand.toLowerCase();
 
-        if (b === 'nicolazzi') {
-            return this.resolveNicolazziSku(rawSku);
-        }
+        if (b === 'nicolazzi') return this.resolveNicolazziSku(rawSku);
+        if (b === 'bette') return this.resolveBetteSku(rawSku);
 
         const cleanSku = String(rawSku || '').trim();
 
@@ -686,7 +1005,12 @@ class CatalogService {
                 .andWhere({ sku: cleanSku })
                 .first();
 
-            if (!item) return { success: false, reason: 'Not found in generic catalog' };
+            if (!item) {
+                // FALLBACK: If brand-specific resolution fails, try global (like 'TODAS')
+                // This handles cases where a Nicolazzi proposal has a Scarabeo item line.
+                console.log(`[CatalogService] Resolution for brand ${b} failed for SKU ${cleanSku}. Falling back to global.`);
+                return this.resolveItem('TODAS', rawSku);
+            }
 
             // --- Hierarchical Lead Time & Finish Resolution ---
             let leadTimeWeeks = null;
@@ -730,6 +1054,42 @@ class CatalogService {
                     }
                     const namePt = axaFinish.description_pt || axaFinish.name_en || '';
                     const leadDays = axaFinish.lead_time_weeks ? Math.round(axaFinish.lead_time_weeks * 5) : null;
+                    const timeStr = leadDays ? ` | Produção: ${leadDays} dias úteis` : '';
+                    finishNote = namePt ? `${namePt}${timeStr}` : `${item.description_pt || ''}${timeStr}`;
+                }
+            }
+
+            // 1c. Resolve Finish (FIMA — stored in finish_group during import)
+            if (b === 'fima' && item.finish_group) {
+                const fimaFinish = await knex('catalog_finishes')
+                    .where({ brand: 'fima', finish_code: item.finish_group })
+                    .first();
+                if (fimaFinish) {
+                    finish = fimaFinish;
+                    finishCode = fimaFinish.finish_code;
+                    if (fimaFinish.lead_time_weeks != null) {
+                        leadTimeWeeks = fimaFinish.lead_time_weeks;
+                    }
+                    const namePt = fimaFinish.description_pt || '';
+                    const leadDays = fimaFinish.lead_time_weeks ? Math.round(fimaFinish.lead_time_weeks * 5) : null;
+                    const timeStr = leadDays ? ` | Produção: ${leadDays} dias úteis` : '';
+                    finishNote = namePt ? `${namePt}${timeStr}` : `${item.description_pt || ''}${timeStr}`;
+                }
+            }
+
+            // 1d. Resolve Finish (Scarabeo — stored in finish_group during import)
+            if (b === 'scarabeo' && item.finish_group) {
+                const scarabeoFinish = await knex('catalog_finishes')
+                    .where({ brand: 'scarabeo', finish_code: item.finish_group })
+                    .first();
+                if (scarabeoFinish) {
+                    finish = scarabeoFinish;
+                    finishCode = scarabeoFinish.finish_code;
+                    if (scarabeoFinish.lead_time_weeks != null) {
+                        leadTimeWeeks = scarabeoFinish.lead_time_weeks;
+                    }
+                    const namePt = scarabeoFinish.description_pt || '';
+                    const leadDays = scarabeoFinish.lead_time_weeks ? Math.round(scarabeoFinish.lead_time_weeks * 5) : null;
                     const timeStr = leadDays ? ` | Produção: ${leadDays} dias úteis` : '';
                     finishNote = namePt ? `${namePt}${timeStr}` : `${item.description_pt || ''}${timeStr}`;
                 }
@@ -920,6 +1280,78 @@ class CatalogService {
             console.error(`[CatalogService] Error resolving SKU ${rawSku}:`, error);
             return { originalSku: rawSku, success: false, error: error.message };
         }
+    }
+
+    async processBetteExcel(filePath, mappings = {}) {
+        const XLSX = require('xlsx');
+        const workbook = XLSX.readFile(filePath);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(sheet);
+
+        const items = data.map(row => ({
+            id: require('uuid').v4(),
+            brand: 'bette',
+            sku: String(row[mappings.sku || 'SKU'] || '').trim(),
+            description_pt: String(row[mappings.description || 'Description'] || '').trim(),
+            series: String(row[mappings.series || 'Series'] || row[mappings.collection || 'Collection'] || '').trim(),
+            price: parseFloat(row[mappings.price || 'Price']) || 0,
+            currency: 'EUR',
+            updated_at: new Date()
+        })).filter(i => i.sku);
+
+        for (const item of items) {
+            await knex('catalog_items')
+                .insert(item)
+                .onConflict(['brand', 'sku', 'handle', 'finish_group'])
+                .merge();
+        }
+        return { success: true, count: items.length };
+    }
+
+    async resolveBetteSku(rawSku) {
+        // Bette SKUs often look like 1234-XXX where XXX is finish
+        const cleanSku = String(rawSku || '').trim().toUpperCase();
+        const parts = cleanSku.split('-');
+        
+        if (parts.length >= 2) {
+            const baseSku = parts[0];
+            const finishCode = parts[1];
+            const item = await knex('catalog_items').where({ brand: 'bette', sku: baseSku }).first();
+            if (item) {
+                return { item, finishCode, success: true, originalSku: rawSku };
+            }
+        }
+
+        const exact = await knex('catalog_items').where({ brand: 'bette', sku: cleanSku }).first();
+        if (exact) return { item: exact, success: true, originalSku: rawSku };
+
+        return { success: false, originalSku: rawSku };
+    }
+
+    async processButoExcel(filePath, mappings = {}) {
+        const XLSX = require('xlsx');
+        const workbook = XLSX.readFile(filePath);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(sheet);
+
+        const items = data.map(row => ({
+            id: require('uuid').v4(),
+            brand: 'buto',
+            sku: String(row[mappings.sku || 'SKU'] || '').trim(),
+            description_pt: String(row[mappings.description || 'Description'] || '').trim(),
+            series: String(row[mappings.series || 'Series'] || row[mappings.collection || 'Collection'] || '').trim(),
+            price: parseFloat(row[mappings.price || 'Price']) || 0,
+            currency: 'EUR',
+            updated_at: new Date()
+        })).filter(i => i.sku);
+
+        for (const item of items) {
+            await knex('catalog_items')
+                .insert(item)
+                .onConflict(['brand', 'sku', 'handle', 'finish_group'])
+                .merge();
+        }
+        return { success: true, count: items.length };
     }
 
     async findItem(brand, sku, handle, groupCode) {

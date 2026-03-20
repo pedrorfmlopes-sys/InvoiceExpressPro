@@ -8,7 +8,10 @@ const BRANDS_CONFIG = [
     { id: 'nicolazzi', name: 'Nicolazzi', color: 'amber' },
     { id: 'ritmonio', name: 'Ritmonio', color: 'blue' },
     { id: 'bette', name: 'Bette', color: 'green' },
-    { id: 'axa', name: 'AXA', color: 'red' }
+    { id: 'axa', name: 'AXA', color: 'red' },
+    { id: 'fima', name: 'FIMA', color: 'indigo' },
+    { id: 'scarabeo', name: 'Scarabeo', color: 'blue' },
+    { id: 'buto', name: 'Butö', color: 'orange' }
 ];
 
 const UNIT_OPTIONS = [
@@ -57,7 +60,9 @@ const CatalogManagementTab = ({ project }) => {
     const [brandFinishes, setBrandFinishes] = useState([]);
     const [isLoadingFinishes, setIsLoadingFinishes] = useState(false);
 
-    // Save state
+    // Alias Settings
+    const [brandAliases, setBrandAliases] = useState([]);
+    const [isLoadingAliases, setIsLoadingAliases] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [savedFeedback, setSavedFeedback] = useState(false);
 
@@ -236,11 +241,12 @@ const CatalogManagementTab = ({ project }) => {
         }
     };
 
-    const loadStoredCollections = async () => {
-        if (!selectedBrand) return;
+    const loadStoredCollections = async (brandId) => {
+        const bid = brandId || selectedBrand?.id;
+        if (!bid) return;
         setIsLoadingStored(true);
         try {
-            const res = await api.get(`/api/catalog/collections?brand=${selectedBrand.id}`);
+            const res = await api.get(`/api/catalog/collections?brand=${bid}`);
             setStoredCollections(res.data || []);
         } catch (err) {
             console.error("Failed to load stored collections", err);
@@ -249,16 +255,42 @@ const CatalogManagementTab = ({ project }) => {
         }
     };
 
-    const loadBrandFinishes = async () => {
-        if (!selectedBrand) return;
+    const loadBrandFinishes = async (brandId) => {
+        const bid = brandId || selectedBrand?.id;
+        if (!bid) return;
         setIsLoadingFinishes(true);
         try {
-            const res = await api.get(`/api/catalog/finishes/${selectedBrand.id}`);
+            const res = await api.get(`/api/catalog/finishes/${bid}`);
             setBrandFinishes(res.data || []);
         } catch (err) {
             console.error("Failed to load brand finishes", err);
         } finally {
             setIsLoadingFinishes(false);
+        }
+    };
+
+    const loadBrandAliases = async (brandId) => {
+        const bid = brandId || selectedBrand?.id;
+        if (!bid) return;
+        setIsLoadingAliases(true);
+        try {
+            const res = await api.get(`/api/catalog/aliases?brand=${bid}`);
+            setBrandAliases(res.data || []);
+        } catch (err) {
+            console.error("Failed to load brand aliases", err);
+        } finally {
+            setIsLoadingAliases(false);
+        }
+    };
+
+    const deleteAlias = async (originalSku) => {
+        if (!window.confirm(`Tem a certeza que deseja remover a correção para o código "${originalSku}"?`)) return;
+        try {
+            await api.delete('/api/catalog/aliases', { data: { brand: selectedBrand.id.toUpperCase(), originalSku } });
+            setBrandAliases(prev => prev.filter(a => a.original_sku !== originalSku));
+        } catch (err) {
+            console.error('Failed to delete alias', err);
+            alert('Erro ao apagar alias.');
         }
     };
 
@@ -406,8 +438,9 @@ const CatalogManagementTab = ({ project }) => {
 
     useEffect(() => {
         if (selectedBrand) {
-            loadStoredCollections();
-            loadBrandFinishes();
+            loadStoredCollections(selectedBrand.id);
+            loadBrandFinishes(selectedBrand.id);
+            loadBrandAliases(selectedBrand.id);
         }
     }, [selectedBrand]);
 
@@ -596,7 +629,9 @@ const CatalogManagementTab = ({ project }) => {
                 onClick={() => {
                     setSelectedBrand({ ...brandConfig, ...bStats });
                     setInspectData(null);
-                    setTimeout(() => loadStoredCollections(), 0);
+                    setStoredCollections([]);
+                    setBrandFinishes([]);
+                    setBrandAliases([]);
                 }}
             >
                 {/* SETTINGS HOVER BUTTON */}
@@ -981,7 +1016,8 @@ const CatalogManagementTab = ({ project }) => {
                                     {/* Tab switcher */}
                                     {[
                                         { id: 'collections', label: 'Coleções', icon: <FiCheckSquare size={14} />, color: 'amber' },
-                                        { id: 'finishes', label: 'Acabamentos', icon: <FiSettings size={14} />, color: 'blue' }
+                                        { id: 'finishes', label: 'Acabamentos', icon: <FiSettings size={14} />, color: 'blue' },
+                                        { id: 'aliases', label: 'Memória / SKUs', icon: <FiDatabase size={14} />, color: 'green' }
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
@@ -1009,7 +1045,7 @@ const CatalogManagementTab = ({ project }) => {
                                         disabled={isSaving}
                                         className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${savedFeedback
                                             ? 'bg-green-500/20 border-green-500/30 text-green-400'
-                                            : 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30 text-amber-400 disabled:opacity-50'
+                                            : `bg-${selectedBrand?.color || 'indigo'}-500/20 hover:bg-${selectedBrand?.color || 'indigo'}-500/30 border-${selectedBrand?.color || 'indigo'}-500/30 text-${selectedBrand?.color || 'indigo'}-400 disabled:opacity-50`
                                             }`}
                                     >
                                         {isSaving
@@ -1102,7 +1138,7 @@ const CatalogManagementTab = ({ project }) => {
                             {activeLibraryTab === 'collections' && (
                                 <div className="overflow-x-auto">
                                     {(isLoadingStored) ? (
-                                        <div className="flex items-center gap-2 text-amber-500 py-6">
+                                        <div className={`flex items-center gap-2 text-${selectedBrand?.color || 'indigo'}-500 py-6`}>
                                             <FiLoader className="animate-spin" /> A carregar coleções...
                                         </div>
                                     ) : (
@@ -1115,8 +1151,8 @@ const CatalogManagementTab = ({ project }) => {
                                                             onClick={() => selectAllVisible(storedCollections, c => c.name)}
                                                             className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${storedCollections.filter(c => !c._isNew).length > 0 &&
                                                                 storedCollections.filter(c => !c._isNew).every(c => selectedRows.has(c.name))
-                                                                ? 'bg-indigo-500 border-indigo-500'
-                                                                : 'border-gray-600 hover:border-indigo-400'
+                                                                ? `bg-${selectedBrand?.color || 'indigo'}-500 border-${selectedBrand?.color || 'indigo'}-500`
+                                                                : `border-gray-600 hover:border-${selectedBrand?.color || 'indigo'}-400`
                                                                 }`}
                                                         >
                                                             {storedCollections.filter(c => !c._isNew).every(c => selectedRows.has(c.name)) &&
@@ -1156,7 +1192,7 @@ const CatalogManagementTab = ({ project }) => {
                                                             <td className="py-2 pr-4">
                                                                 <div
                                                                     onClick={() => !col._isNew && toggleCollection(col.name, isVisible)}
-                                                                    className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-all shrink-0 ${isVisible ? 'bg-amber-500 border-amber-500' : 'border-gray-600 hover:border-white'}`}
+                                                                    className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-all shrink-0 ${isVisible ? `bg-${selectedBrand?.color || 'indigo'}-500 border-${selectedBrand?.color || 'indigo'}-500` : 'border-gray-600 hover:border-white'}`}
                                                                 >
                                                                     {isVisible && <FiCheck size={12} className="text-black" />}
                                                                 </div>
@@ -1275,8 +1311,8 @@ const CatalogManagementTab = ({ project }) => {
                                                             onClick={() => selectAllVisible(brandFinishes, f => f.id)}
                                                             className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${brandFinishes.filter(f => !f._isNew).length > 0 &&
                                                                 brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.id))
-                                                                ? 'bg-indigo-500 border-indigo-500'
-                                                                : 'border-gray-600 hover:border-indigo-400'
+                                                                ? `bg-${selectedBrand?.color || 'indigo'}-500 border-${selectedBrand?.color || 'indigo'}-500`
+                                                                : `border-gray-600 hover:border-${selectedBrand?.color || 'indigo'}-400`
                                                                 }`}
                                                         >
                                                             {brandFinishes.filter(f => !f._isNew).every(f => selectedRows.has(f.id)) &&
@@ -1305,8 +1341,8 @@ const CatalogManagementTab = ({ project }) => {
                                                                     <div
                                                                         onClick={() => toggleRowSelection(rowKey)}
                                                                         className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-all ${selectedRows.has(rowKey)
-                                                                            ? 'bg-indigo-500 border-indigo-500'
-                                                                            : 'border-gray-600 hover:border-indigo-400'
+                                                                            ? `bg-${selectedBrand?.color || 'indigo'}-500 border-${selectedBrand?.color || 'indigo'}-500`
+                                                                            : `border-gray-600 hover:border-${selectedBrand?.color || 'indigo'}-400`
                                                                             }`}
                                                                     >
                                                                         {selectedRows.has(rowKey) && <FiCheck size={10} className="text-white" />}
@@ -1439,6 +1475,54 @@ const CatalogManagementTab = ({ project }) => {
                                                 })}
                                                 {brandFinishes.length === 0 && (
                                                     <tr><td colSpan={8} className="py-8 text-center text-gray-600 italic">Nenhum acabamento encontrado. Clique em "Nova Linha" ou importe um ficheiro.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ─── ALIASES (MEMÓRIA) TABLE ──── */}
+                            {activeLibraryTab === 'aliases' && (
+                                <div className="overflow-x-auto">
+                                    {(isLoadingAliases) ? (
+                                        <div className="flex items-center gap-2 text-green-500 py-6">
+                                            <FiLoader className="animate-spin" /> A carregar memória...
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-white/10">
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 pl-3">Original (Extraído)</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4">Corrigido Para</th>
+                                                    <th className="text-left text-[10px] uppercase font-black text-gray-600 tracking-widest py-2 pr-4 w-32">Data Aprendizagem</th>
+                                                    <th className="w-12"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {brandAliases.map((a, idx) => (
+                                                    <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-all group">
+                                                        <td className="py-3 pr-4 pl-3 font-mono text-gray-400 line-through decoration-red-500/50">{a.original_sku}</td>
+                                                        <td className="py-3 pr-4 font-mono font-bold text-green-400">{a.corrected_sku}</td>
+                                                        <td className="py-3 pr-4 text-[10px] text-gray-500">{new Date(a.created_at).toLocaleString()}</td>
+                                                        <td className="py-3 pl-2 text-right">
+                                                            <button
+                                                                onClick={() => deleteAlias(a.original_sku)}
+                                                                className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100"
+                                                                title="Esquecer regra"
+                                                            >
+                                                                <FiTrash2 size={13} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {brandAliases.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={4} className="py-12 text-center text-gray-500">
+                                                            Nenhuma correção de código memorizada para a marca {selectedBrand.name}.
+                                                            <br /><span className="text-[10px] opacity-70">O sistema aprende automaticamente os códigos SKUs que você corrige quando revê uma fatura/proforma ou edita linhas no estúdio.</span>
+                                                        </td>
+                                                    </tr>
                                                 )}
                                             </tbody>
                                         </table>

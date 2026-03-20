@@ -111,6 +111,30 @@ export default function AxaProformaContainer({ doc, onClose, updateRow, onFinali
         }
     };
 
+    const handleFinalize = async (dataToSave = axaData) => {
+        const saved = await handleSave(dataToSave);
+        if (!saved) return;
+        try {
+            setSaving(true);
+            const project = doc.project || 'default';
+            // Delegate to parent if available (correct API call happens there)
+            if (onFinalize) {
+                await onFinalize(doc.id);
+            } else {
+                // Fallback for direct finalize (ensuring correct URL)
+                await api.post(`/api/corev2/docs/finalize?project=${project}`, { 
+                    id: doc.id,
+                    docType: dataToSave.metadata?.doc_type || doc.docType,
+                    docNumber: dataToSave.metadata?.doc_number || dataToSave.docNumber
+                });
+            }
+        } catch (err) {
+            alert('Erro ao finalizar: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleClose = () => {
         if (isDirty) {
             if (!confirm("Existem alterações não guardadas. Sair mesmo assim?")) return;
@@ -128,7 +152,7 @@ export default function AxaProformaContainer({ doc, onClose, updateRow, onFinali
             onDataChange={handleDataChange}
             onSave={handleSave}
             onClose={handleClose}
-            onFinalize={onFinalize}
+            onFinalize={handleFinalize}
             mode={mode}
         />
     );

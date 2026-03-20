@@ -24,6 +24,7 @@ import AssetsTab from './tabs/AssetsTab' // New Assets Module
 import ExtractionProfilesTab from './tabs/ExtractionProfilesTab' // New Extraction Module
 import ProposalsTab from './tabs/ProposalsTab' // Phase 34
 import CustomersTab from './tabs/CustomersTab' // Phase 36 (User Request)
+import ShippingAddressesTab from './tabs/ShippingAddressesTab' // Phase 42
 import CatalogManagementTab from './tabs/CatalogManagementTab'; // Phase 28
 import ProposalEditor from './components/proposals/ProposalEditor'; // Phase 33
 import ReconciliationTab from './tabs/ReconciliationTab'; // Phase 42 (Recon)
@@ -190,6 +191,7 @@ export default function App() {
     { id: 'proposals', label: 'Estúdio Propostas', Component: ProposalsTab },
     { id: 'reconciliation', label: 'Reconciliação (Faturas)', Component: ReconciliationTab },
     { id: 'customers', label: 'Clientes', Component: CustomersTab },
+    { id: 'shipping_addresses', label: 'Locais de Entrega', Component: ShippingAddressesTab },
     { id: 'catalog_mgmt', label: 'Biblioteca', Component: CatalogManagementTab },
     { id: 'corev2', label: 'Core V2', Component: CoreV2Tab },
     { id: 'transactions', label: 'Transactions', Component: TransactionsTab },

@@ -227,8 +227,348 @@ async function seedRitmonioCalendar() {
     console.log('[Logistics] Ritmonio Calendar Seeded.');
 }
 
+async function seedFimaCalendar() {
+    const brandId = 'fima';
+    const exists = await knex('factory_calendars').where('brand_id', brandId).first();
+    if (exists) return;
+
+    console.log('[Logistics] Seeding Fima Calendar (Italy)...');
+
+    const calId = crypto.randomUUID();
+    await knex('factory_calendars').insert({
+        id: calId,
+        name: 'Fima Carlo Frattini Factory (Italy)',
+        brand_id: brandId,
+        country_code: 'IT'
+    });
+
+    // Standard Italian Holidays (Recurring)
+    const holidays = [
+        { date: '2000-01-01', desc: 'New Year' },
+        { date: '2000-01-06', desc: 'Epiphany' },
+        { date: '2000-04-25', desc: 'Liberation Day' },
+        { date: '2000-05-01', desc: 'Labor Day' },
+        { date: '2000-06-02', desc: 'Republic Day' },
+        { date: '2000-08-15', desc: 'Ferragosto' },
+        { date: '2000-11-01', desc: 'All Saints' },
+        { date: '2000-12-08', desc: 'Immaculate Conception' },
+        { date: '2000-12-25', desc: 'Christmas' },
+        { date: '2000-12-26', desc: 'St. Stephen' }
+    ];
+
+    const events = holidays.map(h => ({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: h.date,
+        end_date: h.date,
+        description: h.desc,
+        is_recurring: true
+    }));
+
+    // Factory shutdowns
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-08-01',
+        end_date: '2000-08-25',
+        description: 'Paragem Verão (Fima)',
+        is_recurring: true
+    });
+
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-12-24',
+        end_date: '2000-12-31',
+        description: 'Paragem Natal (Fima)',
+        is_recurring: true
+    });
+
+    await knex('calendar_events').insert(events);
+    console.log('[Logistics] Fima Calendar Seeded.');
+}
+
+async function seedScarabeoCalendar() {
+    const brandId = 'scarabeo';
+    const exists = await knex('factory_calendars').where('brand_id', brandId).first();
+    if (exists) return;
+
+    console.log('[Logistics] Seeding Scarabeo Calendar (Italy)...');
+
+    const calId = crypto.randomUUID();
+    await knex('factory_calendars').insert({
+        id: calId,
+        name: 'Scarabeo Ceramiche Factory (Italy)',
+        brand_id: brandId,
+        country_code: 'IT'
+    });
+
+    // Standard Italian Holidays (Recurring)
+    const holidays = [
+        { date: '2000-01-01', desc: 'New Year' },
+        { date: '2000-01-06', desc: 'Epiphany' },
+        { date: '2000-04-25', desc: 'Liberation Day' },
+        { date: '2000-05-01', desc: 'Labor Day' },
+        { date: '2000-06-02', desc: 'Republic Day' },
+        { date: '2000-08-15', desc: 'Ferragosto' },
+        { date: '2000-11-01', desc: 'All Saints' },
+        { date: '2000-12-08', desc: 'Immaculate Conception' },
+        { date: '2000-12-25', desc: 'Christmas' },
+        { date: '2000-12-26', desc: 'St. Stephen' }
+    ];
+
+    const events = holidays.map(h => ({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: h.date,
+        end_date: h.date,
+        description: h.desc,
+        is_recurring: true
+    }));
+
+    // Factory shutdowns
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-08-01',
+        end_date: '2000-08-25',
+        description: 'Paragem Verão (Scarabeo)',
+        is_recurring: true
+    });
+
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-12-24',
+        end_date: '2000-12-31',
+        description: 'Paragem Natal (Scarabeo)',
+        is_recurring: true
+    });
+
+    await knex('calendar_events').insert(events);
+    console.log('[Logistics] Scarabeo Calendar Seeded.');
+}
+
+async function seedAXACalendar() {
+    const brandId = 'axa';
+    let cal = await knex('factory_calendars').where('brand_id', brandId).first();
+    let calId;
+
+    if (!cal) {
+        console.log('[Logistics] Seeding AXA Calendar (Italy - Civita Castellana)...');
+        calId = crypto.randomUUID();
+        await knex('factory_calendars').insert({
+            id: calId,
+            name: 'AXA Factory (Italy - Civita Castellana)',
+            brand_id: brandId,
+            country_code: 'IT'
+        });
+    } else {
+        calId = cal.id;
+        // Check if events exist
+        const eCount = await knex('calendar_events').where('calendar_id', calId).count('id as count').first();
+        if (parseInt(eCount.count) > 0) return; // Already seeded
+        console.log('[Logistics] AXA Calendar exists but has no events. Seeding events...');
+    }
+
+    // Standard Italian Holidays (Recurring)
+    const holidays = [
+        { date: '2000-01-01', desc: 'New Year' },
+        { date: '2000-01-06', desc: 'Epiphany' },
+        { date: '2000-04-25', desc: 'Liberation Day' },
+        { date: '2000-05-01', desc: 'Labor Day' },
+        { date: '2000-06-02', desc: 'Republic Day' },
+        { date: '2000-08-15', desc: 'Ferragosto' },
+        { date: '2000-09-16', desc: 'S. Marciano (Civita Castellana)' }, // Local Saint
+        { date: '2000-11-01', desc: 'All Saints' },
+        { date: '2000-12-08', desc: 'Immaculate Conception' },
+        { date: '2000-12-25', desc: 'Christmas' },
+        { date: '2000-12-26', desc: 'St. Stephen' }
+    ];
+
+    const events = holidays.map(h => ({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: h.date,
+        end_date: h.date,
+        description: h.desc,
+        is_recurring: true
+    }));
+
+    // Factory shutdowns (Generic Italian Industry standards)
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-08-01',
+        end_date: '2000-08-25',
+        description: 'Paragem Verão (AXA)',
+        is_recurring: true
+    });
+
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-12-24',
+        end_date: '2000-12-31',
+        description: 'Paragem Natal (AXA)',
+        is_recurring: true
+    });
+
+    await knex('calendar_events').insert(events);
+    console.log('[Logistics] AXA Calendar Seeded.');
+}
+
+async function seedBetteCalendar() {
+    const brandId = 'bette';
+    let cal = await knex('factory_calendars').where('brand_id', brandId).first();
+    let calId;
+
+    if (!cal) {
+        console.log('[Logistics] Seeding Bette Calendar (Germany)...');
+        calId = crypto.randomUUID();
+        await knex('factory_calendars').insert({
+            id: calId,
+            name: 'Bette Factory (Germany)',
+            brand_id: brandId,
+            country_code: 'DE'
+        });
+    } else {
+        calId = cal.id;
+        const eCount = await knex('calendar_events').where('calendar_id', calId).count('id as count').first();
+        if (parseInt(eCount.count) > 0) return;
+        console.log('[Logistics] Bette Calendar exists but has no events. Seeding events...');
+    }
+
+    // German Public Holidays (NRW - North Rhine-Westphalia where Delbrück/Bette is located)
+    const holidays = [
+        { date: '2000-01-01', desc: 'Neujahr' },
+        { date: '2000-05-01', desc: 'Tag der Arbeit' },
+        { date: '2000-10-03', desc: 'Tag der Deutschen Einheit' },
+        { date: '2000-11-01', desc: 'Allerheiligen' },
+        { date: '2000-12-25', desc: '1. Weihnachtstag' },
+        { date: '2000-12-26', desc: '2. Weihnachtstag' }
+    ];
+
+    const events = holidays.map(h => ({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: h.date,
+        end_date: h.date,
+        description: h.desc,
+        is_recurring: true
+    }));
+
+    // Bette specific shutdowns
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-08-01',
+        end_date: '2000-08-15',
+        description: 'Sommerpause (Bette)',
+        is_recurring: true
+    });
+
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-12-23',
+        end_date: '2000-12-31',
+        description: 'Winterpause (Bette)',
+        is_recurring: true
+    });
+
+    await knex('calendar_events').insert(events);
+    console.log('[Logistics] Bette Calendar Seeded.');
+}
+
+async function seedButoCalendar() {
+    const brandId = 'buto';
+    let cal = await knex('factory_calendars').where('brand_id', brandId).first();
+    let calId;
+
+    if (!cal) {
+        console.log('[Logistics] Seeding Butö Calendar (Spain)...');
+        calId = crypto.randomUUID();
+        await knex('factory_calendars').insert({
+            id: calId,
+            name: 'Butö Factory (Spain)',
+            brand_id: brandId,
+            country_code: 'ES'
+        });
+    } else {
+        calId = cal.id;
+        const eCount = await knex('calendar_events').where('calendar_id', calId).count('id as count').first();
+        if (parseInt(eCount.count) > 0) return;
+        console.log('[Logistics] Butö Calendar exists but has no events. Seeding events...');
+    }
+
+    // Spanish Public Holidays (National)
+    const holidays = [
+        { date: '2000-01-01', desc: 'Año Nuevo' },
+        { date: '2000-01-06', desc: 'Epifanía' },
+        { date: '2000-05-01', desc: 'Fiesta del Trabajo' },
+        { date: '2000-08-15', desc: 'Asunción de la Virgen' },
+        { date: '2000-10-12', desc: 'Fiesta Nacional de España' },
+        { date: '2000-11-01', desc: 'Todos los Santos' },
+        { date: '2000-12-06', desc: 'Constitución Española' },
+        { date: '2000-12-08', desc: 'Inmaculada Concepción' },
+        { date: '2000-12-25', desc: 'Natividad del Señor' }
+    ];
+
+    const events = holidays.map(h => ({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: h.date,
+        end_date: h.date,
+        description: h.desc,
+        is_recurring: true
+    }));
+
+    // Butö specific shutdowns (Generic Spanish Industry standards)
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-08-01',
+        end_date: '2000-08-25',
+        description: 'Vacaciones de Verano (Butö)',
+        is_recurring: true
+    });
+
+    events.push({
+        id: crypto.randomUUID(),
+        calendar_id: calId,
+        type: 'shutdown',
+        start_date: '2000-12-24',
+        end_date: '2000-12-31',
+        description: 'Vacaciones de Navidad (Butö)',
+        is_recurring: true
+    });
+
+    await knex('calendar_events').insert(events);
+    console.log('[Logistics] Butö Calendar Seeded.');
+}
+
 module.exports = {
     calculateShipDate,
     seedNicolazziCalendar,
-    seedRitmonioCalendar
+    seedRitmonioCalendar,
+    seedFimaCalendar,
+    seedScarabeoCalendar,
+    seedAXACalendar,
+    seedBetteCalendar,
+    seedButoCalendar
 };

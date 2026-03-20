@@ -9,4 +9,9 @@ router.get('/vat/:vat', controller.getByVat);
 router.post('/upsert', controller.upsert);
 router.delete('/:id', controller.delete);
 
+// Shipping Addresses
+router.get('/shipping-addresses', controller.listShippingAddresses);
+router.post('/shipping-addresses', controller.upsertShippingAddress);
+router.delete('/shipping-addresses/:id', controller.deleteShippingAddress);
+
 module.exports = router;

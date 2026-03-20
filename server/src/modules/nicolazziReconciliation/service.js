@@ -82,8 +82,28 @@ async function getReconciliationReport() {
             progress: parseFloat(progress.toFixed(1)),
             status: status,
             created_at: p.created_at,
-            search_blob: `${p.proposal_number || ''} ${p.client_ref || ''} ${p.name || ''}`.toLowerCase()
+            search_blob: '' // We will populate this next
         };
+    });
+
+    // 5. Enhance Search Blob with Line Items SKUs
+    // Fetch all lines for the active proposals to include their SKUs in the search blob
+    const allLines = await knex('proposal_lines')
+        .whereIn('proposal_id', proposalIds)
+        .select('proposal_id', 'sku', 'description');
+
+    const linesMap = new Map();
+    for (const line of allLines) {
+        if (!linesMap.has(line.proposal_id)) {
+            linesMap.set(line.proposal_id, []);
+        }
+        linesMap.get(line.proposal_id).push(`${line.sku || ''} ${line.description || ''}`);
+    }
+
+    return report.map(r => {
+        const lineTexts = linesMap.get(r.id) || [];
+        r.search_blob = `${r.proposal_number || ''} ${r.client_ref || ''} ${lineTexts.join(' ')}`.toLowerCase();
+        return r;
     });
 }
 
@@ -608,21 +628,74 @@ async function reconcileInvoiceInternal(invoiceId, forceProposalId = null, exist
 
         if (linesToInsert.length > 0) await trx('document_lines').insert(linesToInsert);
 
-        // Match
+        // 4. Build Fulfillments (Math Distribution for identical SKUs)
         const proposalLines = await trx('proposal_lines').where({ proposal_id: proposal.id });
         const fulfillments = [];
 
+        // Pre-fetch existing fulfillments for these proposal lines to calculate remaining quantity
+        // Note: For THIS specific invoice, we just deleted its fulfillments above.
+        // But other invoices might have already fulfilled part of these lines.
+        const prevFulfillments = await trx('proposal_fulfillments')
+            .whereIn('proposal_line_id', proposalLines.map(p => p.id));
+        
+        // Map: Proposal Line ID -> Total previously fulfilled quantity
+        const prevFulfMap = {};
+        for (const f of prevFulfillments) {
+            prevFulfMap[f.proposal_line_id] = (prevFulfMap[f.proposal_line_id] || 0) + parseFloat(f.quantity_fulfilled || 0);
+        }
+
+        // Group proposal lines by SKU
+        const pLinesBySku = {};
+        for (const p of proposalLines) {
+            const sku = (p.sku || '').trim().toUpperCase();
+            if (!sku) continue;
+            if (!pLinesBySku[sku]) pLinesBySku[sku] = [];
+            
+            // Calculate remaining needs for this specific line
+            const ordered = parseFloat(p.quantity || 0);
+            const fulfilled = prevFulfMap[p.id] || 0;
+            const remaining = Math.max(0, ordered - fulfilled);
+            
+            pLinesBySku[sku].push({ ...p, remaining });
+        }
+
+        // Distribute invoice quantities
         for (const invLine of linesToInsert) {
-            const pLine = proposalLines.find(p => (p.sku || '').trim().toUpperCase() === (invLine.sku || '').trim().toUpperCase());
-            if (pLine) {
-                fulfillments.push({
-                    id: crypto.randomUUID(),
-                    proposal_line_id: pLine.id,
-                    doc_line_id: invLine.id,
-                    document_id: invoiceId,
-                    proposal_id: proposal.id,
-                    quantity_fulfilled: invLine.quantity
-                });
+            const sku = (invLine.sku || '').trim().toUpperCase();
+            if (!sku || !pLinesBySku[sku] || pLinesBySku[sku].length === 0) continue;
+
+            let qtyToDistribute = parseFloat(invLine.quantity || 0);
+            const targetLines = pLinesBySku[sku];
+
+            for (let i = 0; i < targetLines.length; i++) {
+                if (qtyToDistribute <= 0) break;
+
+                const pLine = targetLines[i];
+                let qtyForThisLine = 0;
+
+                if (pLine.remaining > 0) {
+                    // This line still needs items
+                    qtyForThisLine = Math.min(qtyToDistribute, pLine.remaining);
+                } else if (i === targetLines.length - 1 && qtyToDistribute > 0) {
+                    // Last line for this SKU, but we still have quantity left over (over-fulfillment)
+                    // We just dump the rest here.
+                    qtyForThisLine = qtyToDistribute;
+                }
+
+                if (qtyForThisLine > 0) {
+                    fulfillments.push({
+                        id: crypto.randomUUID(),
+                        proposal_line_id: pLine.id,
+                        doc_line_id: invLine.id,
+                        document_id: invoiceId,
+                        proposal_id: proposal.id,
+                        quantity_fulfilled: qtyForThisLine
+                    });
+                    
+                    // Deduct from our trackers
+                    qtyToDistribute -= qtyForThisLine;
+                    pLine.remaining = Math.max(0, pLine.remaining - qtyForThisLine);
+                }
             }
         }
 

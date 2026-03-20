@@ -6,7 +6,7 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import ProposalPdf from './ProposalPdf';
 import { NICOLAZZI_FINISH_GROUPS, shouldShowCollection } from '../../constants/catalog';
 import CatalogSearchModal from '../catalog/CatalogSearchModal';
-import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus, FiSettings } from 'react-icons/fi';
+import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus, FiSettings, FiX } from 'react-icons/fi';
 import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
 import PresetManagementModal from './PresetManagementModal';
 import LogisticsManager from '../logistics/LogisticsManager';
@@ -17,6 +17,18 @@ const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
     OBSERVATIONS: 'observations',
     PAYMENT: 'payment'
+};
+
+const BRAND_COLORS = {
+    nicolazzi: 'amber',
+    ritmonio: 'blue',
+    bette: 'green',
+    axa: 'red',
+    fima: 'indigo',
+    scarabeo: 'blue',
+    buto: 'orange',
+    other: 'gray',
+    multimarcas: 'purple'
 };
 
 const ProposalEditor = (props) => {
@@ -196,6 +208,31 @@ const ProposalEditor = (props) => {
             ...proposal,
             metadata: { ...proposal.metadata, [field]: value }
         });
+    };
+
+    const updatePackagingCost = (index, field, value) => {
+        const costs = [...(proposal.metadata?.packaging_costs || [])];
+        costs[index] = { ...costs[index], [field]: value };
+        updateMetadata('packaging_costs', costs);
+    };
+
+    const addPackagingCost = () => {
+        const costs = [...(proposal.metadata?.packaging_costs || [])];
+        costs.push({
+            brandId: 'other',
+            enabled: true,
+            type: 'percent',
+            value: 0,
+            base: 'liquid',
+            description: 'Novo Custo'
+        });
+        updateMetadata('packaging_costs', costs);
+    };
+
+    const removePackagingCost = (index) => {
+        const costs = [...(proposal.metadata?.packaging_costs || [])];
+        costs.splice(index, 1);
+        updateMetadata('packaging_costs', costs);
     };
 
     const updateLine = (index, field, value) => {
@@ -492,7 +529,7 @@ const ProposalEditor = (props) => {
     };
 
     const calculateTotals = () => {
-        if (!proposal?.lines) return { net: 0, vat: 0, gross: 0 };
+        if (!proposal?.lines) return { net: 0, vat: 0, gross: 0, packagingTotal: 0 };
 
         const linesTotal = proposal.lines.reduce((acc, l) => {
             const qty = parseFloat(l.quantity || 0);
@@ -509,19 +546,32 @@ const ProposalEditor = (props) => {
         const shipping = parseFloat(proposal.metadata?.shipping_cost || 0);
         const globalDiscPercent = parseFloat(proposal.metadata?.global_discount || 0);
 
-        // Calculate Discount Value
-        // (Net + Shipping) * (Percent / 100)
+        // Packaging Costs Calculation
+        let packagingTotal = 0;
+        const pkCosts = proposal.metadata?.packaging_costs || [];
+        pkCosts.forEach(cost => {
+            if (!cost.enabled) return;
+            if (cost.type === 'fixed') {
+                packagingTotal += parseFloat(cost.value || 0);
+            } else {
+                const baseVal = cost.base === 'liquid' ? linesTotal.net : (linesTotal.net + shipping);
+                packagingTotal += baseVal * (parseFloat(cost.value || 0) / 100);
+            }
+        });
+
+        // Calculate Discount Value (applied to Lines + Shipping, usually)
         const discountValue = (linesTotal.net + shipping) * (globalDiscPercent / 100);
 
-        const taxBase = linesTotal.net + shipping - discountValue;
+        const taxBase = linesTotal.net + shipping + packagingTotal - discountValue;
         const totalVat = taxBase * 0.23; // Force 23% for preview
         const gross = taxBase + totalVat;
 
         return {
             net: linesTotal.net,
             shipping,
-            globalDiscPercent, // Used for display
-            discountValue,     // Calculated amount
+            packagingTotal,
+            globalDiscPercent,
+            discountValue,
             taxBase,
             vat: totalVat,
             gross
@@ -554,6 +604,39 @@ const ProposalEditor = (props) => {
 
     const totals = calculateTotals();
 
+    const getDisplayBrandInfo = () => {
+        if (!proposal?.lines || proposal.lines.length === 0) {
+            const bid = (proposal?.brand_id || 'OTHER').toLowerCase();
+            return {
+                label: proposal?.brand_id === 'MULTIMARCAS' ? 'MULTIMARCAS' : bid.toUpperCase(),
+                color: BRAND_COLORS[bid] || 'amber'
+            };
+        }
+
+        const brandsInLines = new Set();
+        proposal.lines.forEach(l => {
+            const b = l.brand_id || l.extra_attributes?.brand_id || l.extra_attributes?.brand;
+            if (b) brandsInLines.add(b.toLowerCase());
+        });
+
+        if (brandsInLines.size === 1) {
+            const bid = Array.from(brandsInLines)[0];
+            return {
+                label: bid.toUpperCase(),
+                color: BRAND_COLORS[bid] || 'amber'
+            };
+        }
+
+        if (brandsInLines.size > 1) {
+            return { label: 'OTHERS', color: 'purple' };
+        }
+
+        const bid = (proposal.brand_id || 'OTHER').toLowerCase();
+        return { label: bid.toUpperCase(), color: BRAND_COLORS[bid] || 'amber' };
+    };
+
+    const brandInfo = getDisplayBrandInfo();
+
     return (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[10000] font-sans">
             <div className="w-full h-full flex flex-col overflow-hidden bg-[var(--bg-base)]">
@@ -570,7 +653,7 @@ const ProposalEditor = (props) => {
                                 placeholder="Nome da Proposta"
                             />
                             <div className="flex gap-4 items-center">
-                                <span className="text-[9px] text-amber-500 font-black uppercase tracking-widest">{proposal.brand_id}</span>
+                                <span className={`text-[9px] text-${brandInfo.color}-500 font-black uppercase tracking-widest`}>{brandInfo.label}</span>
                                 <div className="h-3 w-px bg-white/10"></div>
                                 <div className="flex gap-2 items-center">
                                     <span className="text-[9px] text-gray-500 uppercase tracking-widest">Estado:</span>
@@ -1146,6 +1229,15 @@ const ProposalEditor = (props) => {
                         </div>
                     </div>
 
+                    {/* Packaging Costs Section */}
+                    <PackagingCostsCard 
+                        costs={proposal.metadata?.packaging_costs || []}
+                        updateCost={updatePackagingCost}
+                        onAdd={addPackagingCost}
+                        onRemove={removePackagingCost}
+                        totals={totals}
+                    />
+
                     {/* Totals Columns */}
                     <div className="flex gap-8 items-end py-4">
                         <div className="text-right space-y-2">
@@ -1162,6 +1254,12 @@ const ProposalEditor = (props) => {
                                     onChange={e => updateMetadata('shipping_cost', e.target.value)}
                                 />
                             </div>
+                            {totals.packagingTotal > 0 && (
+                                <div>
+                                    <div className="text-[10px] text-gray-500 uppercase">Embalagem</div>
+                                    <div className="text-sm text-gray-300 font-mono">{parseFloat(totals.packagingTotal || 0).toFixed(2)} €</div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="text-right space-y-2">
@@ -1261,6 +1359,19 @@ const EntityDataModal = ({
     activeSearchField, setActiveSearchField, showResults, setShowResults
 }) => {
     const [showNewCustomer, setShowNewCustomer] = useState(false);
+    const [savedAddresses, setSavedAddresses] = useState([]);
+
+    useEffect(() => {
+        const fetchAddresses = async () => {
+            try {
+                const res = await api.get(`/api/crm/shipping-addresses?project=${proposal.project_ref || 'default'}`);
+                setSavedAddresses(res.data || []);
+            } catch (err) {
+                console.error('Failed to fetch shipping addresses', err);
+            }
+        };
+        fetchAddresses();
+    }, [proposal.project_ref]);
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[11000] p-4">
@@ -1413,10 +1524,29 @@ const EntityDataModal = ({
                         {/* Shipping Address */}
                         <div className="flex flex-col gap-2">
                             <div className="flex justify-between items-center mb-1">
-                                <label className="text-[10px] text-green-400 uppercase tracking-widest font-bold flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-                                    Morada de Entrega / Descarga
-                                </label>
+                                <div className="flex items-center gap-3">
+                                    <label className="text-[10px] text-green-400 uppercase tracking-widest font-bold flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                                        Morada de Entrega / Descarga
+                                    </label>
+                                    {savedAddresses.length > 0 && (
+                                        <select
+                                            className="text-[9px] bg-white/5 border border-white/10 text-gray-300 rounded px-2 outline-none focus:border-green-500 max-w-[120px]"
+                                            onChange={e => {
+                                                if (e.target.value) {
+                                                    updateMetadata('shipping_address', e.target.value);
+                                                    updateMetadata('shipping_is_billing', false);
+                                                }
+                                            }}
+                                            value=""
+                                        >
+                                            <option value="">Locais Salvos...</option>
+                                            {savedAddresses.map(a => (
+                                                <option key={a.id} value={a.address}>{a.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
                                 <button
                                     onClick={() => {
                                         const newVal = !proposal.metadata?.shipping_is_billing;
@@ -1475,5 +1605,182 @@ const EntityDataModal = ({
     );
 };
 
+const PackagingCostsCard = ({ costs, updateCost, onAdd, onRemove, totals }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const enabledCostsCount = costs.filter(c => c.enabled).length;
+
+    return (
+        <>
+            <div 
+                className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-4 py-2 mb-6 hover:bg-white/10 transition-all cursor-pointer group"
+                onClick={() => setIsModalOpen(true)}
+            >
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500 group-hover:bg-amber-500/20 transition-all">
+                        <FiSettings size={14} />
+                    </div>
+                    <div>
+                        <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Custos de Embalagem</div>
+                        <div className="text-xs text-white font-bold">{enabledCostsCount} {enabledCostsCount === 1 ? 'custo ativo' : 'custos ativos'}</div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                    <div className="text-right">
+                        <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Sub-Total:</div>
+                        <div className="text-sm font-black text-amber-500 font-mono">{totals.packagingTotal.toFixed(2)} €</div>
+                    </div>
+                    <div className="p-2 bg-white/5 rounded-lg text-gray-400 group-hover:text-white transition-colors">
+                        <FiPlus size={14} />
+                    </div>
+                </div>
+            </div>
+
+            {isModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div 
+                        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        onClick={() => setIsModalOpen(false)}
+                    />
+                    
+                    <GlassCard className="w-full max-w-2xl relative z-10 border-amber-500/20 shadow-2xl overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-amber-500/5">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
+                                    <FiSettings size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black text-white uppercase tracking-tighter">Configuração de Embalagem</h2>
+                                    <p className="text-xs text-amber-500/60 font-medium">Gestão de custos logísticos e manuseamento</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setIsModalOpen(false)}
+                                className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-all"
+                            >
+                                <FiX size={20} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+                            {costs.length === 0 ? (
+                                <div 
+                                    className="py-12 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-white/5 transition-all group"
+                                    onClick={onAdd}
+                                >
+                                    <div className="p-4 bg-white/5 rounded-full text-gray-600 group-hover:text-amber-500 transition-all group-hover:scale-110">
+                                        <FiPlus size={32} />
+                                    </div>
+                                    <span className="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em]">Adicionar primeiro custo</span>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {costs.map((cost, idx) => (
+                                        <div key={idx} className="bg-white/5 p-4 rounded-xl border border-white/5 hover:border-amber-500/30 transition-all">
+                                            <div className="flex items-start gap-4">
+                                                <div className="pt-1">
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={cost.enabled}
+                                                        onChange={e => updateCost(idx, 'enabled', e.target.checked)}
+                                                        className="accent-amber-500 w-5 h-5 rounded cursor-pointer"
+                                                    />
+                                                </div>
+                                                
+                                                <div className="flex-1 grid grid-cols-12 gap-4">
+                                                    <div className="col-span-5">
+                                                        <label className="text-[9px] text-gray-500 uppercase font-black block mb-1 tracking-widest pl-1">Identificação / Marca</label>
+                                                        <input 
+                                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500 transition-all font-medium"
+                                                            placeholder="Ex: Scarabeo (3%)"
+                                                            value={cost.description}
+                                                            onChange={e => updateCost(idx, 'description', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-3">
+                                                        <label className="text-[9px] text-gray-500 uppercase font-black block mb-1 tracking-widest pl-1">Tipo</label>
+                                                        <select 
+                                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500 transition-all font-medium"
+                                                            value={cost.type}
+                                                            onChange={e => updateCost(idx, 'type', e.target.value)}
+                                                        >
+                                                            <option value="percent">Percentagem (%)</option>
+                                                            <option value="fixed">Valor Fixo (€)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label className="text-[9px] text-gray-500 uppercase font-black block mb-1 tracking-widest pl-1">Valor</label>
+                                                        <input 
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500 transition-all font-mono font-medium"
+                                                            value={cost.value}
+                                                            onChange={e => updateCost(idx, 'value', parseFloat(e.target.value) || 0)}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-2 flex items-end">
+                                                        <button 
+                                                            onClick={() => onRemove(idx)}
+                                                            className="w-full p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-all flex items-center justify-center"
+                                                            title="Remover Custo"
+                                                        >
+                                                            <FiTrash2 size={16} />
+                                                        </button>
+                                                    </div>
+
+                                                    {cost.type === 'percent' && (
+                                                        <div className="col-span-12 mt-2 pt-2 border-t border-white/5">
+                                                            <div className="flex items-center gap-4">
+                                                                <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Base de Cálculo:</span>
+                                                                <div className="flex gap-2">
+                                                                    {['liquid', 'before_shipping'].map((b) => (
+                                                                        <button
+                                                                            key={b}
+                                                                            onClick={() => updateCost(idx, 'base', b)}
+                                                                            className={`px-3 py-1 rounded-full text-[9px] font-black uppercase transition-all ${
+                                                                                cost.base === b 
+                                                                                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' 
+                                                                                : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'
+                                                                            }`}
+                                                                        >
+                                                                            {b === 'liquid' ? 'Líquido' : 'Líquido + Portes'}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-6 border-t border-white/5 bg-black/20 flex items-center justify-between">
+                            <button 
+                                onClick={onAdd}
+                                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black rounded-xl text-xs font-black uppercase tracking-tighter hover:bg-amber-400 transition-all active:scale-95"
+                            >
+                                <FiPlus size={16} /> Adicionar Novo Custo
+                            </button>
+                            
+                            <div className="text-right">
+                                <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Total Embalagem</div>
+                                <div className="text-2xl font-black text-white font-mono tracking-tighter">
+                                    {totals.packagingTotal.toFixed(2)} <span className="text-amber-500 text-sm">€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
+        </>
+    );
+};
 
 export default ProposalEditor;

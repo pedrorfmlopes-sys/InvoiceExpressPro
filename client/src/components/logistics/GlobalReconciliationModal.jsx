@@ -32,17 +32,30 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
     const loadMatches = async () => {
         setLoading(true);
         try {
-            const [nicoRes, ritmoRes] = await Promise.all([
+            const [nicoRes, ritmoRes, axaFimaRes, axaFimaOcRes] = await Promise.all([
                 api.get('/api/nicolazzi/discover').catch(e => { console.error(e); return { data: [] }; }),
-                api.get('/api/ritmonio/discover').catch(e => { console.error(e); return { data: { matches: [] } }; })
+                api.get('/api/ritmonio/discover').catch(e => { console.error(e); return { data: { matches: [] } }; }),
+                api.get('/api/axa-fima/discover').catch(e => { console.error(e); return { data: [] }; }),
+                api.get('/api/axa-fima/discover-ocs').catch(e => { console.error(e); return { data: [] }; })
             ]);
 
             const nicoMatches = Array.isArray(nicoRes.data) ? nicoRes.data : [];
             const ritmoMatches = ritmoRes.data?.matches || [];
+            const axaFimaMatches = Array.isArray(axaFimaRes.data) ? axaFimaRes.data : [];
+            const axaFimaOcMatches = Array.isArray(axaFimaOcRes.data) ? axaFimaOcRes.data : [];
+
+            // Standardize format: axaFimaOcMatches have { oc: {...} } instead of { invoice: {...} }
+            const standardizedOcs = axaFimaOcMatches.map(m => ({
+                invoice: { ...m.oc, docType: 'oc' },
+                proposal: m.proposal,
+                brand: 'axa-fima-oc'
+            }));
 
             const allMatches = [
                 ...nicoMatches.map(m => ({ ...m, brand: 'nicolazzi' })),
-                ...ritmoMatches.map(m => ({ ...m, brand: 'ritmonio' }))
+                ...ritmoMatches.map(m => ({ ...m, brand: 'ritmonio' })),
+                ...axaFimaMatches.map(m => ({ ...m, brand: 'axa-fima' })),
+                ...standardizedOcs
             ].sort((a, b) => new Date(b.invoice.date || 0) - new Date(a.invoice.date || 0));
 
             setMatches(allMatches);
@@ -57,7 +70,12 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
     const handleReconcile = async (invoiceId, brand) => {
         setProcessing(true);
         try {
-            await api.post(`/api/${brand || 'nicolazzi'}/reconcile/${invoiceId}`);
+            let apiUrl = `/api/${brand || 'nicolazzi'}/reconcile/${invoiceId}`;
+            if (brand === 'axa-fima-oc') {
+                apiUrl = `/api/axa-fima/reconcile-oc/${invoiceId}`;
+            }
+
+            await api.post(apiUrl);
             // Remove from list or reload
             await loadData();
             if (onReconciled) onReconciled();
@@ -74,7 +92,12 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
 
         setProcessing(true);
         try {
-            await api.post(`/api/${brand || 'nicolazzi'}/reconcile-manual/${invoiceId}`, { proposal_id: propId });
+            let apiUrl = `/api/${brand || 'nicolazzi'}/reconcile-manual/${invoiceId}`;
+            if (brand === 'axa-fima-oc') {
+                apiUrl = `/api/axa-fima/reconcile-oc-manual/${invoiceId}`;
+            }
+
+            await api.post(apiUrl, { proposal_id: propId });
             await loadData();
             if (onReconciled) onReconciled();
         } catch (err) {
@@ -94,7 +117,11 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
         let successCount = 0;
         for (const m of toReconcile) {
             try {
-                await api.post(`/api/${m.brand || 'nicolazzi'}/reconcile/${m.invoice.id}`);
+                let apiUrl = `/api/${m.brand || 'nicolazzi'}/reconcile/${m.invoice.id}`;
+                if (m.brand === 'axa-fima-oc') {
+                    apiUrl = `/api/axa-fima/reconcile-oc/${m.invoice.id}`;
+                }
+                await api.post(apiUrl);
                 successCount++;
             } catch (err) {
                 console.error(`Erro na fatura ${m.invoice.id}`, err);
@@ -119,7 +146,7 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
                             Descobridor de Faturas Pendentes
                         </h2>
                         <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wider">
-                            Faturas Nicolazzi / Ritmonio extraídas que ainda não foram associadas a propostas
+                            Faturas e OCs extraídos que ainda não foram associados a propostas
                         </p>
                     </div>
                     <div className="flex gap-3">
@@ -152,7 +179,7 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
                             <div className="text-4xl mb-4 opacity-50">🎉</div>
                             <h3 className="text-lg font-bold text-gray-400 mb-1">Tudo em dia!</h3>
-                            <p className="text-sm">Não existem faturas pendentes de reconciliação (Nicolazzi / Ritmonio).</p>
+                            <p className="text-sm">Não existem documentos pendentes de reconciliação.</p>
                         </div>
                     ) : (
                         <div className="grid gap-4">
@@ -162,7 +189,9 @@ export default function GlobalReconciliationModal({ onClose, onReconciled }) {
 
                                         {/* INVOICE INFO */}
                                         <div className="flex flex-col gap-1 min-w-[300px]">
-                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Fatura Extraída</span>
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                                                {m.brand === 'axa-fima-oc' ? 'C. Pedido' : 'Fatura Extraída'} ({m.invoice.supplier || m.brand})
+                                            </span>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-lg font-bold text-gray-200">{m.invoice.number}</span>
                                                 <span className="text-xs text-gray-500">{new Date(m.invoice.date).toLocaleDateString()}</span>

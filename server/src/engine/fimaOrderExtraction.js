@@ -22,7 +22,7 @@ async function processOrderConfirmation(pdfBuffer) {
     return parseOrderConfirmation(rawText);
 }
 
-function parseOrderConfirmation(rawText) {
+function parseOrderConfirmation(rawText, options = { cleanRef: true }) {
     const lines = rawText.split(/\r?\n/);
 
     // ─── State machine ───────────────────────────────────────────────
@@ -144,8 +144,12 @@ function parseOrderConfirmation(rawText) {
         if (state === 'LINES' && /^\s{10,}/.test(line) && !SKU_START_RE.test(trimmed)) {
             const ref = trimmed;
             if (/Vs\.\s*Rif\.|Ref\.|pedido\s+\d/i.test(ref) || /Or\.\s*Cl\./i.test(ref)) {
-                if (!clientRef) clientRef = ref;
-                else clientRef += ' | ' + ref;
+                let clean = ref;
+                if (options.cleanRef) {
+                    clean = ref.replace(/^(Vs\.\s*Rif\.|Vs\s*Rif\.|Or\.\s*Cl\.|Vs\.\s*Rif|Ref\.)\s*/i, '').trim();
+                }
+                if (!clientRef) clientRef = clean;
+                else clientRef += ' | ' + clean;
             } else if (ref && !projectNote && !/^REF\.|^N\.\s*\d/.test(ref)) {
                 projectNote = ref;
             }
