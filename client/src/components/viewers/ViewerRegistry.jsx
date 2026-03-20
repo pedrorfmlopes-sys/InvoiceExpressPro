@@ -12,6 +12,10 @@ import FimaProformaContainer from './FimaProformaContainer';
 import FimaInvoiceContainer from './FimaInvoiceContainer';
 import ScarabeoProformaContainer from './ScarabeoProformaContainer';
 import ScarabeoInvoiceContainer from './ScarabeoInvoiceContainer';
+import ButoPresupuestoContainer from './ButoPresupuestoContainer';
+import ButoPedidoContainer from './ButoPedidoContainer';
+import ButoFaturaContainer from './ButoFaturaContainer';
+
 
 // Helper to safely get supplier name
 const getSupplierName = (doc) => {
@@ -143,6 +147,45 @@ const viewers = [
         },
         Component: ScarabeoInvoiceContainer
     },
+    {
+        name: 'BUTÖ Presupuesto (Proposta)',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isButo = supplier.includes('BUTO') || doc.supplier === 'BUTO';
+            return isButo && (type === 'quote' || type.includes('presupuesto') || type.includes('proposta'));
+        },
+        Component: ButoPresupuestoContainer
+    },
+    {
+        name: 'BUTÖ Pedido (Encomenda)',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isButo = supplier.includes('BUTO') || doc.supplier === 'BUTO';
+            return isButo && (type === 'order' || type.includes('pedido') || type.includes('encomenda'));
+        },
+        Component: ButoPedidoContainer
+    },
+    {
+        name: 'BUTÖ Fatura (Invoice)',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            const type = (doc.docType || doc.docTypeLabel || '').toLowerCase();
+            const isButo = supplier.includes('BUTO') || doc.supplier === 'BUTO';
+            return isButo && (type === 'invoice' || type.includes('factura') || type.includes('fatura'));
+        },
+        Component: ButoFaturaContainer
+    },
+    {
+        name: 'BUTÖ Universal (fallback)',
+        match: (doc) => {
+            const supplier = getSupplierName(doc).toUpperCase();
+            return supplier.includes('BUTO') || doc.supplier === 'BUTO';
+        },
+        Component: ButoPresupuestoContainer
+    },
+
     {
         name: 'Simple PDF Viewer',
         match: () => true, // Fallback for everything else

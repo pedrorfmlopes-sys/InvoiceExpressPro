@@ -25,7 +25,7 @@ async function process(text, pdfBuffer) {
     }
 
     // 1. High Fidelity Text Support (Nicolazzi / Ritmonio / Scarabeo)
-    if (pdfBuffer && (/NICOLAZZI/i.test(text) || /Ritmonio/i.test(text) || /SCARABEO/i.test(text))) {
+    if (pdfBuffer && (/NICOLAZZI/i.test(text) || /Ritmonio/i.test(text) || /SCARABEO/i.test(text) || /BUTO/i.test(text))) {
         try {
             const popplerText = await pdfBufferToTextPoppler(pdfBuffer); // Ensure await if async, usually is promise
             if (popplerText && popplerText.length > 100) {
@@ -237,7 +237,37 @@ async function process(text, pdfBuffer) {
         }
     }
 
-    // Fallback to Text Extractor
+    // Gating for BUTO Presupuesto (Proposta de Venda)
+    if (!extractedData && pdfBuffer && /BUTO/i.test(effectiveText) && /PRESUPUESTO/i.test(effectiveText) && !/FACTURA/i.test(effectiveText) && !/PEDIDO/i.test(effectiveText)) {
+        try {
+            const butoPresupuesto = require('./butoPresupuestoExtraction');
+            console.log('[Engine] Attempting BUTO Presupuesto Extraction...');
+            extractedData = await butoPresupuesto.processPresupuesto(pdfBuffer);
+            if (extractedData) console.log('[Engine] BUTO Presupuesto Successful. Lines:', extractedData.lines?.length);
+        } catch (e) { console.error('[Engine] BUTO Presupuesto Error:', e); }
+    }
+
+    // Gating for BUTO Pedido (Confirmação de Encomenda)
+    if (!extractedData && pdfBuffer && /BUTO/i.test(effectiveText) && /PEDIDO/i.test(effectiveText) && !/FACTURA/i.test(effectiveText)) {
+        try {
+            const butoPedido = require('./butoPedidoExtraction');
+            console.log('[Engine] Attempting BUTO Pedido Extraction...');
+            extractedData = await butoPedido.processPedido(pdfBuffer);
+            if (extractedData) console.log('[Engine] BUTO Pedido Successful. Lines:', extractedData.lines?.length);
+        } catch (e) { console.error('[Engine] BUTO Pedido Error:', e); }
+    }
+
+    // Gating for BUTO Factura (Fatura de Venda)
+    if (!extractedData && pdfBuffer && /BUTO/i.test(effectiveText) && /FACTURA/i.test(effectiveText)) {
+        try {
+            const butoFactura = require('./butoFaturaExtraction');
+            console.log('[Engine] Attempting BUTO Factura Extraction...');
+            extractedData = await butoFactura.processFactura(pdfBuffer);
+            if (extractedData) console.log('[Engine] BUTO Factura Successful. Lines:', extractedData.lines?.length);
+        } catch (e) { console.error('[Engine] BUTO Factura Error:', e); }
+    }
+
+
     if (!extractedData) {
         extractedData = extractFromText(effectiveText);
     }
