@@ -1,6 +1,7 @@
 const knex = require('../../db/knex');
 const crypto = require('crypto');
 const {
+    buildEffectiveFulfillmentByProposalLineQuery,
     buildValidFulfillmentsQuery,
     buildValidFulfilledByProposalLineQuery,
     getValidFulfillmentStatsByProposalIds,
@@ -392,8 +393,9 @@ async function getProposalFulfillmentDetails(proposalId) {
         let totalCostNet = 0;
         const linesWithFulfillment = lines.map(line => {
             const lineFulfillments = fulfillments.filter(f => f.proposal_line_id === line.id);
-            const totalFulfilledQty = lineFulfillments.reduce((acc, f) => acc + parseFloat(f.quantity_fulfilled || 0), 0);
             const originalQty = parseFloat(line.quantity || 0);
+            const rawFulfilledQty = lineFulfillments.reduce((acc, f) => acc + parseFloat(f.quantity_fulfilled || 0), 0);
+            const totalFulfilledQty = Math.min(originalQty, rawFulfilledQty);
 
             // ── CUSTO (Proforma price → what we pay the factory) ─────────────────
             // unit_price_factory = proforma unit price (list price from Nicolazzi)
@@ -954,20 +956,24 @@ async function getAnalytics(proposalIds = null, brand = null) {
     // Sale Realized: Proposal price * fulfilled qty
     // Cost Realized: Document line price (already cost per user) * fulfilled qty
 
+    const effectiveFulfillmentMetrics = buildEffectiveFulfillmentByProposalLineQuery().as('ef');
+
     // 1. Total Realized Sale
-    const saleRealizedRes = await buildValidFulfillmentsQuery()
-        .whereIn('pf.proposal_id', ids)
+    const saleRealizedRes = await knex('proposal_lines as pl')
+        .leftJoin(effectiveFulfillmentMetrics, 'pl.id', 'ef.proposal_line_id')
+        .whereIn('pl.proposal_id', ids)
         .select(
-            knex.raw('SUM(COALESCE(pf.quantity_fulfilled, 0) * COALESCE(pl.unit_price_commercial, 0) * (1 - COALESCE(pl.discount_commercial_percent, 0)/100)) as net')
+            knex.raw('SUM(COALESCE(ef.fulfilled, 0) * COALESCE(pl.unit_price_commercial, 0) * (1 - COALESCE(pl.discount_commercial_percent, 0)/100)) as net')
         ).first();
     const totalRealSaleNet = parseFloat(saleRealizedRes.net || 0);
 
     // 2. Total Realized Cost (From extractions)
-    // The user states extractions are already COST prices.
-    const costRealizedRes = await buildValidFulfillmentsQuery()
-        .whereIn('pf.proposal_id', ids)
+    // Uses the same capped quantity as progress, and scales historical line cost proportionally.
+    const costRealizedRes = await knex
+        .from(effectiveFulfillmentMetrics)
+        .whereIn('ef.proposal_id', ids)
         .select(
-            knex.raw('SUM(COALESCE(pf.quantity_fulfilled, 0) * COALESCE(dl.unit_price, 0)) as net')
+            knex.raw('SUM(COALESCE(ef.cost_net, 0)) as net')
         ).first();
     const totalRealCostNet = parseFloat(costRealizedRes.net || 0);
     console.log('[Analytics] Realized calculations done.');
