@@ -19,6 +19,23 @@ function getReconciliationMark(data) {
     return (nicoMark || ritMark || '').trim() || null;
 }
 
+function normalizeSku(value) {
+    return String(value || '').trim().toUpperCase();
+}
+
+function buildTransientInvoiceLines(invoiceId, data) {
+    return (data?.lines || []).map((line, idx) => ({
+        id: `raw-${invoiceId}-${idx}`,
+        document_id: invoiceId,
+        sku: String(line.code || line.sku || '').trim(),
+        description: line.description || '',
+        quantity: parseFloat(line.quantity ?? line.qty) || 0,
+        unit_price: parseFloat(line.unitPrice ?? line.price) || 0,
+        total: parseFloat(line.total) || 0,
+        metadata: JSON.stringify({ original_index: idx, source: 'rawJson.lines' })
+    }));
+}
+
 /**
  * Reconciles a Nicolazzi Invoice with a Proposal based on Shipping Mark.
  * @param {string} invoiceId 
@@ -160,12 +177,19 @@ async function getReconciliationDetails(invoiceId) {
     }
 
     // 3. Fetch All Relevant Lines
-    const invoiceLines = await knex('document_lines').where({ document_id: invoiceId }).orderBy('id'); // Using ID as we might not have index
+    let invoiceLines = await knex('document_lines').where({ document_id: invoiceId }).orderBy('id'); // Using ID as we might not have index
+    if (invoiceLines.length === 0 && Array.isArray(invoiceData.lines) && invoiceData.lines.length > 0) {
+        invoiceLines = buildTransientInvoiceLines(invoiceId, invoiceData);
+    }
     const proposalLines = await knex('proposal_lines').where({ proposal_id: proposalId });
 
     // Map Proposal Lines for easy lookup
     const propMap = new Map(proposalLines.map(p => [p.id, p]));
-    const propSkuMap = new Map(proposalLines.map(p => [p.sku, p])); // Fallback for pure SKU match
+    const propSkuMap = new Map();
+    for (const p of proposalLines) {
+        const sku = normalizeSku(p.sku);
+        if (sku && !propSkuMap.has(sku)) propSkuMap.set(sku, p);
+    }
 
     // 4. Build Comparison View
     // We iterate INVOICE lines (what we are billing)
@@ -184,7 +208,7 @@ async function getReconciliationDetails(invoiceId) {
             propLine = propMap.get(fulfillment.proposal_line_id);
         } else {
             // Try Soft Match by SKU if not formally reconciled yet
-            propLine = propSkuMap.get(invLine.sku);
+            propLine = propSkuMap.get(normalizeSku(invLine.sku));
             if (propLine) status = 'potential';
         }
 
