@@ -61,10 +61,9 @@ async function getValidFulfillmentStatsByProposalIds(proposalIds, db = knex) {
 }
 
 function buildValidFulfilledByProposalLineQuery(db = knex) {
-    return buildEffectiveFulfillmentByProposalLineQuery(db)
-        .clone()
-        .clearSelect()
-        .select('proposal_line_id', 'proposal_id', 'fulfilled');
+    return db
+        .from(buildEffectiveFulfillmentByProposalLineQuery(db).as('ef'))
+        .select('ef.proposal_line_id', 'ef.proposal_id', 'ef.fulfilled');
 }
 
 module.exports = {
