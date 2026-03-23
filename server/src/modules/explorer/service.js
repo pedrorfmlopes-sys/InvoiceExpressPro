@@ -64,7 +64,8 @@ class ExplorerService {
                 builder.where('supplier', 'like', term)
                     .orWhere('customer', 'like', term)
                     .orWhere('docNumber', 'like', term)
-                    .orWhere('total', 'like', term)
+                    // PostgreSQL does not allow LIKE on numeric columns directly.
+                    .orWhereRaw('CAST(documents.total AS TEXT) LIKE ?', [term])
                     .orWhereExists(function () {
                         // Search inside extracted line items explicitly stored in the database
                         this.select('*')
