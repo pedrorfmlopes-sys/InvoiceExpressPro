@@ -4,6 +4,7 @@ const SatelliteStorage = require('../../storage/SatelliteStorage');
 const ProposalExporter = require('./ProposalExporter');
 const CustomerService = require('../crm/CustomerService');
 const CatalogService = require('../catalog/service');
+const { buildValidFulfillmentsQuery } = require('../reconciliation/fulfillmentIntegrity');
 const path = require('path');
 
 
@@ -292,12 +293,11 @@ class ProposalStudioService {
         const proposalIds = proposals.map(p => p.id);
         if (proposalIds.length > 0) {
             // 1. Fulfillment links
-            const fulfillmentDocs = await knex('proposal_fulfillments')
-                .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
-                .join('documents', 'proposal_fulfillments.document_id', 'documents.id')
-                .whereIn('proposal_lines.proposal_id', proposalIds)
+            const fulfillmentDocs = await buildValidFulfillmentsQuery()
+                .join('documents', 'pf.document_id', 'documents.id')
+                .whereIn('pf.proposal_id', proposalIds)
                 .select(
-                    'proposal_lines.proposal_id',
+                    'pf.proposal_id as proposal_id',
                     'documents.id',
                     'documents.docNumber',
                     'documents.docType',
@@ -382,10 +382,9 @@ class ProposalStudioService {
         }
 
         // 2. Fulfillments
-        const fulfillmentDocs = await knex('proposal_fulfillments')
-            .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
-            .join('documents', 'proposal_fulfillments.document_id', 'documents.id')
-            .where('proposal_lines.proposal_id', id)
+        const fulfillmentDocs = await buildValidFulfillmentsQuery()
+            .join('documents', 'pf.document_id', 'documents.id')
+            .where('pf.proposal_id', id)
             .select(
                 'documents.id',
                 'documents.docNumber',
@@ -513,8 +512,10 @@ class ProposalStudioService {
             // DELETE lines that are no longer in the proposal — but ONLY if they have no fulfillments
             const removedLines = existingLines.filter(l => !processedIds.has(l.id));
             for (const removed of removedLines) {
-                const hasFulfillments = await knex('proposal_fulfillments')
-                    .where({ proposal_line_id: removed.id }).count('* as cnt').first();
+                const hasFulfillments = await buildValidFulfillmentsQuery()
+                    .where('pf.proposal_line_id', removed.id)
+                    .count('* as cnt')
+                    .first();
                 if (parseInt(hasFulfillments.cnt) === 0) {
                     await knex('proposal_lines').where({ id: removed.id }).delete();
                 } else {

@@ -1,5 +1,9 @@
 const knex = require('../../db/knex');
 const { v4: uuidv4 } = require('uuid');
+const {
+    buildValidFulfillmentsQuery,
+    getValidFulfillmentStatsByProposalIds
+} = require('../reconciliation/fulfillmentIntegrity');
 
 class ExplorerService {
     // -- Docs --
@@ -115,16 +119,14 @@ class ExplorerService {
             });
 
             // 2. Fulfillments (linked via reconciliation)
-            const fulfillmentLinks = await knex('proposal_fulfillments')
-                .join('documents', 'proposal_fulfillments.document_id', 'documents.id')
-                .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
-                .join('custom_proposals', 'proposal_lines.proposal_id', 'custom_proposals.id')
-                .whereIn('proposal_fulfillments.document_id', docIds)
+            const fulfillmentLinks = await buildValidFulfillmentsQuery()
+                .join('custom_proposals', 'pf.proposal_id', 'custom_proposals.id')
+                .whereIn('pf.document_id', docIds)
                 .select(
                     'custom_proposals.id',
                     'custom_proposals.name',
                     'custom_proposals.status',
-                    'proposal_fulfillments.document_id'
+                    'pf.document_id'
                 )
                 .distinct();
 
@@ -148,17 +150,13 @@ class ExplorerService {
                     .select('proposal_id', knex.raw('SUM(quantity) as total_qty'));
 
                 // Total fulfilled quantities per proposal (via proposal_line_id FK)
-                const fulfillStats = await knex('proposal_fulfillments')
-                    .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
-                    .whereIn('proposal_lines.proposal_id', proposalIds)
-                    .groupBy('proposal_lines.proposal_id')
-                    .select('proposal_lines.proposal_id', knex.raw('SUM(proposal_fulfillments.quantity_fulfilled) as fulfilled_qty'));
+                const fulfillStats = await getValidFulfillmentStatsByProposalIds(proposalIds);
 
                 const linesMap = {};
                 linesStats.forEach(s => { linesMap[s.proposal_id] = parseFloat(s.total_qty || 0); });
 
                 const fulfillMap = {};
-                fulfillStats.forEach(s => { fulfillMap[s.proposal_id] = parseFloat(s.fulfilled_qty || 0); });
+                fulfillStats.forEach(s => { fulfillMap[s.proposal_id] = parseFloat(s.total_fulfilled || 0); });
 
                 allFetchedProposals.forEach(p => {
                     const total = linesMap[p.id] || 0;
@@ -176,9 +174,10 @@ class ExplorerService {
         // To do this efficiently, we need the sets of doc IDs per proposal
         const propToDocs = {};
         if (proposalIds.length > 0) {
-            const allpf = await knex('proposal_fulfillments')
-                .whereIn('proposal_id', proposalIds)
-                .select('proposal_id', 'document_id');
+            const allpf = await buildValidFulfillmentsQuery()
+                .whereIn('pf.proposal_id', proposalIds)
+                .distinct('pf.proposal_id', 'pf.document_id')
+                .select('pf.proposal_id', 'pf.document_id');
             allpf.forEach(pf => {
                 if (!propToDocs[pf.proposal_id]) propToDocs[pf.proposal_id] = new Set();
                 propToDocs[pf.proposal_id].add(pf.document_id);
@@ -258,6 +257,8 @@ class ExplorerService {
     async deleteDocs(docIds) {
         if (!docIds || !docIds.length) return;
         // Cleanup dependencies first (FKs)
+        await knex('proposal_fulfillments').whereIn('document_id', docIds).del();
+        await knex('document_lines').whereIn('document_id', docIds).del();
         await knex('doc_links').whereIn('doc_id', docIds).del();
         await knex('transaction_links').whereIn('documentId', docIds).del();
         await knex('documents').whereIn('id', docIds).del();
@@ -296,10 +297,11 @@ class ExplorerService {
 
         // 2. Proposal-based links (siblings from same proposals)
         // Check both as a fulfillment AND as the original source
-        const fulfillmentProposals = await knex('proposal_fulfillments')
-            .where('document_id', docId)
-            .distinct('proposal_id')
-            .pluck('proposal_id');
+        const fulfillmentProposals = (await buildValidFulfillmentsQuery()
+            .where('pf.document_id', docId)
+            .distinct()
+            .select('pf.proposal_id'))
+            .map(row => row.proposal_id);
             
         const sourceProposals = await knex('custom_proposals')
             .where('original_doc_id', docId)
@@ -311,10 +313,11 @@ class ExplorerService {
 
         if (proposalIds.length > 0) {
             // Find all docs that fulfill these proposals
-            const fulfillments = await knex('proposal_fulfillments')
-                .whereIn('proposal_id', proposalIds)
-                .distinct('document_id')
-                .pluck('document_id');
+            const fulfillments = (await buildValidFulfillmentsQuery()
+                .whereIn('pf.proposal_id', proposalIds)
+                .distinct()
+                .select('pf.document_id'))
+                .map(row => row.document_id);
             
             // AND find the original source docs for these proposals
             const sources = await knex('custom_proposals')

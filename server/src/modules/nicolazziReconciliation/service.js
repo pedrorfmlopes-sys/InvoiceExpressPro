@@ -1,5 +1,11 @@
 const knex = require('../../db/knex');
 const crypto = require('crypto');
+const {
+    buildValidFulfillmentsQuery,
+    buildValidFulfilledByProposalLineQuery,
+    getValidFulfillmentStatsByProposalIds,
+    getValidLinkedDocumentIdsQuery
+} = require('../reconciliation/fulfillmentIntegrity');
 
 function safeParse(json, fallback = {}) {
     if (!json) return fallback;
@@ -69,17 +75,26 @@ async function getReconciliationReport() {
     const orderedMap = new Map(orderedStats.map(s => [s.proposal_id, parseFloat(s.total_items || 0)]));
 
     // 3. Get Fulfilled Totals per Proposal
-    const fulfilledStats = await knex('proposal_fulfillments')
-        .whereIn('proposal_id', proposalIds)
-        .groupBy('proposal_id')
-        .select('proposal_id', knex.raw('SUM(quantity_fulfilled) as total_fulfilled'));
+    const fulfilledStats = await getValidFulfillmentStatsByProposalIds(proposalIds);
 
     const fulfilledMap = new Map(fulfilledStats.map(s => [s.proposal_id, parseFloat(s.total_fulfilled || 0)]));
 
-    // 4. Build Report
+    // 4. Enrich Search Blob with line items
+    const allLines = await knex('proposal_lines')
+        .whereIn('proposal_id', proposalIds)
+        .select('proposal_id', 'sku', 'description');
+
+    const linesMap = new Map();
+    for (const line of allLines) {
+        if (!linesMap.has(line.proposal_id)) linesMap.set(line.proposal_id, []);
+        linesMap.get(line.proposal_id).push(`${line.sku || ''} ${line.description || ''}`.trim());
+    }
+
+    // 5. Build Report
     return proposals.map(p => {
         const totalItems = orderedMap.get(p.id) || 0;
         const totalFulfilled = fulfilledMap.get(p.id) || 0;
+        const lineTexts = linesMap.get(p.id) || [];
 
         let progress = 0;
         let status = 'pending';
@@ -99,28 +114,8 @@ async function getReconciliationReport() {
             progress: parseFloat(progress.toFixed(1)),
             status: status,
             created_at: p.created_at,
-            search_blob: '' // We will populate this next
+            search_blob: `${p.proposal_number || ''} ${p.client_ref || ''} ${p.name || ''} ${lineTexts.join(' ')}`.toLowerCase().trim()
         };
-    });
-
-    // 5. Enhance Search Blob with Line Items SKUs
-    // Fetch all lines for the active proposals to include their SKUs in the search blob
-    const allLines = await knex('proposal_lines')
-        .whereIn('proposal_id', proposalIds)
-        .select('proposal_id', 'sku', 'description');
-
-    const linesMap = new Map();
-    for (const line of allLines) {
-        if (!linesMap.has(line.proposal_id)) {
-            linesMap.set(line.proposal_id, []);
-        }
-        linesMap.get(line.proposal_id).push(`${line.sku || ''} ${line.description || ''}`);
-    }
-
-    return report.map(r => {
-        const lineTexts = linesMap.get(r.id) || [];
-        r.search_blob = `${r.proposal_number || ''} ${r.client_ref || ''} ${lineTexts.join(' ')}`.toLowerCase();
-        return r;
     });
 }
 
@@ -138,8 +133,9 @@ async function getReconciliationDetails(invoiceId) {
     // 2. Fetch Linked Proposal (via Fulfillments or direct lookup if we stored relationship)
     // We rely on fulfillments to know for sure, OR the shipping mark.
     // Let's check if there are fulfillments first.
-    const fulfillments = await knex('proposal_fulfillments')
-        .where({ document_id: invoiceId });
+    const fulfillments = await buildValidFulfillmentsQuery()
+        .where('pf.document_id', invoiceId)
+        .select('pf.*');
 
     let proposalId = fulfillments.length > 0 ? fulfillments[0].proposal_id : null;
     let proposal = null;
@@ -289,7 +285,7 @@ async function getProposalFulfillmentDetails(proposalId) {
 
 
         // 3. Get All Fulfillments for this Proposal
-        const fulfillments = await knex('proposal_fulfillments as pf')
+        const fulfillments = await buildValidFulfillmentsQuery()
             .join('documents as d', 'pf.document_id', 'd.id')
             .where('pf.proposal_id', proposalId)
             .select(
@@ -659,8 +655,12 @@ async function reconcileInvoiceInternal(invoiceId, forceProposalId = null, exist
         // Pre-fetch existing fulfillments for these proposal lines to calculate remaining quantity
         // Note: For THIS specific invoice, we just deleted its fulfillments above.
         // But other invoices might have already fulfilled part of these lines.
-        const prevFulfillments = await trx('proposal_fulfillments')
-            .whereIn('proposal_line_id', proposalLines.map(p => p.id));
+        const proposalLineIds = proposalLines.map(p => p.id);
+        const prevFulfillments = proposalLineIds.length > 0
+            ? await buildValidFulfillmentsQuery(trx)
+                .whereIn('pf.proposal_line_id', proposalLineIds)
+                .select('pf.*')
+            : [];
         
         // Map: Proposal Line ID -> Total previously fulfilled quantity
         const prevFulfMap = {};
@@ -737,7 +737,7 @@ async function reconcileInvoiceInternal(invoiceId, forceProposalId = null, exist
  */
 async function discoverMatches() {
     // 1. Get all invoices that are NOT in proposal_fulfillments
-    const linkedDocIdsQuery = knex('proposal_fulfillments').select('document_id').distinct();
+    const linkedDocIdsQuery = getValidLinkedDocumentIdsQuery();
 
     const unlinkedInvoices = await knex('documents')
         .where(function () {
@@ -955,8 +955,7 @@ async function getAnalytics(proposalIds = null, brand = null) {
     // Cost Realized: Document line price (already cost per user) * fulfilled qty
 
     // 1. Total Realized Sale
-    const saleRealizedRes = await knex('proposal_fulfillments as pf')
-        .join('proposal_lines as pl', 'pf.proposal_line_id', 'pl.id')
+    const saleRealizedRes = await buildValidFulfillmentsQuery()
         .whereIn('pf.proposal_id', ids)
         .select(
             knex.raw('SUM(COALESCE(pf.quantity_fulfilled, 0) * COALESCE(pl.unit_price_commercial, 0) * (1 - COALESCE(pl.discount_commercial_percent, 0)/100)) as net')
@@ -965,8 +964,7 @@ async function getAnalytics(proposalIds = null, brand = null) {
 
     // 2. Total Realized Cost (From extractions)
     // The user states extractions are already COST prices.
-    const costRealizedRes = await knex('proposal_fulfillments as pf')
-        .join('document_lines as dl', 'pf.doc_line_id', 'dl.id')
+    const costRealizedRes = await buildValidFulfillmentsQuery()
         .whereIn('pf.proposal_id', ids)
         .select(
             knex.raw('SUM(COALESCE(pf.quantity_fulfilled, 0) * COALESCE(dl.unit_price, 0)) as net')
@@ -981,7 +979,7 @@ async function getAnalytics(proposalIds = null, brand = null) {
     // Postgres vs SQLite compatible Late Stats
     const lateStatsQuery = knex('proposal_lines as pl')
         .leftJoin(
-            knex('proposal_fulfillments').groupBy('proposal_line_id').select('proposal_line_id', knex.raw('SUM(quantity_fulfilled) as fulfilled')).as('f'),
+            buildValidFulfilledByProposalLineQuery().as('f'),
             'pl.id', 'f.proposal_line_id'
         )
         .whereIn('pl.proposal_id', ids)

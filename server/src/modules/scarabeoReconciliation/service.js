@@ -1,5 +1,6 @@
 const knex = require('../../db/knex');
 const crypto = require('crypto');
+const { buildValidFulfillmentsQuery, getValidLinkedDocumentIdsQuery } = require('../reconciliation/fulfillmentIntegrity');
 
 function safeParse(json, fallback = {}) {
     if (!json) return fallback;
@@ -123,8 +124,12 @@ async function reconcileInvoice(invoiceId, forceProposalId = null) {
         const proposalLines = await trx('proposal_lines').where({ proposal_id: proposal.id });
         const fulfillments = [];
 
-        const prevFulfillments = await trx('proposal_fulfillments')
-            .whereIn('proposal_line_id', proposalLines.map(p => p.id));
+        const proposalLineIds = proposalLines.map(p => p.id);
+        const prevFulfillments = proposalLineIds.length > 0
+            ? await buildValidFulfillmentsQuery(trx)
+                .whereIn('pf.proposal_line_id', proposalLineIds)
+                .select('pf.*')
+            : [];
         
         const prevFulfMap = {};
         for (const f of prevFulfillments) {
@@ -196,7 +201,7 @@ async function reconcileInvoice(invoiceId, forceProposalId = null) {
  * Discovers unmatched Scarabeo invoices.
  */
 async function discoverMatches() {
-    const linkedDocIdsQuery = knex('proposal_fulfillments').select('document_id').distinct();
+    const linkedDocIdsQuery = getValidLinkedDocumentIdsQuery();
 
     const unlinkedInvoices = await knex('documents')
         .where(function () {

@@ -1,5 +1,9 @@
 const knex = require('../db/knex');
 const { v4: uuidv4 } = require('uuid');
+const {
+    buildValidFulfillmentsQuery,
+    getValidFulfillmentStatsByProposalIds
+} = require('../modules/reconciliation/fulfillmentIntegrity');
 
 class DbDocsAdapter {
     // --- Documents ---
@@ -50,15 +54,14 @@ class DbDocsAdapter {
             });
 
             // 2. Fulfillments (linked via reconciliation)
-            const fulfillmentLinks = await db('proposal_fulfillments')
-                .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
-                .join('custom_proposals', 'proposal_lines.proposal_id', 'custom_proposals.id')
-                .whereIn('proposal_fulfillments.document_id', docIds)
+            const fulfillmentLinks = await buildValidFulfillmentsQuery(db)
+                .join('custom_proposals', 'pf.proposal_id', 'custom_proposals.id')
+                .whereIn('pf.document_id', docIds)
                 .select(
                     'custom_proposals.id',
                     'custom_proposals.name',
                     'custom_proposals.status',
-                    'proposal_fulfillments.document_id'
+                    'pf.document_id'
                 )
                 .distinct();
 
@@ -79,17 +82,13 @@ class DbDocsAdapter {
                     .groupBy('proposal_id')
                     .select('proposal_id', db.raw('SUM(quantity) as total_qty'));
 
-                const fulfillStats = await db('proposal_fulfillments')
-                    .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
-                    .whereIn('proposal_lines.proposal_id', proposalIds)
-                    .groupBy('proposal_lines.proposal_id')
-                    .select('proposal_lines.proposal_id', db.raw('SUM(proposal_fulfillments.quantity_fulfilled) as fulfilled_qty'));
+                const fulfillStats = await getValidFulfillmentStatsByProposalIds(proposalIds, db);
 
                 const linesMap = {};
                 linesStats.forEach(s => linesMap[s.proposal_id] = parseFloat(s.total_qty || 0));
 
                 const fulfillMap = {};
-                fulfillStats.forEach(s => fulfillMap[s.proposal_id] = parseFloat(s.fulfilled_qty || 0));
+                fulfillStats.forEach(s => fulfillMap[s.proposal_id] = parseFloat(s.total_fulfilled || 0));
 
                 allFetchedProposals.forEach(p => {
                     const total = linesMap[p.id] || 0;
@@ -149,10 +148,9 @@ class DbDocsAdapter {
             .select('id', 'name', 'status');
 
         // 2. Fulfillments
-        const fulfillmentLinks = await db('proposal_fulfillments')
-            .join('proposal_lines', 'proposal_fulfillments.proposal_line_id', 'proposal_lines.id')
-            .join('custom_proposals', 'proposal_lines.proposal_id', 'custom_proposals.id')
-            .where('proposal_fulfillments.document_id', id)
+        const fulfillmentLinks = await buildValidFulfillmentsQuery(db)
+            .join('custom_proposals', 'pf.proposal_id', 'custom_proposals.id')
+            .where('pf.document_id', id)
             .select('custom_proposals.id', 'custom_proposals.name', 'custom_proposals.status')
             .distinct();
 
@@ -272,6 +270,10 @@ class DbDocsAdapter {
 
     async deleteDoc(project, id, trx = null) {
         const db = trx || knex;
+        await db('proposal_fulfillments').where({ document_id: id }).delete();
+        await db('document_lines').where({ document_id: id }).delete();
+        await db('doc_links').where({ doc_id: id }).delete();
+        await db('transaction_links').where({ documentId: id }).delete();
         await db('documents').where({ project, id }).delete();
     }
 

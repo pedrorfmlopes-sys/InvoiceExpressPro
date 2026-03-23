@@ -1,5 +1,10 @@
 const knex = require('../../db/knex');
 const crypto = require('crypto');
+const {
+    buildValidFulfillmentsQuery,
+    getValidFulfillmentStatsByProposalIds,
+    getValidLinkedDocumentIdsQuery
+} = require('../reconciliation/fulfillmentIntegrity');
 
 function safeParse(json, fallback = {}) {
     if (!json) return fallback;
@@ -125,8 +130,12 @@ async function reconcileInvoice(invoiceId, forceProposalId = null) {
         const fulfillments = [];
 
         // Pre-fetch existing fulfillments for these proposal lines to calculate remaining quantity
-        const prevFulfillments = await trx('proposal_fulfillments')
-            .whereIn('proposal_line_id', proposalLines.map(p => p.id));
+        const proposalLineIds = proposalLines.map(p => p.id);
+        const prevFulfillments = proposalLineIds.length > 0
+            ? await buildValidFulfillmentsQuery(trx)
+                .whereIn('pf.proposal_line_id', proposalLineIds)
+                .select('pf.*')
+            : [];
         
         // Map: Proposal Line ID -> Total previously fulfilled quantity
         const prevFulfMap = {};
@@ -201,7 +210,7 @@ async function reconcileInvoice(invoiceId, forceProposalId = null) {
  * Discovers unmatched invoices and suggests potential proposal matches.
  */
 async function discoverMatches() {
-    const linkedDocIdsQuery = knex('proposal_fulfillments').select('document_id').distinct();
+    const linkedDocIdsQuery = getValidLinkedDocumentIdsQuery();
 
     const unlinkedInvoices = await knex('documents')
         .where(function () {
@@ -323,16 +332,22 @@ async function getReconciliationReport() {
         .whereIn('status', ['accepted', 'em_fornecimento'])
         .select('id', 'name', 'proposal_number', 'client_ref', 'created_at');
 
-    const report = [];
+    if (!proposals.length) return [];
 
-    for (const p of proposals) {
-        const pLines = await knex('proposal_lines').where({ proposal_id: p.id });
-        const fulfillments = await knex('proposal_fulfillments').where({ proposal_id: p.id });
+    const proposalIds = proposals.map(p => p.id);
+    const orderedStats = await knex('proposal_lines')
+        .whereIn('proposal_id', proposalIds)
+        .groupBy('proposal_id')
+        .select('proposal_id', knex.raw('SUM(quantity) as total_items'));
 
-        const totalQty = pLines.reduce((acc, l) => acc + parseFloat(l.quantity || 0), 0);
-        const fulfilledQty = fulfillments.reduce((acc, f) => acc + parseFloat(f.quantity_fulfilled || 0), 0);
+    const orderedMap = new Map(orderedStats.map(s => [s.proposal_id, parseFloat(s.total_items || 0)]));
+    const fulfilledStats = await getValidFulfillmentStatsByProposalIds(proposalIds);
+    const fulfilledMap = new Map(fulfilledStats.map(s => [s.proposal_id, parseFloat(s.total_fulfilled || 0)]));
 
-        report.push({
+    return proposals.map(p => {
+        const totalQty = orderedMap.get(p.id) || 0;
+        const fulfilledQty = fulfilledMap.get(p.id) || 0;
+        return {
             id: p.id,
             number: p.proposal_number || p.name,
             name: p.name,
@@ -340,14 +355,12 @@ async function getReconciliationReport() {
             total_items: totalQty,
             fulfilled_items: fulfilledQty,
             progress: totalQty > 0 ? (fulfilledQty / totalQty) * 100 : 0
-        });
-    }
-
-    return report;
+        };
+    });
 }
 
 async function getReconciliationDetails(invoiceId) {
-    const fulfillments = await knex('proposal_fulfillments as pf')
+    const fulfillments = await buildValidFulfillmentsQuery()
         .join('custom_proposals as cp', 'pf.proposal_id', 'cp.id')
         .where('pf.document_id', invoiceId)
         .select('pf.*', 'cp.name as proposal_name', 'cp.proposal_number');
@@ -356,7 +369,17 @@ async function getReconciliationDetails(invoiceId) {
         return { Linked: false, lines: [] };
     }
 
-    const docLines = await knex('document_lines').where({ document_id: invoiceId });
+    let docLines = await knex('document_lines').where({ document_id: invoiceId });
+    if (docLines.length === 0) {
+        const documentRow = await knex('documents').where({ id: invoiceId }).first();
+        const data = safeParse(documentRow?.rawJson);
+        docLines = (data.lines || []).map((line, index) => ({
+            id: `raw-${invoiceId}-${index}`,
+            sku: String(line.code || line.sku || '').trim(),
+            description: line.description || '',
+            quantity: parseFloat(line.quantity || 0) || 0
+        }));
+    }
 
     return {
         linked: true,

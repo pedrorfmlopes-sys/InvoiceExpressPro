@@ -1,6 +1,11 @@
 'use strict';
 const knex = require('../../db/knex');
 const crypto = require('crypto');
+const {
+    buildValidFulfillmentsQuery,
+    getValidFulfillmentStatsByProposalIds,
+    getValidLinkedDocumentIdsQuery
+} = require('../reconciliation/fulfillmentIntegrity');
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -212,8 +217,12 @@ async function reconcileInvoiceInternal(invoiceId, forceProposalId = null, exist
         const fulfillments = [];
 
         // Pre-fetch existing fulfillments for these proposal lines to calculate remaining quantity
-        const prevFulfillments = await trx('proposal_fulfillments')
-            .whereIn('proposal_line_id', proposalLines.map(p => p.id));
+        const proposalLineIds = proposalLines.map(p => p.id);
+        const prevFulfillments = proposalLineIds.length > 0
+            ? await buildValidFulfillmentsQuery(trx)
+                .whereIn('pf.proposal_line_id', proposalLineIds)
+                .select('pf.*')
+            : [];
         
         // Map: Proposal Line ID -> Total previously fulfilled quantity
         const prevFulfMap = {};
@@ -318,10 +327,7 @@ async function getReconciliationReport() {
 
     const orderedMap = new Map(orderedStats.map(s => [s.proposal_id, parseFloat(s.total_items || 0)]));
 
-    const fulfilledStats = await knex('proposal_fulfillments')
-        .whereIn('proposal_id', proposalIds)
-        .groupBy('proposal_id')
-        .select('proposal_id', knex.raw('SUM(quantity_fulfilled) as total_fulfilled'));
+    const fulfilledStats = await getValidFulfillmentStatsByProposalIds(proposalIds);
 
     const fulfilledMap = new Map(fulfilledStats.map(s => [s.proposal_id, parseFloat(s.total_fulfilled || 0)]));
 
@@ -346,7 +352,7 @@ async function getReconciliationReport() {
  * Discover unlinked AXA/FIMA invoices that potentially match a proposal.
  */
 async function discoverMatches() {
-    const linkedDocIdsQuery = knex('proposal_fulfillments').select('document_id').distinct();
+    const linkedDocIdsQuery = getValidLinkedDocumentIdsQuery();
 
     const unlinked = await knex('documents')
         .where(function () {

@@ -118,6 +118,10 @@ class UniversalDocService {
                         .where({ document_id: c.id })
                         .update({ document_id: id });
 
+                    await innerTrx('document_lines')
+                        .where({ document_id: c.id })
+                        .update({ document_id: id });
+
                     // Phase 21: Migrate Manual Links
                     await innerTrx('doc_links')
                         .where({ doc_id: c.id })
