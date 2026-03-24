@@ -33,16 +33,16 @@ class FulfillmentPdfEngine {
         this.fontB = null;
 
         // Layout Config
-        this.margin = 40;
+        this.margin = 32;
         this.width = 842; // Landscape (A4 is 595x842)
         this.height = 595;
         this.y = 0;
         this.currentPage = null;
         this.pages = [];
 
-        // Adjusted column widths to spread across Landscape width 
-        // W = 842 - 80 = 762 usable width
-        this.colWidths = [120, 312, 110, 65, 65, 90];
+        // W = 842 - 64 = 778 usable width
+        // Keep the numeric columns compact so more description text fits in each row.
+        this.colWidths = [90, 395, 80, 45, 45, 123];
         this.headers = ['SKU', 'Descrição', 'Previsto', 'Pedida', 'Fechada', 'Falta / Estado'];
     }
 
@@ -79,15 +79,29 @@ class FulfillmentPdfEngine {
     drawHeader() {
         // --- STATUS REPORT HEADER ---
         const startY = this.y;
+        const proposalNumber = safeText(this.data.proposal?.number || this.data.proposal?.name || 'Sem proposta');
+        const invoiceNumbers = (this.data.documents || [])
+            .filter(d => d.type === 'invoice' && d.number)
+            .map(d => safeText(d.number))
+            .filter(Boolean);
+        const invoicesLine = invoiceNumbers.length ? `Faturas servidas: ${invoiceNumbers.join(', ')}` : 'Faturas servidas: -';
 
         this.drawText('RELATÓRIO DE STATUS DE ENCOMENDA', this.margin, 14, this.fontB, rgb(0, 0, 0));
-        this.drawText(safeText(this.data.proposal?.name || 'Proposta'), this.margin, 8, this.font, rgb(0.4, 0.4, 0.4));
+        this.y -= 16;
+        this.drawText(`Proposta: ${proposalNumber}`, this.margin, 9, this.fontB, rgb(0.25, 0.25, 0.25));
+        this.y -= 12;
+        const invoiceLines = this.splitTextToLines(invoicesLine, 7, 380);
+        invoiceLines.forEach(line => {
+            this.drawText(line, this.margin, 7, this.font, rgb(0.45, 0.45, 0.45));
+            this.y -= 9;
+        });
+        this.y = startY;
 
         const rightX = this.width - this.margin;
         const dt = new Date().toLocaleDateString('pt-PT');
         this.drawText(`Gerado a: ${dt}`, rightX, 8, this.font, rgb(0.4, 0.4, 0.4), 'right');
 
-        this.y -= 30;
+        this.y -= 34;
 
         // Stats boxes
         const statsBaseY = this.y;
@@ -129,9 +143,9 @@ class FulfillmentPdfEngine {
             }
         }
 
-        this.y = startY - 60;
+        this.y = startY - 72;
         this.currentPage.drawLine({ start: { x: this.margin, y: this.y }, end: { x: this.width - this.margin, y: this.y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
-        this.y -= 15;
+        this.y -= 12;
     }
 
     drawTableHeaders() {
@@ -141,16 +155,16 @@ class FulfillmentPdfEngine {
             if (i >= 3 && i <= 5) align = 'right'; // numbers right aligned
 
             if (align === 'right') {
-                this.drawText(h, tx + this.colWidths[i] - 5, 9, this.fontB, rgb(0, 0, 0), 'right');
+                this.drawText(h, tx + this.colWidths[i] - 4, 8, this.fontB, rgb(0, 0, 0), 'right');
             } else {
-                this.drawText(h, tx, 9, this.fontB);
+                this.drawText(h, tx, 8, this.fontB);
             }
             tx += this.colWidths[i];
         });
 
-        this.y -= 8;
+        this.y -= 7;
         this.currentPage.drawLine({ start: { x: this.margin, y: this.y }, end: { x: this.width - this.margin, y: this.y }, thickness: 1, color: rgb(0, 0, 0) });
-        this.y -= 15;
+        this.y -= 11;
     }
 
     splitTextToLines(text, size, maxWidth) {
@@ -208,16 +222,16 @@ class FulfillmentPdfEngine {
             const shipDateDisplay = line.predicted_ship_date ? new Date(line.predicted_ship_date).toLocaleDateString('pt-PT') : 'N/D';
 
             // Split desc
-            const descLines = this.splitTextToLines(line.description, 8, this.colWidths[1] - 10);
+            const descLines = this.splitTextToLines(line.description, 7, this.colWidths[1] - 8);
 
             // Warnings (if any history)
             let docsLabel = '';
             if (line.history && line.history.length > 0) {
-                docsLabel = `Fats: ${line.history.map(h => h.doc_number).join(', ')}`;
+                docsLabel = `Faturas: ${line.history.map(h => h.doc_number).join(', ')}`;
             }
-            const extraLines = this.splitTextToLines(docsLabel, 7, this.colWidths[1] - 10);
+            const extraLines = this.splitTextToLines(docsLabel, 6, this.colWidths[1] - 8);
 
-            const rowHeight = Math.max(15, (descLines.length * 10) + (extraLines.length * 8) + 10);
+            const rowHeight = Math.max(11, (descLines.length * 8) + (extraLines.length * 7) + 6);
             this.checkSpace(rowHeight);
 
             // Columns layout: ['SKU', 'Descrição', 'Previsto', 'Pedida', 'Fechada', 'Falta']
@@ -232,10 +246,8 @@ class FulfillmentPdfEngine {
                 remLabel = `Falta: ${line.qty_remaining}`;
             }
 
-            const displaySku = this.data.proposal?.number ? `${this.data.proposal.number}\n${line.sku}` : line.sku;
-
             const rData = [
-                displaySku,
+                line.sku,
                 '', // Handled custom
                 shipDateDisplay,
                 String(line.qty_ordered),
@@ -262,36 +274,27 @@ class FulfillmentPdfEngine {
                 if (i === 1) { // Desc
                     const topY = this.y;
                     descLines.forEach(dl => {
-                        this.drawText(dl, lx, 8, this.font, rgb(0, 0, 0));
-                        this.y -= 10;
-                    });
-                    extraLines.forEach(el => {
-                        this.drawText(el, lx, 7, this.font, rgb(0.5, 0.5, 0.5));
+                        this.drawText(dl, lx, 7, this.font, rgb(0, 0, 0));
                         this.y -= 8;
                     });
-                    this.y = topY;
-                } else if (i === 0) { // SKU with Proposal No
-                    const skuLines = text.split('\n');
-                    const topY = this.y;
-                    skuLines.forEach((sl, sIdx) => {
-                        const isMainSku = sIdx === skuLines.length - 1;
-                        const cColor = isMainSku ? rgb(0, 0, 0) : rgb(0.5, 0.5, 0.5);
-                        const cSize = isMainSku ? 8 : 7;
-                        this.drawText(sl, lx, cSize, isMainSku ? this.fontB : this.font, isCompleted ? rgb(0.4, 0.4, 0.4) : cColor, align);
-                        this.y -= 10;
+                    extraLines.forEach(el => {
+                        this.drawText(el, lx, 6, this.font, rgb(0.5, 0.5, 0.5));
+                        this.y -= 7;
                     });
                     this.y = topY;
+                } else if (i === 0) { // SKU
+                    this.drawText(text, lx, 7, this.fontB, isCompleted ? rgb(0.4, 0.4, 0.4) : rgb(0, 0, 0), align);
                 } else if (i === 5) {
                     // Status 
-                    this.drawText(text, lx + this.colWidths[i] - 5, 9, this.fontB, statusColor, align);
+                    this.drawText(text, lx + this.colWidths[i] - 4, 8, this.fontB, statusColor, align);
                 } else {
                     let c = rgb(0, 0, 0);
                     if (isCompleted) c = rgb(0.4, 0.4, 0.4); // fade out completed lines a bit
 
                     if (align === 'right') {
-                        this.drawText(text, lx + this.colWidths[i] - 5, 8, this.font, c, align);
+                        this.drawText(text, lx + this.colWidths[i] - 4, 7, this.font, c, align);
                     } else {
-                        this.drawText(text, lx, 8, this.font, c, align);
+                        this.drawText(text, lx, 7, this.font, c, align);
                     }
                 }
                 lx += this.colWidths[i];
@@ -301,11 +304,11 @@ class FulfillmentPdfEngine {
 
             // Subtle line between rows
             this.currentPage.drawLine({ start: { x: this.margin, y: this.y }, end: { x: this.width - this.margin, y: this.y }, thickness: 0.2, color: rgb(0.9, 0.9, 0.9) });
-            this.y -= 5;
+            this.y -= 3;
         });
 
         // Legend / Footer note
-        this.y -= 10;
+        this.y -= 8;
         this.drawText('Documento gerado pelo departamento logístico para acompanhamento do progresso das encomendas.', this.margin, 8, this.font, rgb(0.4, 0.4, 0.4));
 
         // Removed drawFooter from here, handled in multiPdf logic
