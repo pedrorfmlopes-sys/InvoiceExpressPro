@@ -6,6 +6,12 @@ const CustomerService = require('../crm/CustomerService');
 const CatalogService = require('../catalog/service');
 const { buildValidFulfillmentsQuery } = require('../reconciliation/fulfillmentIntegrity');
 const path = require('path');
+const {
+    safeParseJson,
+    normalizeProposalLineInput,
+    normalizeStoredProposalLine,
+    calculateProposalMetrics
+} = require('./lineUtils');
 
 
 class ProposalStudioService {
@@ -150,28 +156,26 @@ class ProposalStudioService {
         const rawLines = sourceData.lines || [];
         const proposalLines = rawLines.map((l, index) => ({
             id: uuidv4(),
-            proposal_id: proposalId,
-            sku: l.sku || l.code || '',
-            description: l.description || '',
-            quantity: parseFloat(l.quantity || 1),
-            unit_price_factory: parseFloat(l.price || l.unitPrice || 0),
-            unit_price_commercial: parseFloat(l.price || l.unitPrice || 0), // Default to factory price
-            discount_factory: String(l.discountPercent || l.discountText || '0'),
-            discount_commercial_percent: 0,
-            vat_rate: String(l.vat || l.vatRate || '23'),
-            sort_order: index,
-            extra_attributes: JSON.stringify({
-                original_index: index,
-                brand_meta: l.extra || {},
-                original_description: l.description || '' // Preserving extracted description
+            ...normalizeProposalLineInput({
+                ...l,
+                extra_attributes: {
+                    original_index: index,
+                    brand_meta: l.extra || {},
+                    original_description: l.description || ''
+                }
+            }, {
+                proposalId,
+                sortOrder: index,
+                defaultItemQuantity: 1,
+                defaultVatRate: '23'
             }),
-            created_at: new Date(),
-            updated_at: new Date()
+            created_at: new Date()
         }));
 
         // 5. Enrich Lines with Catalog Data (Finish, Lead Time, etc)
         const brandId = proposal.brand_id;
         for (const line of proposalLines) {
+            if (line.line_type === 'comment') continue;
             await this.enrichLineWithCatalog(brandId, line);
         }
 
@@ -236,26 +240,13 @@ class ProposalStudioService {
     }
 
     async getProposals(project, filters = {}) {
-        // Calculate total including VAT in a subquery
-        const subquery = knex('proposal_lines')
-            .select(knex.raw('SUM((quantity * unit_price_commercial * (1 - discount_commercial_percent / 100)) * (1 + CAST(vat_rate AS FLOAT) / 100))'))
-            .whereRaw('proposal_id = custom_proposals.id')
-            .as('total_amount');
-
-        const shipDateQuery = knex('proposal_lines')
-            .max('predicted_ship_date')
-            .whereRaw('proposal_id = custom_proposals.id')
-            .as('max_ship_date');
-
         const q = knex('custom_proposals')
             .leftJoin('documents', 'custom_proposals.original_doc_id', 'documents.id')
             .select(
                 'custom_proposals.*',
                 'documents.docNumber as source_doc_number',
                 'documents.docType as source_doc_type',
-                'documents.supplier as source_supplier',
-                subquery,
-                shipDateQuery
+                'documents.supplier as source_supplier'
             )
             .orderBy('custom_proposals.updated_at', 'desc');
 
@@ -274,7 +265,7 @@ class ProposalStudioService {
                 this.where('custom_proposals.name', 'like', term)
                     .orWhere('custom_proposals.client_ref', 'like', term)
                     .orWhere('documents.docNumber', 'like', term)
-                    .orWhere('custom_proposals.metadata', 'like', term)
+                    .orWhereRaw('CAST(custom_proposals.metadata AS TEXT) LIKE ?', [term])
                     .orWhereExists(function () {
                         this.select('*')
                             .from('proposal_lines')
@@ -289,8 +280,26 @@ class ProposalStudioService {
 
         const proposals = await q;
 
-        // --- PHASE 21: Fetch associated documents ---
         const proposalIds = proposals.map(p => p.id);
+        const proposalLines = proposalIds.length > 0
+            ? await knex('proposal_lines')
+                .whereIn('proposal_id', proposalIds)
+                .orderBy('sort_order', 'asc')
+            : [];
+
+        const proposalLinesMap = {};
+        proposalLines.forEach(line => {
+            if (!proposalLinesMap[line.proposal_id]) proposalLinesMap[line.proposal_id] = [];
+            proposalLinesMap[line.proposal_id].push(line);
+        });
+
+        proposals.forEach(p => {
+            const metrics = calculateProposalMetrics(proposalLinesMap[p.id] || []);
+            p.total_amount = metrics.totalAmount;
+            p.max_ship_date = metrics.maxShipDate;
+        });
+
+        // --- PHASE 21: Fetch associated documents ---
         if (proposalIds.length > 0) {
             // 1. Fulfillment links
             const fulfillmentDocs = await buildValidFulfillmentsQuery()
@@ -336,7 +345,8 @@ class ProposalStudioService {
     async getConsolidatedProposalsData(project, filters = {}) {
         const proposals = await this.getProposals(project, filters);
         for (const p of proposals) {
-            p.lines = await knex('proposal_lines').where({ proposal_id: p.id }).orderBy('sort_order', 'asc');
+            const lines = await knex('proposal_lines').where({ proposal_id: p.id }).orderBy('sort_order', 'asc');
+            p.lines = lines.map(normalizeStoredProposalLine);
         }
         return proposals;
     }
@@ -351,19 +361,6 @@ class ProposalStudioService {
         if (!proposal) return null;
 
         const lines = await knex('proposal_lines').where({ proposal_id: id }).orderBy('sort_order', 'asc');
-
-        const safeParse = (val) => {
-            if (!val) return null;
-            if (typeof val === 'string') {
-                try {
-                    return JSON.parse(val);
-                } catch (e) {
-                    console.warn('[ProposalService] Failed to parse JSON:', val);
-                    return null;
-                }
-            }
-            return val; // Already an object
-        };
 
         // --- PHASE 21: Fetch associated documents ---
         // 1. Original doc
@@ -401,18 +398,16 @@ class ProposalStudioService {
 
         return {
             ...proposal,
-            branding_config: safeParse(proposal.branding_config),
-            metadata: safeParse(proposal.metadata),
-            lines: lines.map(l => ({
-                ...l,
-                extra_attributes: safeParse(l.extra_attributes)
-            })),
+            branding_config: safeParseJson(proposal.branding_config),
+            metadata: safeParseJson(proposal.metadata),
+            lines: lines.map(normalizeStoredProposalLine),
             associatedDocuments
         };
     }
 
     async updateProposal(id, data) {
         const { lines, associatedDocuments, ...header } = data;
+        const currentProposal = await knex('custom_proposals').where({ id }).first();
 
         if (header.status === 'accepted') {
             await this.handleAcceptedStatus(id);
@@ -455,39 +450,28 @@ class ProposalStudioService {
             existingLines.forEach(l => {
                 existingById[l.id] = l;
                 // Keep first occurrence per SKU (handle duplicates gracefully)
-                if (!existingBySku[l.sku]) existingBySku[l.sku] = l;
+                if (l.sku && !existingBySku[l.sku]) existingBySku[l.sku] = l;
             });
 
             const processedIds = new Set();
+            const proposalBrandId = header.brand_id || currentProposal?.brand_id || 'other';
 
             for (let index = 0; index < lines.length; index++) {
                 const l = lines[index];
                 // Find existing line: prefer matching by ID (if client sends it), then by SKU
-                const existing = (l.id && existingById[l.id]) || existingBySku[l.sku];
+                const existing = (l.id && existingById[l.id]) || (l.sku ? existingBySku[l.sku] : null);
 
-                const lineData = {
-                    proposal_id: id,
-                    sku: l.sku,
-                    description: l.description,
-                    quantity: parseFloat(l.quantity),
-                    unit_price_factory: parseFloat(l.unit_price_factory),
-                    unit_price_commercial: parseFloat(l.unit_price_commercial),
-                    discount_factory: String(l.discount_factory),
-                    discount_commercial_percent: parseFloat(l.discount_commercial_percent),
-                    vat_rate: String(l.vat_rate),
-                    sort_order: index,
-                    lead_time_weeks: l.lead_time_weeks !== undefined ? l.lead_time_weeks : null,
-                    predicted_ship_date: l.predicted_ship_date ? new Date(l.predicted_ship_date) : null,
-                    is_manual_override: l.is_manual_override || false,
-                    production_category: l.production_category || null,
-                    extra_attributes: JSON.stringify(l.extra_attributes || {}),
-                    updated_at: new Date()
-                };
+                const lineData = normalizeProposalLineInput(l, {
+                    proposalId: id,
+                    sortOrder: index,
+                    defaultItemQuantity: 0,
+                    defaultVatRate: '23'
+                });
 
                 if (existing) {
                     // Detect SKU change to trigger re-enrichment
-                    if (existing.sku !== l.sku && !l.is_manual_override) {
-                        await this.enrichLineWithCatalog(header.brand_id || existing.brand_id, lineData);
+                    if (lineData.line_type !== 'comment' && existing.sku !== lineData.sku && !lineData.is_manual_override) {
+                        await this.enrichLineWithCatalog(proposalBrandId, lineData);
                     }
                     // UPDATE — preserving the existing UUID
                     await knex('proposal_lines').where({ id: existing.id }).update(lineData);
@@ -496,8 +480,8 @@ class ProposalStudioService {
                     // INSERT — new line
                     const newId = uuidv4();
                     // Enrich new line
-                    if (!lineData.is_manual_override) {
-                        await this.enrichLineWithCatalog(header.brand_id || 'other', lineData);
+                    if (lineData.line_type !== 'comment' && !lineData.is_manual_override) {
+                        await this.enrichLineWithCatalog(proposalBrandId, lineData);
                     }
                     await knex('proposal_lines').insert({
                         ...lineData,

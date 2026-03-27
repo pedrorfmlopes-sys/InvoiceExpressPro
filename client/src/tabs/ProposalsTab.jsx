@@ -9,7 +9,7 @@ import { getViewer } from '../components/viewers/ViewerRegistry';
 import { createPortal } from 'react-dom';
 import ProposalFulfillmentViewer from '../components/viewers/ProposalFulfillmentViewer';
 import LogisticsManager from '../components/logistics/LogisticsManager';
-import { applyDiscount } from '../shared/utils/DiscountEngine';
+import { calculateLineAmounts } from '../shared/proposalLineUtils';
 
 export default function ProposalsTab({ project, setEditingProposalId }) {
     const [proposals, setProposals] = useState([]);
@@ -157,11 +157,8 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
     const calculateTotal = (lines) => {
         if (!lines) return 0;
         return lines.reduce((acc, l) => {
-            const qty = parseFloat(l.quantity || 0);
-            const price = parseFloat(l.unit_price_commercial || 0);
-            const lineNet = qty * applyDiscount(price, l.discount_commercial_percent || '0');
-            const vat = lineNet * (parseFloat(l.vat_rate || 23) / 100);
-            return acc + lineNet + vat;
+            const { totalWithVat } = calculateLineAmounts(l);
+            return acc + totalWithVat;
         }, 0);
     };
 
@@ -227,6 +224,7 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                         onChange={e => setFilterBrand(e.target.value)}
                     >
                         <option value="">Todas as Marcas</option>
+                        <option value="codis">CODIS</option>
                         <option value="nicolazzi">Nicolazzi</option>
                         <option value="RITMONIO">Ritmonio</option>
                         <option value="other">Outras</option>
@@ -360,7 +358,10 @@ export default function ProposalsTab({ project, setEditingProposalId }) {
                                 </tr>
                             ) : (
                                 filteredProposals.map(p => {
-                                    const total = p.total_amount || calculateTotal(p.lines);
+                                    const parsedTotal = Number(p.total_amount);
+                                    const total = Number.isFinite(parsedTotal)
+                                        ? parsedTotal
+                                        : calculateTotal(p.lines);
                                     return (
                                         <tr key={p.id} className="group hover:bg-[var(--surface-hover)] transition-colors">
                                             <td className="py-4 pl-4">

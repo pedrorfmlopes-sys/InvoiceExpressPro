@@ -3,6 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const xlsx = require('xlsx');
+const {
+    calculateProposalLineAmounts,
+    isCommentLine,
+    normalizeCommentStyle,
+    normalizeStoredProposalLine
+} = require('./lineUtils');
 
 function fmtEUR(n) {
     const v = Number.isFinite(+n) ? +n : 0;
@@ -32,6 +38,16 @@ function safeText(s) {
         .replace(/[^\x20-\x7E\x0A\x0D]/g, ''); // Keep only Printable ASCII
 }
 
+function hexToPdfColor(hex) {
+    const raw = String(hex || '').trim();
+    const normalized = /^#([0-9a-f]{6})$/i.test(raw) ? raw : '#CBD5E1';
+    return rgb(
+        parseInt(normalized.slice(1, 3), 16) / 255,
+        parseInt(normalized.slice(3, 5), 16) / 255,
+        parseInt(normalized.slice(5, 7), 16) / 255
+    );
+}
+
 class ProposalPdfEngine {
     constructor(proposal, appLogoPath) {
         this.proposal = proposal;
@@ -39,6 +55,8 @@ class ProposalPdfEngine {
         this.pdf = null;
         this.font = null;
         this.fontB = null;
+        this.fontI = null;
+        this.fontBI = null;
         this.logoImage = null;
 
         // Layout Config
@@ -58,6 +76,8 @@ class ProposalPdfEngine {
         this.pdf = await PDFDocument.create();
         this.font = await this.pdf.embedFont(StandardFonts.Helvetica);
         this.fontB = await this.pdf.embedFont(StandardFonts.HelveticaBold);
+        this.fontI = await this.pdf.embedFont(StandardFonts.HelveticaOblique);
+        this.fontBI = await this.pdf.embedFont(StandardFonts.HelveticaBoldOblique);
 
         if (this.appLogoPath && fs.existsSync(this.appLogoPath)) {
             const bytes = fs.readFileSync(this.appLogoPath);
@@ -239,17 +259,8 @@ class ProposalPdfEngine {
         let totalSiva = 0;
 
         this.proposal.lines.forEach(line => {
-            const qty = parseFloat(line.quantity || 0);
-            const price = parseFloat(line.unit_price_commercial || 0);
-            const isComment = !line.sku && qty === 0 && price === 0;
-
-            if (isComment) {
-                return; // Skip comments for totalSiva calculation
-            }
-
-            const discPercent = line.discount_commercial_percent || 0;
-            const lineTotal = qty * price * (1 - (discPercent / 100));
-            totalSiva += lineTotal;
+            const { lineNet } = calculateProposalLineAmounts(line);
+            totalSiva += lineNet;
         });
 
         // Packaging Costs Calculation
@@ -281,39 +292,49 @@ class ProposalPdfEngine {
         totalSiva = 0; // Reset for line processing
 
         this.proposal.lines.forEach(line => {
-            const qty = parseFloat(line.quantity || 0);
-            const price = parseFloat(line.unit_price_commercial || 0);
-            const isComment = !line.sku && qty === 0 && price === 0;
+            const normalizedLine = normalizeStoredProposalLine(line);
+            const qty = normalizedLine.quantity;
+            const price = normalizedLine.unit_price_commercial;
+            const isComment = isCommentLine(normalizedLine);
 
             if (isComment) {
-                const fullDescription = (line.description || ' ').replace(/\{.*?\}/g, '').trim() || ' ';
-                const descLines = this.splitTextToLines(fullDescription, 9, this.width - (this.margin * 2) - 10);
-                const rHeight = Math.max(15, (descLines.length * 10) + 10);
+                const commentStyle = normalizeCommentStyle(normalizedLine.extra_attributes?.comment_style);
+                const commentFont = commentStyle.bold
+                    ? (commentStyle.italic ? this.fontBI : this.fontB)
+                    : (commentStyle.italic ? this.fontI : this.font);
+                const commentSize = commentStyle.fontSize;
+                const commentColor = hexToPdfColor(commentStyle.color);
+                const fullDescription = (normalizedLine.description || ' ').replace(/\{.*?\}/g, '').trim() || ' ';
+                const displayDescription = commentStyle.variant === 'title' || commentStyle.variant === 'subtitle'
+                    ? fullDescription.toUpperCase()
+                    : fullDescription;
+                const descLines = this.splitTextToLines(displayDescription, commentSize, this.width - (this.margin * 2) - 10);
+                const lineHeight = Math.max(12, commentSize + 2);
+                const rHeight = Math.max(18, (descLines.length * lineHeight) + 8);
 
                 this.checkSpace(rHeight);
 
                 let dy = 0;
                 descLines.forEach(dl => {
-                    this.drawText(dl, this.margin + 5, 9, this.fontB, rgb(0.2, 0.2, 0.2));
-                    dy += 10;
+                    this.drawText(dl, this.margin + 5, commentSize, commentFont, commentColor);
+                    dy += lineHeight;
                 });
 
                 this.y -= (rHeight + 5);
                 return;
             }
 
-            const discPercent = line.discount_commercial_percent || 0;
-            const lineTotal = qty * price * (1 - (discPercent / 100));
+            const { lineNet: lineTotal } = calculateProposalLineAmounts(normalizedLine);
             totalSiva += lineTotal;
 
-            let fullDescription = (line.description || '').replace(/\{.*?\}/g, '').trim();
+            let fullDescription = (normalizedLine.description || '').replace(/\{.*?\}/g, '').trim();
             const extraLines = [];
 
-            const effectiveLeadWeeks = line.lead_time_weeks || this.proposal.general_lead_time_weeks || 0;
+            const effectiveLeadWeeks = normalizedLine.lead_time_weeks || this.proposal.general_lead_time_weeks || 0;
             let predictedDateDisplay = '';
 
-            if (line.predicted_ship_date) {
-                const d = new Date(line.predicted_ship_date);
+            if (normalizedLine.predicted_ship_date) {
+                const d = new Date(normalizedLine.predicted_ship_date);
                 if (!isNaN(d.getTime())) {
                     predictedDateDisplay = d.toLocaleDateString('pt-PT');
                 }
@@ -335,7 +356,7 @@ class ProposalPdfEngine {
             }
 
             if (this.proposal.metadata?.show_technical_details) {
-                const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
+                const extra = normalizedLine.extra_attributes || {};
                 const finishCode = extra.finish_code || extra.finishCode || extra.brand_meta?.finishCode;
 
                 if (finishCode) extraLines.push(`Acabamento: ${finishCode}`);
@@ -351,8 +372,8 @@ class ProposalPdfEngine {
             this.checkSpace(rowHeight);
 
             const row = [
-                line.sku,
-                String(line.quantity),
+                normalizedLine.sku,
+                String(normalizedLine.quantity),
                 '',
                 '',
                 'UN',
@@ -582,6 +603,90 @@ class ProposalExporter {
                     'P.Unit Com.': l.unit_price_commercial || 0,
                     'IVA %': l.vat_rate || '23',
                     'Total Item (c/IVA)': (l.quantity * l.unit_price_commercial * (1 - (l.discount_commercial_percent / 100))) * (1 + parseFloat(l.vat_rate || 23) / 100)
+                });
+            });
+        }
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(flatRows);
+        xlsx.utils.book_append_sheet(wb, ws, "Listagem de Itens");
+        return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    }
+
+    async generateExcel(proposal) {
+        const rows = (proposal.lines || []).map(l => {
+            const line = normalizeStoredProposalLine(l);
+            const extra = line.extra_attributes || {};
+            const effectiveLeadWeeks = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
+            let predictedDateDisplay = line.predicted_ship_date ? new Date(line.predicted_ship_date).toLocaleDateString('pt-PT') : '';
+            const { lineNet } = calculateProposalLineAmounts(line);
+
+            if (!predictedDateDisplay && effectiveLeadWeeks > 0) {
+                const baseDate = proposal.order_confirmation_date
+                    ? new Date(proposal.order_confirmation_date)
+                    : (proposal.metadata?.doc_date ? new Date(proposal.metadata.doc_date) : null);
+
+                if (baseDate) {
+                    baseDate.setDate(baseDate.getDate() + (effectiveLeadWeeks * 7));
+                    predictedDateDisplay = baseDate.toLocaleDateString('pt-PT');
+                }
+            }
+
+            return {
+                'Projeto': proposal.metadata?.client_project_name || '',
+                'NIF': proposal.metadata?.client_vat || '',
+                'Morada Faturacao': proposal.metadata?.billing_address || '',
+                'Morada Entrega': proposal.metadata?.shipping_is_billing ? 'Igual a faturacao' : (proposal.metadata?.shipping_address || ''),
+                'Tipo Linha': line.line_type === 'comment' ? 'Comentario' : 'Artigo',
+                'Codigo': line.sku,
+                'Descricao': line.description,
+                'Colecao': extra.collection || extra.series || '',
+                'Quantidade': line.line_type === 'comment' ? '' : line.quantity,
+                'Previsao Entrega': predictedDateDisplay,
+                'Preco Unitario': line.line_type === 'comment' ? '' : line.unit_price_commercial,
+                'Desconto %': line.line_type === 'comment' ? '' : line.discount_commercial_percent,
+                'Subtotal': line.line_type === 'comment' ? '' : lineNet
+            };
+        });
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(rows);
+        xlsx.utils.book_append_sheet(wb, ws, "Proposta");
+
+        const pkCosts = proposal.metadata?.packaging_costs || [];
+        if (pkCosts.filter(c => c.enabled).length > 0) {
+            const pkRows = pkCosts.filter(c => c.enabled).map(c => ({
+                'Descricao': c.description,
+                'Tipo': c.type === 'percent' ? 'Percentagem' : 'Fixo',
+                'Valor': c.value,
+                'Base': c.base || 'N/A'
+            }));
+            const wsPk = xlsx.utils.json_to_sheet(pkRows);
+            xlsx.utils.book_append_sheet(wb, wsPk, "Custos de Embalagem");
+        }
+
+        return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    }
+
+    async generateConsolidatedItemsExcel(proposals) {
+        const flatRows = [];
+        for (const p of proposals) {
+            const lines = p.lines || [];
+            lines.forEach(l => {
+                const line = normalizeStoredProposalLine(l);
+                const { totalWithVat } = calculateProposalLineAmounts(line);
+                flatRows.push({
+                    'Proposta': p.name || '',
+                    'Estado': p.status || '',
+                    'Marca': p.brand_id || '',
+                    'Cliente': p.client_ref || '',
+                    'Data': p.updated_at ? new Date(p.updated_at).toLocaleDateString('pt-PT') : '',
+                    'Tipo Linha': line.line_type === 'comment' ? 'Comentario' : 'Artigo',
+                    'SKU/Artigo': line.sku || '',
+                    'Descricao': line.description || '',
+                    'Quantidade': line.line_type === 'comment' ? '' : (line.quantity || 0),
+                    'P.Unit Com.': line.line_type === 'comment' ? '' : (line.unit_price_commercial || 0),
+                    'IVA %': line.line_type === 'comment' ? '' : (line.vat_rate || '23'),
+                    'Total Item (c/IVA)': line.line_type === 'comment' ? '' : totalWithVat
                 });
             });
         }

@@ -11,7 +11,16 @@ import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
 import PresetManagementModal from './PresetManagementModal';
 import LogisticsManager from '../logistics/LogisticsManager';
 import CustomerModal from '../crm/CustomerModal';
-import { applyDiscount } from '../../shared/utils/DiscountEngine';
+import {
+    calculateLineAmounts,
+    createCommentLine,
+    createItemLine,
+    getCommentPreviewStyle,
+    getCommentRowClass,
+    isCommentLine,
+    normalizeCommentStyle,
+    normalizeLineForUi
+} from '../../shared/proposalLineUtils';
 
 const PRESET_CATEGORIES = {
     WARRANTY: 'warranty',
@@ -30,6 +39,12 @@ const BRAND_COLORS = {
     other: 'gray',
     multimarcas: 'purple'
 };
+
+const COMMENT_TYPE_OPTIONS = [
+    { value: 'title', label: 'Titulo' },
+    { value: 'subtitle', label: 'Subtitulo' },
+    { value: 'note', label: 'Nota' }
+];
 
 const ProposalEditor = (props) => {
     if (!props) {
@@ -96,7 +111,10 @@ const ProposalEditor = (props) => {
             if (!data.metadata.doc_date) {
                 data.metadata.doc_date = new Date().toISOString().split('T')[0];
             }
-            setProposal({ ...data });
+            setProposal({
+                ...data,
+                lines: (data.lines || []).map(normalizeLineForUi)
+            });
             setProjects(projRes.data.projects || []);
             setPresets(presetRes.data || []);
         } catch (e) {
@@ -237,22 +255,38 @@ const ProposalEditor = (props) => {
 
     const updateLine = (index, field, value) => {
         const newLines = [...proposal.lines];
-        newLines[index] = { ...newLines[index], [field]: value };
+        const currentLine = newLines[index];
+        const nextLine = { ...currentLine, [field]: value };
+
+        if (field === 'line_type' && value === 'comment') {
+            nextLine.sku = '';
+            nextLine.quantity = 0;
+            nextLine.unit_price_factory = 0;
+            nextLine.unit_price_commercial = 0;
+            nextLine.discount_commercial_percent = 0;
+            nextLine.extra_attributes = {
+                ...(currentLine.extra_attributes || {}),
+                comment_style: normalizeCommentStyle(currentLine.extra_attributes?.comment_style)
+            };
+        }
+
+        if (field === 'line_type' && value === 'item') {
+            const nextExtra = { ...(currentLine.extra_attributes || {}) };
+            delete nextExtra.comment_style;
+            nextLine.quantity = currentLine.quantity || 1;
+            nextLine.extra_attributes = nextExtra;
+        }
+
+        newLines[index] = normalizeLineForUi(nextLine);
         setProposal({ ...proposal, lines: newLines });
     };
 
     const addLine = () => {
-        const newLine = {
-            id: 'new-' + Math.random().toString(36).substr(2, 9),
-            sku: '',
-            description: '',
-            quantity: 1,
-            unit_price_commercial: 0,
-            discount_commercial_percent: 0,
-            vat_rate: '23',
-            extra_attributes: {}
-        };
-        setProposal({ ...proposal, lines: [...proposal.lines, newLine] });
+        setProposal({ ...proposal, lines: [...proposal.lines, createItemLine()] });
+    };
+
+    const addCommentLine = () => {
+        setProposal({ ...proposal, lines: [...proposal.lines, createCommentLine()] });
     };
 
     const removeLine = (index) => {
@@ -273,18 +307,14 @@ const ProposalEditor = (props) => {
     };
 
     const insertLine = (index) => {
-        const newLine = {
-            id: 'new-' + Math.random().toString(36).substr(2, 9),
-            sku: '',
-            description: '',
-            quantity: 1,
-            unit_price_commercial: 0,
-            discount_commercial_percent: 0,
-            vat_rate: '23',
-            extra_attributes: {}
-        };
         const newLines = [...proposal.lines];
-        newLines.splice(index + 1, 0, newLine);
+        newLines.splice(index + 1, 0, createItemLine());
+        setProposal({ ...proposal, lines: newLines });
+    };
+
+    const insertCommentLine = (index) => {
+        const newLines = [...proposal.lines];
+        newLines.splice(index + 1, 0, createCommentLine());
         setProposal({ ...proposal, lines: newLines });
     };
 
@@ -292,10 +322,22 @@ const ProposalEditor = (props) => {
         const lineToCopy = proposal.lines[index];
         const newLines = [...proposal.lines];
         newLines.splice(index + 1, 0, {
-            ...lineToCopy,
+            ...normalizeLineForUi(lineToCopy),
             id: 'new-' + Math.random().toString(36).substr(2, 9)
         });
         setProposal({ ...proposal, lines: newLines });
+    };
+
+    const updateCommentStyle = (index, patch) => {
+        const line = proposal.lines[index];
+        const nextExtra = {
+            ...(line.extra_attributes || {}),
+            comment_style: normalizeCommentStyle({
+                ...(line.extra_attributes?.comment_style || {}),
+                ...patch
+            })
+        };
+        updateLine(index, 'extra_attributes', nextExtra);
     };
 
     // Helper to format original description (Sentence case)
@@ -532,13 +574,10 @@ const ProposalEditor = (props) => {
         if (!proposal?.lines) return { net: 0, vat: 0, gross: 0, packagingTotal: 0 };
 
         const linesTotal = proposal.lines.reduce((acc, l) => {
-            const qty = parseFloat(l.quantity || 0);
-            const price = parseFloat(l.unit_price_commercial || 0);
-            const lineNet = qty * applyDiscount(price, l.discount_commercial_percent || '0');
-            const vat = lineNet * (parseFloat(l.vat_rate || 23) / 100);
+            const { lineNet, lineVat } = calculateLineAmounts(l);
 
             acc.net += lineNet;
-            acc.vat += vat;
+            acc.vat += lineVat;
             return acc;
         }, { net: 0, vat: 0 });
 
@@ -886,10 +925,121 @@ const ProposalEditor = (props) => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {proposal.lines.map((line, idx) => {
-                                const qty = parseFloat(line.quantity || 0);
-                                const price = parseFloat(line.unit_price_commercial || 0);
-                                const lineTotal = qty * applyDiscount(price, line.discount_commercial_percent || '0');
+                            {proposal.lines.map((rawLine, idx) => {
+                                const line = normalizeLineForUi(rawLine);
+                                const isComment = isCommentLine(line);
+                                const { lineNet } = calculateLineAmounts(line);
+                                const commentStyle = normalizeCommentStyle(line.extra_attributes?.comment_style);
+
+                                if (isComment) {
+                                    return (
+                                        <tr key={`${line.id}-${idx}`} className="group hover:bg-white/[0.02]">
+                                            <td className="py-2 text-[9px] font-mono text-gray-600 text-center align-top">{idx + 1}</td>
+                                            <td colSpan={6} className="py-3 pr-4">
+                                                <div className="rounded-2xl border border-sky-500/20 bg-slate-950/50 px-4 py-3 shadow-inner shadow-sky-950/30">
+                                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                                        <div className="text-[9px] font-black uppercase tracking-[0.25em] text-sky-300">
+                                                            Linha de Comentario
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <select
+                                                                className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-200 outline-none"
+                                                                value={commentStyle.variant}
+                                                                onChange={e => updateCommentStyle(idx, { variant: e.target.value })}
+                                                            >
+                                                                {COMMENT_TYPE_OPTIONS.map(option => (
+                                                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                                                ))}
+                                                            </select>
+                                                            <input
+                                                                type="number"
+                                                                min="9"
+                                                                max="24"
+                                                                className="w-16 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-[10px] font-mono text-white outline-none"
+                                                                value={commentStyle.fontSize}
+                                                                onChange={e => updateCommentStyle(idx, { fontSize: e.target.value })}
+                                                            />
+                                                            <input
+                                                                type="color"
+                                                                className="h-8 w-10 rounded border border-white/10 bg-black/30 p-1"
+                                                                value={commentStyle.color}
+                                                                onChange={e => updateCommentStyle(idx, { color: e.target.value })}
+                                                            />
+                                                            <button
+                                                                onClick={() => updateCommentStyle(idx, { bold: !commentStyle.bold })}
+                                                                className={`rounded-lg border px-2 py-1 text-[10px] font-black transition-colors ${commentStyle.bold ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-white/10 bg-black/30 text-gray-400 hover:text-white'}`}
+                                                                title="Negrito"
+                                                            >
+                                                                B
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updateCommentStyle(idx, { italic: !commentStyle.italic })}
+                                                                className={`rounded-lg border px-2 py-1 text-[10px] font-black transition-colors ${commentStyle.italic ? 'border-sky-500 bg-sky-500/20 text-sky-200' : 'border-white/10 bg-black/30 text-gray-400 hover:text-white'}`}
+                                                                title="Italico"
+                                                            >
+                                                                I
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <textarea
+                                                        rows="2"
+                                                        className={`w-full resize-y rounded-xl border border-white/5 bg-black/20 px-3 py-2 outline-none transition-colors focus:border-sky-500/40 ${getCommentRowClass(commentStyle)}`}
+                                                        style={getCommentPreviewStyle(commentStyle)}
+                                                        value={line.description}
+                                                        onChange={e => updateLine(idx, 'description', e.target.value)}
+                                                        placeholder="Escreve aqui o comentario da proposta..."
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="py-2 align-top">
+                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => moveLine(idx, -1)}
+                                                        className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded text-gray-400 hover:text-white text-[10px]"
+                                                        title="Mover para cima"
+                                                    >
+                                                        ↑
+                                                    </button>
+                                                    <button
+                                                        onClick={() => moveLine(idx, 1)}
+                                                        className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded text-gray-400 hover:text-white text-[10px]"
+                                                        title="Mover para baixo"
+                                                    >
+                                                        ↓
+                                                    </button>
+                                                    <button
+                                                        onClick={() => insertLine(idx)}
+                                                        className="w-6 h-6 flex items-center justify-center hover:bg-green-500/20 rounded text-gray-500 hover:text-green-400 text-[10px]"
+                                                        title="Inserir artigo abaixo"
+                                                    >
+                                                        +
+                                                    </button>
+                                                    <button
+                                                        onClick={() => insertCommentLine(idx)}
+                                                        className="w-6 h-6 flex items-center justify-center hover:bg-sky-500/20 rounded text-gray-500 hover:text-sky-300 text-[10px]"
+                                                        title="Inserir comentario abaixo"
+                                                    >
+                                                        C
+                                                    </button>
+                                                    <button
+                                                        onClick={() => duplicateLine(idx)}
+                                                        className="w-6 h-6 flex items-center justify-center hover:bg-blue-500/20 rounded text-gray-500 hover:text-blue-400 text-[10px]"
+                                                        title="Duplicar linha"
+                                                    >
+                                                        D
+                                                    </button>
+                                                    <button
+                                                        onClick={() => removeLine(idx)}
+                                                        className="w-6 h-6 flex items-center justify-center hover:bg-red-500/20 rounded text-gray-500 hover:text-red-500 text-[10px]"
+                                                        title="Remover linha"
+                                                    >
+                                                        X
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }
 
                                 return (
                                     <tr key={`${line.id}-${line.predicted_ship_date || 'nodate'}`} className="group hover:bg-white/[0.02]">
@@ -964,40 +1114,29 @@ const ProposalEditor = (props) => {
                                                     value={line.description}
                                                     onChange={e => updateLine(idx, 'description', e.target.value)}
                                                 />
-                                                {(() => {
-                                                    const isComment = !line.sku && !parseFloat(line.quantity) && !parseFloat(line.unit_price_commercial);
-                                                    if (isComment) return null;
-
-                                                    return (
-                                                        <>
-                                                            {line.extra_attributes?.original_description && (
-                                                                <div className="text-[9px] text-gray-500 italic leading-none">
-                                                                    ({line.extra_attributes.original_description})
-                                                                </div>
-                                                            )}
-                                                            {shouldShowCollectionDynamic(line.extra_attributes?.collection) && (
-                                                                <div className="text-[9px] text-gray-500 uppercase tracking-tighter mt-1 line-clamp-1">
-                                                                    {line.extra_attributes.collection}
-                                                                </div>
-                                                            )}
-                                                            {(line.extra_attributes?.finish_note || line.extra_attributes?.brand_meta?.finishNote) && (
-                                                                <div className="mt-1 flex items-center gap-1.5 text-[8px] bg-blue-500/5 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/10 w-fit">
-                                                                    <span className="font-bold uppercase">📋 Spec Técnica:</span>
-                                                                    <span className="line-clamp-1 opacity-70">{(line.extra_attributes.finish_note || line.extra_attributes.brand_meta.finishNote).substring(0, 30)}...</span>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    );
-                                                })()}
+                                                <>
+                                                    {line.extra_attributes?.original_description && (
+                                                        <div className="text-[9px] text-gray-500 italic leading-none">
+                                                            ({line.extra_attributes.original_description})
+                                                        </div>
+                                                    )}
+                                                    {shouldShowCollectionDynamic(line.extra_attributes?.collection) && (
+                                                        <div className="text-[9px] text-gray-500 uppercase tracking-tighter mt-1 line-clamp-1">
+                                                            {line.extra_attributes.collection}
+                                                        </div>
+                                                    )}
+                                                    {(line.extra_attributes?.finish_note || line.extra_attributes?.brand_meta?.finishNote) && (
+                                                        <div className="mt-1 flex items-center gap-1.5 text-[8px] bg-blue-500/5 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/10 w-fit">
+                                                            <span className="font-bold uppercase">📋 Spec Técnica:</span>
+                                                            <span className="line-clamp-1 opacity-70">{(line.extra_attributes.finish_note || line.extra_attributes.brand_meta.finishNote).substring(0, 30)}...</span>
+                                                        </div>
+                                                    )}
+                                                </>
 
                                                 {(() => {
-                                                    const isComment = !line.sku && !parseFloat(line.quantity) && !parseFloat(line.unit_price_commercial);
-                                                    if (isComment) return null;
-
                                                     const effLead = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
                                                     let pDate = line.predicted_ship_date;
 
-                                                    // Auto-calculate only if MISSING. If it exists (manually set), respect it.
                                                     if (!pDate && effLead > 0) {
                                                         const bDate = proposal.order_confirmation_date
                                                             ? new Date(proposal.order_confirmation_date)
@@ -1086,7 +1225,7 @@ const ProposalEditor = (props) => {
                                             />
                                         </td>
                                         <td className="py-2 text-right font-mono text-white font-bold text-xs">
-                                            {parseFloat(lineTotal || 0).toFixed(2)} €
+                                            {parseFloat(lineNet || 0).toFixed(2)} €
                                         </td>
                                         <td className="py-2">
                                             <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1107,9 +1246,16 @@ const ProposalEditor = (props) => {
                                                 <button
                                                     onClick={() => insertLine(idx)}
                                                     className="w-6 h-6 flex items-center justify-center hover:bg-green-500/20 rounded text-gray-500 hover:text-green-400 text-[10px]"
-                                                    title="Inserir linha aqui"
+                                                    title="Inserir artigo abaixo"
                                                 >
-                                                    ➕
+                                                    +
+                                                </button>
+                                                <button
+                                                    onClick={() => insertCommentLine(idx)}
+                                                    className="w-6 h-6 flex items-center justify-center hover:bg-sky-500/20 rounded text-gray-500 hover:text-sky-300 text-[10px]"
+                                                    title="Inserir comentario abaixo"
+                                                >
+                                                    C
                                                 </button>
                                                 <button
                                                     onClick={() => duplicateLine(idx)}
@@ -1138,7 +1284,14 @@ const ProposalEditor = (props) => {
                         className="mt-6 w-full py-4 border-2 border-dashed border-white/5 hover:border-amber-500/30 hover:bg-amber-500/5 text-gray-500 hover:text-amber-500 transition-all rounded-xl font-bold flex items-center justify-center gap-2 group"
                     >
                         <span className="text-xl group-hover:scale-125 transition-transform">+</span>
-                        Adicionar Novo Artigo / Linha
+                        Adicionar Artigo
+                    </button>
+                    <button
+                        onClick={addCommentLine}
+                        className="mt-3 w-full py-4 border-2 border-dashed border-sky-500/15 hover:border-sky-400/40 hover:bg-sky-500/5 text-sky-200/70 hover:text-sky-200 transition-all rounded-xl font-bold flex items-center justify-center gap-2 group"
+                    >
+                        <span className="text-xl group-hover:scale-125 transition-transform">C</span>
+                        Adicionar Comentario
                     </button>
                 </div>
 

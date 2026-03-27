@@ -1,6 +1,12 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
-import { applyDiscount, formatDiscountDisplay } from '../../shared/utils/DiscountEngine';
+import { formatDiscountDisplay } from '../../shared/utils/DiscountEngine';
+import {
+    calculateLineAmounts,
+    isCommentLine,
+    normalizeCommentStyle,
+    normalizeLineForUi
+} from '../../shared/proposalLineUtils';
 
 // Register a standard font if needed, but Helvetica is default and safe.
 
@@ -222,6 +228,25 @@ const styles = StyleSheet.create({
     }
 });
 
+const getPdfCommentStyle = (style) => {
+    const normalized = normalizeCommentStyle(style);
+    const fontFamily = normalized.bold
+        ? (normalized.italic ? 'Helvetica-BoldOblique' : 'Helvetica-Bold')
+        : (normalized.italic ? 'Helvetica-Oblique' : 'Helvetica');
+    const variantAdjust = normalized.variant === 'title'
+        ? { textTransform: 'uppercase', letterSpacing: 1.2 }
+        : normalized.variant === 'subtitle'
+            ? { textTransform: 'uppercase', letterSpacing: 0.6 }
+            : {};
+
+    return {
+        fontFamily,
+        fontSize: normalized.fontSize,
+        color: normalized.color,
+        ...variantAdjust
+    };
+};
+
 const ProposalPdf = ({ proposal, visibleCollections }) => {
     if (!proposal) return <Document></Document>;
 
@@ -235,9 +260,8 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
     // Calculations
     const totalSiva = lines.reduce((acc, line) => {
-        const qty = parseFloat(line.quantity || 0);
-        const price = parseFloat(line.unit_price_commercial || 0);
-        return acc + (qty * applyDiscount(price, line.discount_commercial_percent || '0'));
+        const { lineNet } = calculateLineAmounts(line);
+        return acc + lineNet;
     }, 0);
 
     const shipping = parseFloat(proposal.metadata?.shipping_cost || 0);
@@ -383,22 +407,23 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
                 {/* Table Rows (Auto Pagination!) */}
                 {lines.map((line, idx) => {
-                    const extra = typeof line.extra_attributes === 'string' ? JSON.parse(line.extra_attributes || '{}') : (line.extra_attributes || {});
-                    const qty = parseFloat(line.quantity || 0);
-                    const price = parseFloat(line.unit_price_commercial || 0);
-                    const discRaw = line.discount_commercial_percent || '0';
-                    const total = qty * applyDiscount(price, discRaw);
+                    const normalizedLine = normalizeLineForUi(line);
+                    const extra = normalizedLine.extra_attributes || {};
+                    const qty = parseFloat(normalizedLine.quantity || 0);
+                    const price = parseFloat(normalizedLine.unit_price_commercial || 0);
+                    const discRaw = normalizedLine.discount_commercial_percent || '0';
+                    const { lineNet: total } = calculateLineAmounts(normalizedLine);
 
                     // Dynamic Predicted Date Calculation (Same as in Reconciliation Service)
-                    const effectiveLeadWeeks = line.lead_time_weeks || proposal.general_lead_time_weeks || 0;
-                    let predictedDate = line.predicted_ship_date;
-                    const isComment = !line.sku && (!line.quantity || parseFloat(line.quantity) === 0) && (!line.unit_price_commercial || parseFloat(line.unit_price_commercial) === 0);
+                    const effectiveLeadWeeks = normalizedLine.lead_time_weeks || proposal.general_lead_time_weeks || 0;
+                    let predictedDate = normalizedLine.predicted_ship_date;
+                    const isComment = isCommentLine(normalizedLine);
 
                     if (isComment) {
                         return (
                             <View key={idx} style={[styles.tableRow, { backgroundColor: '#F9FAFB' }]} wrap={false}>
                                 <View style={{ width: '100%', padding: 4 }}>
-                                    <Text style={styles.commentDesc}>{line.description || ' '}</Text>
+                                    <Text style={[styles.commentDesc, getPdfCommentStyle(extra.comment_style)]}>{normalizedLine.description || ' '}</Text>
                                 </View>
                             </View>
                         );
@@ -406,9 +431,9 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
                     return (
                         <View key={idx} style={styles.tableRow} wrap={false}>
-                            <Text style={[styles.colCode, styles.skuText]}>{line.sku}</Text>
+                            <Text style={[styles.colCode, styles.skuText]}>{normalizedLine.sku}</Text>
                             <View style={[styles.colDesc]}>
-                                <Text style={styles.descText}>{line.description}</Text>
+                                <Text style={styles.descText}>{normalizedLine.description}</Text>
 
                                 {predictedDate && (
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
@@ -439,7 +464,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
                                     </View>
                                 )}
                             </View>
-                            <Text style={styles.colQty}>{line.quantity}</Text>
+                            <Text style={styles.colQty}>{normalizedLine.quantity}</Text>
                             <Text style={styles.colUn}>UN</Text>
                             <Text style={styles.colPrice}>{fmtMoney(price).replace('€', '')}</Text>
                             <Text style={styles.colDisc}>{formatDiscountDisplay(discRaw)}</Text>
