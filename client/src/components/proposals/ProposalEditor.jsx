@@ -9,6 +9,7 @@ import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
 import PresetManagementModal from './PresetManagementModal';
 import LogisticsManager from '../logistics/LogisticsManager';
 import CustomerModal from '../crm/CustomerModal';
+import ProposalPdf from './ProposalPdf';
 import ProposalSourceSyncModal from './ProposalSourceSyncModal';
 import {
     calculateLineAmounts,
@@ -44,6 +45,45 @@ const COMMENT_TYPE_OPTIONS = [
     { value: 'subtitle', label: 'Subtitulo' },
     { value: 'note', label: 'Nota' }
 ];
+
+const PROPOSAL_BRAND_ABBR = {
+    nicolazzi: 'NIC',
+    ritmonio: 'RIT',
+    bette: 'BET',
+    nicolazzi_gold: 'NIC'
+};
+
+const sanitizeFilenamePart = (value, fallback = '') => {
+    const cleaned = String(value || fallback || '')
+        .replace(/[\/\\?%*:|"<>]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return cleaned || fallback;
+};
+
+const buildProposalExportFilename = (proposal, proposalId, extension) => {
+    const brandAbbr = PROPOSAL_BRAND_ABBR[proposal?.brand_id]
+        || proposal?.brand_id?.substring(0, 3)?.toUpperCase()
+        || 'PRO';
+    const clientFirstName = sanitizeFilenamePart((proposal?.client_ref || '').split(' ')[0], 'Cliente');
+    const docNumRaw = proposal?.proposal_number
+        || proposal?.metadata?.doc_number
+        || proposal?.name?.replace(/Proposta Manual:\s*/i, '').replace(/Proposta:\s*/i, '').trim()
+        || proposalId;
+    const safeNum = sanitizeFilenamePart(docNumRaw, proposalId);
+    return `Proposta ${safeNum} ${clientFirstName} ${brandAbbr}.${extension}`;
+};
+
+const downloadBlob = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+};
 
 const ProposalEditor = (props) => {
     if (!props) {
@@ -159,7 +199,7 @@ const ProposalEditor = (props) => {
     };
 
     const ensureSavedBeforeProtectedAction = async (actionLabel) => {
-        if (!hasUnsavedChanges) return true;
+        if (!hasUnsavedChanges) return latestProposalRef.current;
         const decision = await askEditorConfirmation({
             title: 'Alterações por guardar',
             message: `Queres guardar antes de ${actionLabel}?`,
@@ -167,24 +207,31 @@ const ProposalEditor = (props) => {
             cancelLabel: 'Cancelar',
             showDiscard: false
         });
-        if (decision !== 'confirm') return false;
+        if (decision !== 'confirm') return null;
         await handleSave({ silent: true });
-        return true;
+        return latestProposalRef.current;
     };
 
     const handleExport = async (format) => {
         try {
             setSaving(true);
-            const canContinue = await ensureSavedBeforeProtectedAction(`exportar ${format.toUpperCase()}`);
-            if (!canContinue) return;
+            const exportProposal = await ensureSavedBeforeProtectedAction(`exportar ${format.toUpperCase()}`);
+            if (!exportProposal) return;
+
+            if (format === 'pdf') {
+                const { pdf: renderPdf } = await import('@react-pdf/renderer');
+                const blob = await renderPdf(
+                    <ProposalPdf proposal={exportProposal} visibleCollections={visibleCollections} />
+                ).toBlob();
+                downloadBlob(blob, buildProposalExportFilename(exportProposal, proposalId, 'pdf'));
+                return;
+            }
+
             const res = await api.get(`/api/proposals/${proposalId}/${format}`, { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `proposta_${proposalId}.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            downloadBlob(
+                new Blob([res.data]),
+                buildProposalExportFilename(exportProposal, proposalId, format === 'pdf' ? 'pdf' : 'xlsx')
+            );
         } catch (e) {
             alert("Erro ao exportar: " + e.message);
         } finally {

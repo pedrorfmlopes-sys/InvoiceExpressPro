@@ -2,6 +2,34 @@ const service = require('./service');
 const presetService = require('./ProposalPresetService');
 const logisticsService = require('./logisticsService');
 
+const BRAND_ABBR = {
+    nicolazzi: 'NIC',
+    ritmonio: 'RIT',
+    bette: 'BET',
+    nicolazzi_gold: 'NIC'
+};
+
+function sanitizeFilenamePart(value, fallback = '') {
+    const cleaned = String(value || fallback || '')
+        .replace(/[\/\\?%*:|"<>]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return cleaned || fallback;
+}
+
+function buildProposalExportFilename(proposal, id, extension) {
+    const brandAbbr = BRAND_ABBR[proposal?.brand_id]
+        || proposal?.brand_id?.substring(0, 3)?.toUpperCase()
+        || 'PRO';
+    const clientFirstName = sanitizeFilenamePart((proposal?.client_ref || '').split(' ')[0], 'Cliente');
+    const rawDocNum = proposal?.proposal_number
+        || proposal?.metadata?.doc_number
+        || proposal?.name?.replace(/Proposta Manual:\s*/i, '').replace(/Proposta:\s*/i, '').trim()
+        || id;
+    const safeNum = sanitizeFilenamePart(rawDocNum, id);
+    return `Proposta ${safeNum} ${clientFirstName} ${brandAbbr}.${extension}`;
+}
+
 class ProposalStudioController {
     async cloneToProposal(req, res) {
         try {
@@ -185,9 +213,13 @@ class ProposalStudioController {
     async exportPdf(req, res) {
         try {
             const { id } = req.params;
+            const proposal = await service.getProposal(id);
+            if (!proposal) {
+                return res.status(404).json({ error: 'Proposta não encontrada' });
+            }
             const buffer = await service.generatePdf(id);
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=proposta_${id}.pdf`);
+            res.setHeader('Content-Disposition', `attachment; filename="${buildProposalExportFilename(proposal, id, 'pdf')}"`);
             res.send(buffer);
         } catch (e) {
             console.error(e);
@@ -198,9 +230,13 @@ class ProposalStudioController {
     async exportExcel(req, res) {
         try {
             const { id } = req.params;
+            const proposal = await service.getProposal(id);
+            if (!proposal) {
+                return res.status(404).json({ error: 'Proposta não encontrada' });
+            }
             const buffer = await service.generateExcel(id);
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            res.setHeader('Content-Disposition', `attachment; filename=proposta_${id}.xlsx`);
+            res.setHeader('Content-Disposition', `attachment; filename="${buildProposalExportFilename(proposal, id, 'xlsx')}"`);
             res.send(buffer);
         } catch (e) {
             console.error(e);
