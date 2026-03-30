@@ -431,7 +431,11 @@ const ProposalEditor = (props) => {
             nextLine.extra_attributes = nextExtra;
         }
 
-        newLines[index] = normalizeLineForUi(nextLine);
+        const normalizedLine = normalizeLineForUi(nextLine);
+        if (field === 'discount_commercial_percent' && normalizedLine.line_type !== 'comment') {
+            normalizedLine.discount_commercial_percent = value;
+        }
+        newLines[index] = normalizedLine;
         setProposal({ ...proposal, lines: newLines });
     };
 
@@ -1201,6 +1205,9 @@ const ProposalEditor = (props) => {
                         <tbody className="divide-y divide-white/5">
                             {proposal.lines.map((rawLine, idx) => {
                                 const line = normalizeLineForUi(rawLine);
+                                if (!isCommentLine(rawLine) && rawLine?.discount_commercial_percent !== undefined && rawLine?.discount_commercial_percent !== null) {
+                                    line.discount_commercial_percent = String(rawLine.discount_commercial_percent);
+                                }
                                 const isComment = isCommentLine(line);
                                 const { lineNet } = calculateLineAmounts(line);
                                 const commentStyle = normalizeCommentStyle(line.extra_attributes?.comment_style);
@@ -1495,6 +1502,7 @@ const ProposalEditor = (props) => {
                                                 type="text"
                                                 value={line.discount_commercial_percent || ''}
                                                 onChange={e => updateLine(idx, 'discount_commercial_percent', e.target.value)}
+                                                onBlur={e => updateLine(idx, 'discount_commercial_percent', normalizeDiscountExpression(e.target.value, '0'))}
                                                 placeholder="0"
                                             />
                                         </td>
