@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import api from '../../api/apiClient';
 import { qp } from '../../shared/ui';
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import ProposalPdf from './ProposalPdf';
 import { NICOLAZZI_FINISH_GROUPS, shouldShowCollection } from '../../constants/catalog';
 import CatalogSearchModal from '../catalog/CatalogSearchModal';
 import { FiDatabase, FiUploadCloud, FiSearch, FiCheckCircle, FiClock, FiAlertTriangle, FiLoader, FiTrash2, FiMaximize2, FiPlus, FiSettings, FiX } from 'react-icons/fi';
@@ -11,6 +9,7 @@ import { CreateCatalogItemModal } from '../catalog/CreateCatalogItemModal';
 import PresetManagementModal from './PresetManagementModal';
 import LogisticsManager from '../logistics/LogisticsManager';
 import CustomerModal from '../crm/CustomerModal';
+import ProposalSourceSyncModal from './ProposalSourceSyncModal';
 import {
     calculateLineAmounts,
     createCommentLine,
@@ -70,23 +69,119 @@ const ProposalEditor = (props) => {
     const [collectionsLoaded, setCollectionsLoaded] = useState(false);
     const [showPresetManagement, setShowPresetManagement] = useState(null); // category name or null
     const [showLogistics, setShowLogistics] = useState(false);
+    const [showSourceSync, setShowSourceSync] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [confirmDialog, setConfirmDialog] = useState(null);
+    const persistTimerRef = useRef(null);
+    const latestProposalRef = useRef(null);
+    const suppressDirtyRef = useRef(true);
+    const confirmResolverRef = useRef(null);
 
     useEffect(() => { loadData(); }, [proposalId]);
+
+    useEffect(() => {
+        latestProposalRef.current = proposal;
+        if (!proposal) return;
+        if (suppressDirtyRef.current) {
+            suppressDirtyRef.current = false;
+            return;
+        }
+        setHasUnsavedChanges(true);
+    }, [proposal]);
+
+    useEffect(() => {
+        if (!proposal || !hasUnsavedChanges) return;
+        if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+        const draft = proposal;
+        persistTimerRef.current = setTimeout(() => {
+            api.put(`/api/proposals/${proposalId}/working-copy`, draft).catch(err => {
+                console.error('[ProposalEditor] Failed to persist working copy', err);
+            });
+        }, 500);
+
+        return () => {
+            if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+        };
+    }, [proposal, hasUnsavedChanges, proposalId]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (!hasUnsavedChanges) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+    useEffect(() => () => {
+        if (confirmResolverRef.current) {
+            confirmResolverRef.current('cancel');
+            confirmResolverRef.current = null;
+        }
+    }, []);
 
     const shouldShowCollectionDynamic = (name) => {
         if (!name) return false;
         if (visibleCollections === null) return true; // Show all if not loaded
         return visibleCollections.has(String(name).trim().toLowerCase());
     };
+    const persistWorkingCopyNow = async (draft = latestProposalRef.current) => {
+        if (!draft) return null;
+        if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+        const res = await api.put(`/api/proposals/${proposalId}/working-copy`, draft);
+        return res.data?.proposal || null;
+    };
+
+    const askEditorConfirmation = (options = {}) => new Promise((resolve) => {
+        if (confirmResolverRef.current) {
+            confirmResolverRef.current('cancel');
+        }
+
+        confirmResolverRef.current = resolve;
+        setConfirmDialog({
+            title: 'Alterações por guardar',
+            message: '',
+            confirmLabel: 'Guardar',
+            discardLabel: 'Sair sem guardar',
+            cancelLabel: 'Cancelar',
+            showDiscard: false,
+            ...options
+        });
+    });
+
+    const resolveEditorConfirmation = (decision) => {
+        const resolver = confirmResolverRef.current;
+        confirmResolverRef.current = null;
+        setConfirmDialog(null);
+        if (resolver) resolver(decision);
+    };
+
+    const ensureSavedBeforeProtectedAction = async (actionLabel) => {
+        if (!hasUnsavedChanges) return true;
+        const decision = await askEditorConfirmation({
+            title: 'Alterações por guardar',
+            message: `Queres guardar antes de ${actionLabel}?`,
+            confirmLabel: 'Guardar',
+            cancelLabel: 'Cancelar',
+            showDiscard: false
+        });
+        if (decision !== 'confirm') return false;
+        await handleSave({ silent: true });
+        return true;
+    };
+
     const handleExport = async (format) => {
-        if (format !== 'excel') return;
         try {
             setSaving(true);
+            const canContinue = await ensureSavedBeforeProtectedAction(`exportar ${format.toUpperCase()}`);
+            if (!canContinue) return;
             const res = await api.get(`/api/proposals/${proposalId}/${format}`, { responseType: 'blob' });
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `proposta_${proposalId}.xlsx`);
+            link.setAttribute('download', `proposta_${proposalId}.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -101,20 +196,24 @@ const ProposalEditor = (props) => {
         try {
             setLoading(true);
             const [pRes, projRes, presetRes] = await Promise.all([
-                api.get(`/api/proposals/${proposalId}?t=${Date.now()}`),
+                api.get(`/api/proposals/${proposalId}/working-copy?t=${Date.now()}`),
                 api.get('/api/projects'),
                 api.get(`/api/proposals/presets/list`)
             ]);
-            const data = pRes.data;
+            const data = pRes.data?.proposal || pRes.data;
             // Default doc_date to today if not set — avoids empty date in editor & PDF
             if (!data.metadata) data.metadata = {};
             if (!data.metadata.doc_date) {
                 data.metadata.doc_date = new Date().toISOString().split('T')[0];
             }
-            setProposal({
+            const normalizedProposal = {
                 ...data,
                 lines: (data.lines || []).map(normalizeLineForUi)
-            });
+            };
+            suppressDirtyRef.current = true;
+            setProposal(normalizedProposal);
+            latestProposalRef.current = normalizedProposal;
+            setHasUnsavedChanges(!!pRes.data?.dirty);
             setProjects(projRes.data.projects || []);
             setPresets(presetRes.data || []);
         } catch (e) {
@@ -189,13 +288,31 @@ const ProposalEditor = (props) => {
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = async ({ silent = false } = {}) => {
         try {
             setSaving(true);
-            await api.put(`/api/proposals/${proposalId}`, proposal);
-            alert("Proposta guardada com sucesso!");
+            await persistWorkingCopyNow(proposal);
+            const res = await api.post(`/api/proposals/${proposalId}/working-copy/commit`);
+            const savedProposal = res?.data?.proposal || res?.data || null;
+            if (savedProposal) {
+                const normalizedProposal = {
+                    ...savedProposal,
+                    lines: (savedProposal.lines || []).map(normalizeLineForUi)
+                };
+                suppressDirtyRef.current = true;
+                setProposal(normalizedProposal);
+                latestProposalRef.current = normalizedProposal;
+                setHasUnsavedChanges(false);
+            }
+            if (!silent) {
+                alert("Proposta guardada com sucesso!");
+            }
+            return savedProposal;
         } catch (e) {
-            alert("Erro ao guardar: " + e.message);
+            if (!silent) {
+                alert("Erro ao guardar: " + e.message);
+            }
+            throw e;
         } finally {
             setSaving(false);
         }
@@ -206,19 +323,7 @@ const ProposalEditor = (props) => {
     };
 
     const updateStatus = async (newStatus) => {
-        try {
-            setSaving(true);
-            const res = await api.patch(`/api/proposals/${proposalId}`, { status: newStatus });
-            setProposal(res.data);
-            // If accepted, we might want to refresh project data or show a message
-            if (newStatus === 'accepted') {
-                alert("Proposta ACEITE! Outras propostas deste projeto foram encerradas automaticamente.");
-            }
-        } catch (e) {
-            alert("Erro ao atualizar estado: " + e.message);
-        } finally {
-            setSaving(false);
-        }
+        setProposal(prev => ({ ...prev, status: newStatus }));
     };
 
     const updateMetadata = (field, value) => {
@@ -570,6 +675,68 @@ const ProposalEditor = (props) => {
         }
     };
 
+    const handleSourceSyncApplied = (nextProposal) => {
+        if (!nextProposal) return;
+        const normalizedProposal = {
+            ...nextProposal,
+            lines: (nextProposal.lines || []).map(normalizeLineForUi)
+        };
+        suppressDirtyRef.current = true;
+        setProposal(normalizedProposal);
+        latestProposalRef.current = normalizedProposal;
+        setHasUnsavedChanges(true);
+    };
+
+    const openSourceSync = async () => {
+        try {
+            await persistWorkingCopyNow(proposal);
+            setShowSourceSync(true);
+        } catch (e) {
+            alert("Não foi possível preparar a atualização da proposta: " + (e.response?.data?.error || e.message));
+        }
+    };
+
+    const handleOpenLogistics = async () => {
+        try {
+            const canContinue = await ensureSavedBeforeProtectedAction('abrir a logística');
+            if (!canContinue) return;
+            setShowLogistics(true);
+        } catch (e) {
+            alert("NÃ£o foi possÃ­vel abrir a logística: " + (e.response?.data?.error || e.message));
+        }
+    };
+
+    const handleCloseEditor = async () => {
+        try {
+            if (hasUnsavedChanges) {
+                const decision = await askEditorConfirmation({
+                    title: 'Sair da proposta',
+                    message: 'Existem alterações por guardar nesta proposta. O que queres fazer?',
+                    confirmLabel: 'Guardar e sair',
+                    discardLabel: 'Sair sem guardar',
+                    cancelLabel: 'Cancelar',
+                    showDiscard: true
+                });
+
+                if (decision === 'confirm') {
+                    await handleSave({ silent: true });
+                    await api.delete(`/api/proposals/${proposalId}/working-copy`).catch(() => { });
+                    onClose?.();
+                    return;
+                }
+
+                if (decision !== 'discard') return;
+            }
+
+            if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+            await api.delete(`/api/proposals/${proposalId}/working-copy`).catch(() => { });
+            setHasUnsavedChanges(false);
+            onClose?.();
+        } catch (e) {
+            alert("Erro ao fechar editor: " + (e.response?.data?.error || e.message));
+        }
+    };
+
     const calculateTotals = () => {
         if (!proposal?.lines) return { net: 0, vat: 0, gross: 0, packagingTotal: 0 };
 
@@ -741,6 +908,15 @@ const ProposalEditor = (props) => {
                         </div>
 
                         {proposal && (
+                            <button
+                                onClick={() => handleExport('pdf')}
+                                disabled={saving}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all text-xs font-bold border border-white/10 disabled:opacity-50"
+                            >
+                                📄 PDF
+                            </button>
+                        )}
+                        {false && proposal && (
                             <PDFDownloadLink
                                 document={<ProposalPdf proposal={proposal} visibleCollections={visibleCollections} />}
                                 fileName={(() => {
@@ -773,6 +949,13 @@ const ProposalEditor = (props) => {
                             📊 Excel
                         </button>
                         <button
+                            onClick={openSourceSync}
+                            className="px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 rounded-lg transition-all text-xs font-bold border border-sky-500/20"
+                            title="Atualizar linhas a partir de uma proforma retificada"
+                        >
+                            Atualizar por Proforma
+                        </button>
+                        <button
                             onClick={handleSave}
                             disabled={saving}
                             className="px-6 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition-all text-xs font-black uppercase tracking-tight shadow-lg shadow-amber-500/20 disabled:opacity-50"
@@ -780,14 +963,14 @@ const ProposalEditor = (props) => {
                             {saving ? 'A Guardar...' : 'Guardar'}
                         </button>
                         <button
-                            onClick={() => setShowLogistics(true)}
+                            onClick={handleOpenLogistics}
                             className="bg-white/5 hover:bg-white/10 text-white w-10 h-10 flex items-center justify-center rounded-lg transition-all text-xs font-bold border border-white/10"
                             title="Gestão Logística"
                         >
                             🚚
                         </button>
                         <button
-                            onClick={onClose}
+                            onClick={handleCloseEditor}
                             className="w-10 h-10 flex items-center justify-center hover:bg-red-500/20 text-white rounded-full transition-all text-xl"
                         >
                             ✕
@@ -892,6 +1075,48 @@ const ProposalEditor = (props) => {
                             setShowCreateItemModal(false);
                         }}
                     />
+                )}
+
+                {showSourceSync && (
+                    <ProposalSourceSyncModal
+                        proposalId={proposalId}
+                        onPrepareSync={() => persistWorkingCopyNow(latestProposalRef.current)}
+                        onClose={() => setShowSourceSync(false)}
+                        onApplied={handleSourceSyncApplied}
+                    />
+                )}
+
+                {confirmDialog && (
+                    <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/75 backdrop-blur-sm">
+                        <GlassCard className="w-full max-w-md border-amber-500/20 bg-[var(--bg-base)] p-6 shadow-2xl shadow-black/40">
+                            <div className="mb-5">
+                                <h3 className="text-lg font-black text-white">{confirmDialog.title}</h3>
+                                <p className="mt-2 text-sm text-gray-300 leading-relaxed">{confirmDialog.message}</p>
+                            </div>
+                            <div className="flex flex-wrap justify-end gap-3">
+                                <button
+                                    onClick={() => resolveEditorConfirmation('cancel')}
+                                    className="px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-sm font-bold text-white hover:bg-white/10 transition-colors"
+                                >
+                                    {confirmDialog.cancelLabel}
+                                </button>
+                                {confirmDialog.showDiscard && (
+                                    <button
+                                        onClick={() => resolveEditorConfirmation('discard')}
+                                        className="px-4 py-2 rounded-lg border border-red-500/20 bg-red-500/10 text-sm font-bold text-red-300 hover:bg-red-500/20 transition-colors"
+                                    >
+                                        {confirmDialog.discardLabel}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => resolveEditorConfirmation('confirm')}
+                                    className="px-4 py-2 rounded-lg bg-amber-500 text-sm font-black text-black hover:bg-amber-400 transition-colors"
+                                >
+                                    {confirmDialog.confirmLabel}
+                                </button>
+                            </div>
+                        </GlassCard>
+                    </div>
                 )}
 
 
