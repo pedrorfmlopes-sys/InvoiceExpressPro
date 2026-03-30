@@ -249,6 +249,8 @@ module.exports = {
     toFiniteNumber,
     normalizeCommentStyle,
     normalizeDiscountExpression,
+    getDiscountMultiplier,
+    getEffectiveDiscountPercent,
     inferProposalLineType,
     isCommentLine,
     normalizeProposalLineInput,

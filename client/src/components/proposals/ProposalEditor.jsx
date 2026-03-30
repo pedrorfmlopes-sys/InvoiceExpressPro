@@ -11,6 +11,7 @@ import LogisticsManager from '../logistics/LogisticsManager';
 import CustomerModal from '../crm/CustomerModal';
 import ProposalPdf from './ProposalPdf';
 import ProposalSourceSyncModal from './ProposalSourceSyncModal';
+import { formatDiscountDisplay, getDiscountMultiplier } from '../../shared/utils/DiscountEngine';
 import {
     calculateLineAmounts,
     createCommentLine,
@@ -18,6 +19,7 @@ import {
     getCommentPreviewStyle,
     getCommentRowClass,
     isCommentLine,
+    normalizeDiscountExpression,
     normalizeCommentStyle,
     normalizeLineForUi
 } from '../../shared/proposalLineUtils';
@@ -797,7 +799,7 @@ const ProposalEditor = (props) => {
 
         // Global Values from Metadata
         const shipping = parseFloat(proposal.metadata?.shipping_cost || 0);
-        const globalDiscPercent = parseFloat(proposal.metadata?.global_discount || 0);
+        const globalDiscPercent = normalizeDiscountExpression(proposal.metadata?.global_discount || '0', '0');
 
         // Packaging Costs Calculation
         let packagingTotal = 0;
@@ -813,7 +815,7 @@ const ProposalEditor = (props) => {
         });
 
         // Calculate Discount Value (applied to Lines + Shipping, usually)
-        const discountValue = (linesTotal.net + shipping) * (globalDiscPercent / 100);
+        const discountValue = (linesTotal.net + shipping) * (1 - getDiscountMultiplier(globalDiscPercent));
 
         const taxBase = linesTotal.net + shipping + packagingTotal - discountValue;
         const totalVat = taxBase * 0.23; // Force 23% for preview
@@ -1691,11 +1693,15 @@ const ProposalEditor = (props) => {
                             <div>
                                 <div className="text-[10px] text-gray-500 uppercase">Desconto Extra (%)</div>
                                 <input
-                                    type="number"
-                                    className="bg-transparent text-right text-sm text-red-400 font-mono outline-none border-b border-white/10 w-24 focus:border-red-500"
-                                    value={proposal.metadata?.global_discount || 0}
-                                    onChange={e => updateMetadata('global_discount', e.target.value)}
+                                    type="text"
+                                    className="bg-transparent text-right text-sm text-red-400 font-mono outline-none border-b border-white/10 w-32 focus:border-red-500"
+                                    value={proposal.metadata?.global_discount || ''}
+                                    onChange={e => updateMetadata('global_discount', normalizeDiscountExpression(e.target.value, '0'))}
+                                    placeholder="0 ou 45+5+5+5"
                                 />
+                                {!!proposal.metadata?.global_discount && proposal.metadata?.global_discount !== '0' && (
+                                    <div className="text-[10px] text-red-300/70 mt-1">{formatDiscountDisplay(proposal.metadata.global_discount)}</div>
+                                )}
                             </div>
                             <div>
                                 <div className="text-[10px] text-gray-500 uppercase">IVA (23%)</div>

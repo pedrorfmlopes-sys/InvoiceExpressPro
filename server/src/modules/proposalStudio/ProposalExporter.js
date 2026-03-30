@@ -5,6 +5,7 @@ const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const xlsx = require('xlsx');
 const {
     calculateProposalLineAmounts,
+    getDiscountMultiplier,
     isCommentLine,
     normalizeCommentStyle,
     normalizeStoredProposalLine
@@ -428,13 +429,20 @@ class ProposalPdfEngine {
             drawTotalLine('Portes', fmtEUR(shipping));
         }
 
-        const iva = (totalSiva + packagingTotal + shipping) * 0.23;
+        const globalDiscountExpression = String(this.proposal.metadata?.global_discount || '0');
+        const globalDiscountValue = (totalSiva + packagingTotal + shipping) * (1 - getDiscountMultiplier(globalDiscountExpression));
+        if (globalDiscountValue > 0) {
+            drawTotalLine('Desconto Extra', `- ${fmtEUR(globalDiscountValue)}`);
+        }
+
+        const taxBase = totalSiva + packagingTotal + shipping - globalDiscountValue;
+        const iva = taxBase * 0.23;
         drawTotalLine('IVA (23%)', fmtEUR(iva));
 
         this.y -= 5;
         this.currentPage.drawLine({ start: { x: totalsX, y: this.y }, end: { x: this.width - this.margin, y: this.y }, thickness: 0.5 });
         this.y -= 5;
-        drawTotalLine('Total (c/IVA)', fmtEUR(totalSiva + packagingTotal + shipping + iva), true);
+        drawTotalLine('Total (c/IVA)', fmtEUR(taxBase + iva), true);
 
         // Technical Annex
         if (this.proposal.metadata?.show_technical_details) {

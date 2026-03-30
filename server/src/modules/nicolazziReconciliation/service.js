@@ -1,5 +1,6 @@
 const knex = require('../../db/knex');
 const crypto = require('crypto');
+const { getDiscountMultiplier } = require('../proposalStudio/lineUtils');
 const {
     buildEffectiveFulfillmentByProposalLineQuery,
     buildValidFulfillmentsQuery,
@@ -281,8 +282,7 @@ async function getProposalFulfillmentDetails(proposalId) {
         let proposalMeta = {};
         try { proposalMeta = JSON.parse(proposal.metadata || '{}'); } catch (_) { }
         // Global discount applied on top of line-level commercial discount (e.g. an extra 5% off total)
-        const globalDiscountPercent = parseFloat(proposalMeta.global_discount || 0);
-        const globalDiscountMultiplier = 1 - (globalDiscountPercent / 100);
+        const globalDiscountMultiplier = getDiscountMultiplier(proposalMeta.global_discount || 0);
 
 
         // 3. Get All Fulfillments for this Proposal

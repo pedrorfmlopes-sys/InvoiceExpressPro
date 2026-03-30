@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
-import { formatDiscountDisplay } from '../../shared/utils/DiscountEngine';
+import { formatDiscountDisplay, getDiscountMultiplier } from '../../shared/utils/DiscountEngine';
 import {
     calculateLineAmounts,
     isCommentLine,
@@ -265,7 +265,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
     }, 0);
 
     const shipping = parseFloat(proposal.metadata?.shipping_cost || 0);
-    const globalDiscPercent = parseFloat(proposal.metadata?.global_discount || 0);
+    const globalDiscPercent = String(proposal.metadata?.global_discount || '0');
 
     // Packaging Costs Calculation
     let packagingTotal = 0;
@@ -289,7 +289,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
         })
         .join('; ');
 
-    const discountValue = (totalSiva + shipping) * (globalDiscPercent / 100);
+    const discountValue = (totalSiva + shipping) * (1 - getDiscountMultiplier(globalDiscPercent));
     const taxBase = totalSiva + shipping + packagingTotal - discountValue;
     const iva = taxBase * 0.23;
     const totalCiva = taxBase + iva;
@@ -524,7 +524,7 @@ const ProposalPdf = ({ proposal, visibleCollections }) => {
 
                             {discountValue > 0 && (
                                 <View style={styles.totalRow}>
-                                    <Text style={[styles.totalLabel, { color: '#EF4444' }]}>Desconto Extra ({globalDiscPercent}%):</Text>
+                                    <Text style={[styles.totalLabel, { color: '#EF4444' }]}>Desconto Extra ({formatDiscountDisplay(globalDiscPercent)}):</Text>
                                     <Text style={[styles.totalValue, { color: '#EF4444' }]}>- {fmtMoney(discountValue)}</Text>
                                 </View>
                             )}
