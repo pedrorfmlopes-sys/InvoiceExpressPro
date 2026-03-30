@@ -8,10 +8,189 @@ const { buildValidFulfillmentsQuery } = require('../reconciliation/fulfillmentIn
 const path = require('path');
 const {
     safeParseJson,
+    toFiniteNumber,
     normalizeProposalLineInput,
     normalizeStoredProposalLine,
     calculateProposalMetrics
 } = require('./lineUtils');
+
+function normalizeSyncText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, ' ')
+        .trim();
+}
+
+function normalizeSyncSku(value) {
+    return normalizeSyncText(value).replace(/\s+/g, '');
+}
+
+function normalizeProposalSupplierKey(value) {
+    return normalizeSyncText(value);
+}
+
+function getProposalLineMatchDescription(line) {
+    const extra = safeParseJson(line?.extra_attributes, {}) || {};
+    return String(extra.original_description || line?.description || '').replace(/\r\n/g, '\n').trim();
+}
+
+function mapSyncableDocumentLine(rawLine, index) {
+    const sku = String(rawLine?.sku ?? rawLine?.code ?? '').trim();
+    const description = String(rawLine?.description || '').replace(/\r\n/g, '\n').trim();
+    const quantity = toFiniteNumber(rawLine?.quantity ?? rawLine?.qty, 0);
+    const unitPrice = toFiniteNumber(
+        rawLine?.unit_price_commercial
+        ?? rawLine?.unit_price_factory
+        ?? rawLine?.unitPrice
+        ?? rawLine?.price
+        ?? rawLine?.basePrice,
+        0
+    );
+    const total = toFiniteNumber(rawLine?.total ?? rawLine?.subtotal ?? rawLine?.lineTotal, quantity * unitPrice);
+
+    if (!sku && !description) return null;
+    if (!sku && quantity === 0 && unitPrice === 0) return null;
+
+    return {
+        id: `src-${index}`,
+        sourceIndex: index,
+        sku,
+        description,
+        quantity,
+        unitPrice,
+        total,
+        normalizedSku: normalizeSyncSku(sku),
+        normalizedDescription: normalizeSyncText(description)
+    };
+}
+
+function scoreSyncMatch(proposalLine, sourceLine) {
+    if (!proposalLine || !sourceLine) return 0;
+
+    let score = 0;
+    const proposalSku = normalizeSyncSku(proposalLine.sku);
+    const proposalDescription = normalizeSyncText(getProposalLineMatchDescription(proposalLine));
+
+    if (proposalSku && sourceLine.normalizedSku) {
+        if (proposalSku === sourceLine.normalizedSku) score += 120;
+        else if (proposalSku.includes(sourceLine.normalizedSku) || sourceLine.normalizedSku.includes(proposalSku)) score += 80;
+    }
+
+    if (proposalDescription && sourceLine.normalizedDescription) {
+        if (proposalDescription === sourceLine.normalizedDescription) score += 70;
+        else if (
+            proposalDescription.includes(sourceLine.normalizedDescription)
+            || sourceLine.normalizedDescription.includes(proposalDescription)
+        ) {
+            score += 45;
+        } else {
+            const proposalTokens = new Set(proposalDescription.split(' ').filter(Boolean));
+            const sourceTokens = sourceLine.normalizedDescription.split(' ').filter(Boolean);
+            const commonTokenCount = sourceTokens.filter(token => proposalTokens.has(token)).length;
+            score += Math.min(commonTokenCount * 6, 36);
+        }
+    }
+
+    if (proposalLine.quantity > 0 && sourceLine.quantity > 0) {
+        if (Math.abs(proposalLine.quantity - sourceLine.quantity) < 0.0001) score += 12;
+    }
+
+    if (proposalLine.unit_price_commercial > 0 && sourceLine.unitPrice > 0) {
+        if (Math.abs(proposalLine.unit_price_commercial - sourceLine.unitPrice) < 0.01) score += 10;
+    }
+
+    return score;
+}
+
+function getSyncFieldDiffs(proposalLine, sourceLine) {
+    if (!proposalLine || !sourceLine) {
+        return { sku: false, description: false, quantity: false, price: false };
+    }
+
+    return {
+        sku: normalizeSyncSku(proposalLine.sku) !== normalizeSyncSku(sourceLine.sku),
+        description: normalizeSyncText(getProposalLineMatchDescription(proposalLine)) !== normalizeSyncText(sourceLine.description),
+        quantity: Math.abs(toFiniteNumber(proposalLine.quantity, 0) - toFiniteNumber(sourceLine.quantity, 0)) > 0.0001,
+        price: Math.abs(
+            toFiniteNumber(proposalLine.unit_price_commercial, 0) - toFiniteNumber(sourceLine.unitPrice, 0)
+        ) > 0.01
+    };
+}
+
+function buildSourceLineIndexes(sourceLines) {
+    const bySku = new Map();
+    const byDescription = new Map();
+    const byToken = new Map();
+
+    sourceLines.forEach((line, idx) => {
+        if (line.normalizedSku) {
+            if (!bySku.has(line.normalizedSku)) bySku.set(line.normalizedSku, []);
+            bySku.get(line.normalizedSku).push(idx);
+        }
+
+        if (line.normalizedDescription) {
+            if (!byDescription.has(line.normalizedDescription)) byDescription.set(line.normalizedDescription, []);
+            byDescription.get(line.normalizedDescription).push(idx);
+        }
+
+        const tokens = [...new Set(line.normalizedDescription.split(' ').filter(token => token.length >= 3))];
+        tokens.forEach(token => {
+            if (!byToken.has(token)) byToken.set(token, []);
+            byToken.get(token).push(idx);
+        });
+    });
+
+    return { bySku, byDescription, byToken };
+}
+
+function gatherSourceSyncCandidates(proposalLine, sourceLines, indexes) {
+    const candidateIndexes = new Set();
+    const proposalSku = normalizeSyncSku(proposalLine.sku);
+    const proposalDescription = normalizeSyncText(getProposalLineMatchDescription(proposalLine));
+
+    if (proposalSku && indexes.bySku.has(proposalSku)) {
+        indexes.bySku.get(proposalSku).forEach(index => candidateIndexes.add(index));
+    }
+
+    if (proposalDescription && indexes.byDescription.has(proposalDescription)) {
+        indexes.byDescription.get(proposalDescription).forEach(index => candidateIndexes.add(index));
+    }
+
+    const tokens = [...new Set(proposalDescription.split(' ').filter(token => token.length >= 3))];
+    tokens.forEach(token => {
+        (indexes.byToken.get(token) || []).slice(0, 10).forEach(index => candidateIndexes.add(index));
+    });
+
+    if (candidateIndexes.size === 0) {
+        return sourceLines.slice(0, Math.min(sourceLines.length, 40));
+    }
+
+    return [...candidateIndexes].slice(0, 60).map(index => sourceLines[index]);
+}
+
+function isPgClient() {
+    return knex.client.config.client === 'pg' || knex.client.config.client === 'postgres';
+}
+
+function toDbJson(value) {
+    const serialized = JSON.stringify(value ?? null);
+    return isPgClient() ? knex.raw('?::jsonb', [serialized]) : serialized;
+}
+
+function normalizeProposalPayload(payload) {
+    if (!payload) return null;
+
+    return {
+        ...payload,
+        branding_config: safeParseJson(payload.branding_config, {}) || {},
+        metadata: safeParseJson(payload.metadata, {}) || {},
+        lead_time_rules: safeParseJson(payload.lead_time_rules, []) || [],
+        associatedDocuments: Array.isArray(payload.associatedDocuments) ? payload.associatedDocuments : [],
+        lines: Array.isArray(payload.lines) ? payload.lines.map(normalizeStoredProposalLine) : []
+    };
+}
 
 
 class ProposalStudioService {
@@ -351,37 +530,25 @@ class ProposalStudioService {
         return proposals;
     }
 
-    async generateConsolidatedExcel(project, filters = {}) {
-        const data = await this.getConsolidatedProposalsData(project, filters);
-        return await ProposalExporter.generateConsolidatedItemsExcel(data);
-    }
-
-    async getProposal(id) {
-        const proposal = await knex('custom_proposals').where({ id }).first();
-        if (!proposal) return null;
-
-        const lines = await knex('proposal_lines').where({ proposal_id: id }).orderBy('sort_order', 'asc');
-
-        // --- PHASE 21: Fetch associated documents ---
-        // 1. Original doc
+    async buildAssociatedDocuments(proposal) {
         let associatedDocuments = [];
+
         if (proposal.original_doc_id) {
-            const orgDoc = await knex('documents').where({ id: proposal.original_doc_id }).first();
-            if (orgDoc) {
+            const originalDoc = await knex('documents').where({ id: proposal.original_doc_id }).first();
+            if (originalDoc) {
                 associatedDocuments.push({
-                    id: orgDoc.id,
-                    docNumber: orgDoc.docNumber,
-                    docType: orgDoc.docType,
-                    supplier: orgDoc.supplier,
+                    id: originalDoc.id,
+                    docNumber: originalDoc.docNumber,
+                    docType: originalDoc.docType,
+                    supplier: originalDoc.supplier,
                     isOriginal: true
                 });
             }
         }
 
-        // 2. Fulfillments
         const fulfillmentDocs = await buildValidFulfillmentsQuery()
             .join('documents', 'pf.document_id', 'documents.id')
-            .where('pf.proposal_id', id)
+            .where('pf.proposal_id', proposal.id)
             .select(
                 'documents.id',
                 'documents.docNumber',
@@ -390,28 +557,213 @@ class ProposalStudioService {
             )
             .distinct();
 
-        fulfillmentDocs.forEach(d => {
-            if (!associatedDocuments.some(existing => existing.id === d.id)) {
-                associatedDocuments.push(d);
+        fulfillmentDocs.forEach(doc => {
+            if (!associatedDocuments.some(existing => existing.id === doc.id)) {
+                associatedDocuments.push(doc);
             }
         });
 
-        return {
+        return associatedDocuments;
+    }
+
+    async buildProposalPayloadFromDatabase(id, { includeAssociatedDocuments = true } = {}) {
+        const proposal = await knex('custom_proposals').where({ id }).first();
+        if (!proposal) return null;
+
+        const lines = await knex('proposal_lines').where({ proposal_id: id }).orderBy('sort_order', 'asc');
+        const payload = {
             ...proposal,
-            branding_config: safeParseJson(proposal.branding_config),
-            metadata: safeParseJson(proposal.metadata),
-            lines: lines.map(normalizeStoredProposalLine),
-            associatedDocuments
+            branding_config: safeParseJson(proposal.branding_config, {}),
+            metadata: safeParseJson(proposal.metadata, {}),
+            lead_time_rules: safeParseJson(proposal.lead_time_rules, []),
+            lines: lines.map(normalizeStoredProposalLine)
         };
+
+        if (includeAssociatedDocuments) {
+            payload.associatedDocuments = await this.buildAssociatedDocuments(proposal);
+        }
+
+        return payload;
+    }
+
+    async getWorkingCopyRecord(proposalId) {
+        return knex('proposal_working_copies').where({ proposal_id: proposalId }).first();
+    }
+
+    async persistWorkingCopyRecord(proposalId, payload, options = {}) {
+        const officialProposal = await knex('custom_proposals').where({ id: proposalId }).first();
+        if (!officialProposal) throw new Error('Proposta não encontrada');
+
+        const normalizedPayload = normalizeProposalPayload({
+            ...payload,
+            id: proposalId
+        });
+
+        const existing = await this.getWorkingCopyRecord(proposalId);
+        const now = new Date();
+        const data = {
+            project_ref: officialProposal.project_ref || null,
+            is_dirty: options.dirty !== undefined ? !!options.dirty : true,
+            source_updated_at: options.sourceUpdatedAt !== undefined
+                ? (options.sourceUpdatedAt ? new Date(options.sourceUpdatedAt) : null)
+                : (officialProposal.updated_at ? new Date(officialProposal.updated_at) : null),
+            payload: toDbJson(normalizedPayload),
+            updated_at: now
+        };
+
+        if (existing) {
+            await knex('proposal_working_copies')
+                .where({ proposal_id: proposalId })
+                .update(data);
+        } else {
+            await knex('proposal_working_copies').insert({
+                id: uuidv4(),
+                proposal_id: proposalId,
+                ...data,
+                created_at: now
+            });
+        }
+
+        return normalizedPayload;
+    }
+
+    async getWorkingCopy(proposalId) {
+        const officialPayload = await this.buildProposalPayloadFromDatabase(proposalId);
+        if (!officialPayload) return null;
+
+        const existing = await this.getWorkingCopyRecord(proposalId);
+        const officialUpdatedAt = officialPayload.updated_at ? new Date(officialPayload.updated_at).getTime() : 0;
+        const workingUpdatedAt = existing?.source_updated_at ? new Date(existing.source_updated_at).getTime() : 0;
+
+        if (!existing || (!existing.is_dirty && workingUpdatedAt < officialUpdatedAt)) {
+            const proposal = await this.persistWorkingCopyRecord(proposalId, officialPayload, {
+                dirty: false,
+                sourceUpdatedAt: officialPayload.updated_at
+            });
+            return {
+                proposal,
+                dirty: false
+            };
+        }
+
+        return {
+            proposal: normalizeProposalPayload(safeParseJson(existing.payload, officialPayload) || officialPayload),
+            dirty: !!existing.is_dirty
+        };
+    }
+
+    async saveWorkingCopy(proposalId, payload) {
+        const proposal = await this.persistWorkingCopyRecord(proposalId, payload, { dirty: true });
+        return {
+            proposal,
+            dirty: true
+        };
+    }
+
+    async discardWorkingCopy(proposalId) {
+        await knex('proposal_working_copies').where({ proposal_id: proposalId }).delete();
+        return { ok: true };
+    }
+
+    async storeProposalSnapshot(proposalId, snapshotPayload) {
+        const maxRow = await knex('proposal_snapshots')
+            .where({ proposal_id: proposalId })
+            .max('version_number as maxVersion')
+            .first();
+
+        const nextVersion = toFiniteNumber(maxRow?.maxVersion, 0) + 1;
+        const now = new Date();
+
+        await knex('proposal_snapshots').insert({
+            id: uuidv4(),
+            proposal_id: proposalId,
+            version_number: nextVersion,
+            snapshot: toDbJson(normalizeProposalPayload(snapshotPayload)),
+            created_at: now,
+            updated_at: now
+        });
+    }
+
+    async pruneProposalSnapshots(proposalId, keep = 6) {
+        const snapshots = await knex('proposal_snapshots')
+            .where({ proposal_id: proposalId })
+            .orderBy('created_at', 'desc')
+            .orderBy('version_number', 'desc');
+
+        const idsToDelete = snapshots.slice(keep).map(snapshot => snapshot.id);
+        if (idsToDelete.length > 0) {
+            await knex('proposal_snapshots').whereIn('id', idsToDelete).delete();
+        }
+    }
+
+    async getProposalVersions(proposalId) {
+        return knex('proposal_snapshots')
+            .where({ proposal_id: proposalId })
+            .select('id', 'version_number', 'created_at', 'updated_at')
+            .orderBy('created_at', 'desc')
+            .orderBy('version_number', 'desc');
+    }
+
+    async commitWorkingCopy(proposalId) {
+        const workingCopy = await this.getWorkingCopyRecord(proposalId);
+        const officialProposal = await this.buildProposalPayloadFromDatabase(proposalId);
+        if (!officialProposal) throw new Error('Proposta não encontrada');
+
+        if (!workingCopy || !workingCopy.is_dirty) {
+            await knex('proposal_working_copies').where({ proposal_id: proposalId }).delete();
+            return {
+                proposal: officialProposal,
+                dirty: false
+            };
+        }
+
+        const proposalPayload = normalizeProposalPayload(safeParseJson(workingCopy.payload, officialProposal) || officialProposal);
+
+        await this.storeProposalSnapshot(proposalId, officialProposal);
+        const savedProposal = await this.updateProposal(proposalId, proposalPayload);
+        await knex('proposal_working_copies').where({ proposal_id: proposalId }).delete();
+        await this.pruneProposalSnapshots(proposalId, 6);
+
+        return {
+            proposal: savedProposal,
+            dirty: false
+        };
+    }
+
+    async restoreProposalVersion(proposalId, snapshotId) {
+        const snapshot = await knex('proposal_snapshots')
+            .where({ proposal_id: proposalId, id: snapshotId })
+            .first();
+        if (!snapshot) throw new Error('Versão não encontrada');
+
+        const currentProposal = await this.buildProposalPayloadFromDatabase(proposalId);
+        if (!currentProposal) throw new Error('Proposta não encontrada');
+
+        await this.storeProposalSnapshot(proposalId, currentProposal);
+        const restoredPayload = normalizeProposalPayload(safeParseJson(snapshot.snapshot, null));
+        const savedProposal = await this.updateProposal(proposalId, restoredPayload);
+        await knex('proposal_working_copies').where({ proposal_id: proposalId }).delete();
+        await this.pruneProposalSnapshots(proposalId, 6);
+
+        return savedProposal;
+    }
+
+    async getProposalEditorData(id) {
+        return this.buildProposalPayloadFromDatabase(id, { includeAssociatedDocuments: false });
+    }
+
+    async generateConsolidatedExcel(project, filters = {}) {
+        const data = await this.getConsolidatedProposalsData(project, filters);
+        return await ProposalExporter.generateConsolidatedItemsExcel(data);
+    }
+
+    async getProposal(id) {
+        return this.buildProposalPayloadFromDatabase(id);
     }
 
     async updateProposal(id, data) {
         const { lines, associatedDocuments, ...header } = data;
         const currentProposal = await knex('custom_proposals').where({ id }).first();
-
-        if (header.status === 'accepted') {
-            await this.handleAcceptedStatus(id);
-        }
 
         if (Object.keys(header).length > 0) {
             // Postgres Fix: Explicitly cast JSONB columns using knex.raw to avoid syntax errors
@@ -513,6 +865,10 @@ class ProposalStudioService {
             }
         }
 
+        if (header.status === 'accepted') {
+            await this.handleAcceptedStatus(id);
+        }
+
         return this.getProposal(id);
     }
 
@@ -522,10 +878,6 @@ class ProposalStudioService {
     }
 
     async patchProposal(id, data) {
-        if (data.status === 'accepted') {
-            await this.handleAcceptedStatus(id);
-        }
-
         const isPg = knex.client.config.client === 'pg' || knex.client.config.client === 'postgres';
         const { associatedDocuments, lines, ...safeData } = data;
 
@@ -552,15 +904,338 @@ class ProposalStudioService {
             updated_at: new Date()
         });
 
+        if (data.status === 'accepted') {
+            await this.handleAcceptedStatus(id);
+        }
+
         return this.getProposal(id);
     }
 
+    async getSourceSyncCandidates(proposalId) {
+        const workingState = await this.getWorkingCopy(proposalId);
+        const proposal = workingState?.proposal;
+        if (!proposal) throw new Error('Proposta não encontrada');
+
+        const metadata = safeParseJson(proposal.metadata, {}) || {};
+        const originalDoc = proposal.original_doc_id
+            ? await knex('documents').where({ id: proposal.original_doc_id }).first()
+            : null;
+
+        const candidateNumbers = [...new Set([
+            originalDoc?.docNumber,
+            metadata?.doc_number,
+            proposal.proposal_number
+        ].filter(Boolean).map(value => String(value).trim()))];
+
+        let query = knex('documents')
+            .select('id', 'docNumber', 'docType', 'supplier', 'date', 'status', 'created_at', 'updated_at')
+            .orderBy('updated_at', 'desc')
+            .orderBy('created_at', 'desc');
+
+        if (proposal.project_ref) {
+            query = query.where('project', proposal.project_ref);
+        }
+
+        if (originalDoc?.supplier) {
+            query = query.andWhere('supplier', originalDoc.supplier);
+        }
+
+        if (candidateNumbers.length > 0) {
+            query = query.andWhere(function () {
+                candidateNumbers.forEach((docNumber, index) => {
+                    if (index === 0) this.where('docNumber', docNumber);
+                    else this.orWhere('docNumber', docNumber);
+                });
+            });
+        } else if (proposal.original_doc_id) {
+            query = query.where('id', proposal.original_doc_id);
+        } else {
+            return [];
+        }
+
+        const docs = await query;
+        const seen = new Set();
+        return docs
+            .filter(doc => {
+                if (seen.has(doc.id)) return false;
+                seen.add(doc.id);
+                return true;
+            })
+            .map(doc => ({
+                id: doc.id,
+                docNumber: doc.docNumber,
+                docType: doc.docType,
+                supplier: doc.supplier,
+                date: doc.date,
+                status: doc.status,
+                isOriginal: doc.id === proposal.original_doc_id
+            }));
+    }
+
+    async getSourceSyncPreview(proposalId, sourceDocId = null) {
+        const workingState = await this.getWorkingCopy(proposalId);
+        const proposal = workingState?.proposal;
+        if (!proposal) throw new Error('Proposta não encontrada');
+
+        const candidates = await this.getSourceSyncCandidates(proposalId);
+        if (candidates.length === 0) {
+            return {
+                proposalId,
+                sourceDocId: null,
+                sourceDocument: null,
+                candidates: [],
+                matches: [],
+                sourceLines: []
+            };
+        }
+
+        const selectedCandidate = (
+            candidates.find(doc => doc.id === sourceDocId)
+            || candidates.find(doc => !doc.isOriginal)
+            || candidates[0]
+        );
+
+        const sourceDoc = await knex('documents').where({ id: selectedCandidate.id }).first();
+        if (!sourceDoc) throw new Error('Documento-fonte não encontrado');
+
+        let sourceData = null;
+        const satelliteTables = ['nicolazzi_proformas', 'nicolazzi_invoices'];
+        for (const table of satelliteTables) {
+            sourceData = await SatelliteStorage.getData(table, sourceDoc.id);
+            if (sourceData) break;
+        }
+        sourceData = sourceData || safeParseJson(sourceDoc.rawJson, {}) || {};
+
+        const sourceLines = (sourceData.lines || [])
+            .map((line, index) => mapSyncableDocumentLine(line, index))
+            .filter(Boolean);
+
+        const proposalLines = (proposal.lines || [])
+            .map(normalizeStoredProposalLine)
+            .filter(line => line.line_type !== 'comment');
+
+        const sourceIndexes = buildSourceLineIndexes(sourceLines);
+
+        const matches = proposalLines.map((proposalLine, proposalIndex) => {
+            const candidateSourceLines = gatherSourceSyncCandidates(proposalLine, sourceLines, sourceIndexes);
+            const scoredSuggestions = candidateSourceLines
+                .map(sourceLine => ({
+                    sourceIndex: sourceLine.sourceIndex,
+                    score: scoreSyncMatch(proposalLine, sourceLine),
+                    sourceLine
+                }))
+                .filter(entry => entry.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 8);
+
+            const suggested = scoredSuggestions[0]?.sourceLine || null;
+            const fieldDiffs = getSyncFieldDiffs(proposalLine, suggested);
+
+            return {
+                proposalLineId: proposalLine.id,
+                proposalIndex,
+                proposalLine: {
+                    id: proposalLine.id,
+                    sku: proposalLine.sku,
+                    description: proposalLine.description,
+                    originalDescription: getProposalLineMatchDescription(proposalLine),
+                    quantity: proposalLine.quantity,
+                    unitPrice: proposalLine.unit_price_commercial
+                },
+                suggestedSourceIndex: suggested ? suggested.sourceIndex : null,
+                suggestedScore: scoredSuggestions[0]?.score || 0,
+                fieldDiffs,
+                hasChanges: Object.values(fieldDiffs).some(Boolean),
+                suggestions: scoredSuggestions.map(entry => ({
+                    sourceIndex: entry.sourceIndex,
+                    score: entry.score,
+                    sku: entry.sourceLine.sku,
+                    description: entry.sourceLine.description,
+                    quantity: entry.sourceLine.quantity,
+                    unitPrice: entry.sourceLine.unitPrice
+                }))
+            };
+        });
+
+        return {
+            proposalId,
+            sourceDocId: sourceDoc.id,
+            sourceDocument: {
+                id: sourceDoc.id,
+                docNumber: sourceDoc.docNumber,
+                docType: sourceDoc.docType,
+                supplier: sourceDoc.supplier,
+                date: sourceDoc.date,
+                status: sourceDoc.status
+            },
+            candidates,
+            sourceLines: sourceLines.map(line => ({
+                sourceIndex: line.sourceIndex,
+                sku: line.sku,
+                description: line.description,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+                total: line.total
+            })),
+            matches
+        };
+    }
+
+    async applySourceSync(proposalId, payload = {}) {
+        const { sourceDocId, updates = [] } = payload || {};
+        if (!sourceDocId) throw new Error('sourceDocId é obrigatório');
+
+        const workingState = await this.getWorkingCopy(proposalId);
+        const proposal = workingState?.proposal;
+        if (!proposal) throw new Error('Proposta não encontrada');
+
+        const sourceDoc = await knex('documents').where({ id: sourceDocId }).first();
+        if (!sourceDoc) throw new Error('Documento-fonte não encontrado');
+
+        let sourceData = null;
+        const satelliteTables = ['nicolazzi_proformas', 'nicolazzi_invoices'];
+        for (const table of satelliteTables) {
+            sourceData = await SatelliteStorage.getData(table, sourceDoc.id);
+            if (sourceData) break;
+        }
+        sourceData = sourceData || safeParseJson(sourceDoc.rawJson, {}) || {};
+
+        const sourceLines = (sourceData.lines || [])
+            .map((line, index) => mapSyncableDocumentLine(line, index))
+            .filter(Boolean);
+        const sourceByIndex = Object.fromEntries(sourceLines.map(line => [String(line.sourceIndex), line]));
+
+        const currentLines = (proposal.lines || []).map(normalizeStoredProposalLine);
+        const currentById = Object.fromEntries(currentLines.map(line => [line.id, line]));
+
+        const validUpdates = updates.filter(update =>
+            update?.proposalLineId
+            && update?.sourceIndex !== undefined
+            && sourceByIndex[String(update.sourceIndex)]
+            && currentById[update.proposalLineId]
+            && currentById[update.proposalLineId].line_type !== 'comment'
+        );
+
+        const proposalBrand = proposal.brand_id || 'other';
+        const appliedLineIds = [];
+
+        const nextLines = currentLines.map(line => ({ ...line }));
+
+        for (const update of validUpdates) {
+            const currentLine = currentById[update.proposalLineId];
+            const sourceLine = sourceByIndex[String(update.sourceIndex)];
+            const fields = {
+                sku: !!update.fields?.sku,
+                description: !!update.fields?.description,
+                quantity: !!update.fields?.quantity,
+                price: !!update.fields?.price
+            };
+
+            const nextExtra = {
+                ...(currentLine.extra_attributes || {}),
+                source_sync: {
+                    source_doc_id: sourceDoc.id,
+                    source_doc_number: sourceDoc.docNumber,
+                    source_index: sourceLine.sourceIndex,
+                    synced_at: new Date().toISOString(),
+                    fields
+                }
+            };
+
+            if (fields.description && sourceLine.description) {
+                nextExtra.original_description = sourceLine.description;
+            }
+
+            const nextLine = {
+                ...currentLine,
+                sku: fields.sku && sourceLine.sku ? sourceLine.sku : currentLine.sku,
+                description: fields.description && sourceLine.description ? sourceLine.description : currentLine.description,
+                quantity: fields.quantity ? sourceLine.quantity : currentLine.quantity,
+                unit_price_factory: fields.price ? sourceLine.unitPrice : currentLine.unit_price_factory,
+                unit_price_commercial: fields.price ? sourceLine.unitPrice : currentLine.unit_price_commercial,
+                extra_attributes: nextExtra
+            };
+
+            const lineData = normalizeProposalLineInput(nextLine, {
+                proposalId,
+                sortOrder: currentLine.sort_order,
+                defaultItemQuantity: 0,
+                defaultVatRate: currentLine.vat_rate || '23'
+            });
+
+            if (fields.sku && sourceLine.sku && normalizeSyncSku(sourceLine.sku) !== normalizeSyncSku(currentLine.sku)) {
+                await this.enrichLineWithCatalog(proposalBrand, lineData);
+            }
+
+            const targetIndex = nextLines.findIndex(line => line.id === currentLine.id);
+            if (targetIndex >= 0) {
+                nextLines[targetIndex] = normalizeStoredProposalLine({
+                    ...nextLines[targetIndex],
+                    ...lineData,
+                    id: currentLine.id
+                });
+            }
+
+            appliedLineIds.push(currentLine.id);
+        }
+
+        const currentMetadata = safeParseJson(proposal.metadata, {}) || {};
+        currentMetadata.last_source_sync = {
+            source_doc_id: sourceDoc.id,
+            source_doc_number: sourceDoc.docNumber,
+            synced_at: new Date().toISOString(),
+            updated_lines: appliedLineIds.length
+        };
+
+        const workingCopy = await this.saveWorkingCopy(proposalId, {
+            ...proposal,
+            metadata: currentMetadata,
+            lines: nextLines
+        });
+
+        return {
+            ok: true,
+            appliedCount: appliedLineIds.length,
+            proposal: workingCopy.proposal
+        };
+    }
+
     async handleAcceptedStatus(proposalId) {
-        const proposal = await knex('custom_proposals').where({ id: proposalId }).first();
+        const proposal = await knex('custom_proposals as cp')
+            .leftJoin('documents as d', 'cp.original_doc_id', 'd.id')
+            .select('cp.id', 'cp.project_ref', 'cp.brand_id', 'cp.proposal_number', 'd.supplier as source_supplier')
+            .where('cp.id', proposalId)
+            .first();
         if (!proposal) return;
 
-        const metadata = typeof proposal.metadata === 'string' ? JSON.parse(proposal.metadata) : (proposal.metadata || {});
-        const projectRef = proposal.project_ref; // General Project/Workspace (e.g. 'Proj_2026')
+        const acceptedProposalNumber = String(proposal.proposal_number || '').trim();
+        const acceptedSupplierKey = normalizeProposalSupplierKey(proposal.source_supplier || proposal.brand_id);
+        if (!proposal.project_ref || !acceptedProposalNumber || !acceptedSupplierKey) return;
+
+        const siblings = await knex('custom_proposals as cp')
+            .leftJoin('documents as d', 'cp.original_doc_id', 'd.id')
+            .select('cp.id', 'cp.brand_id', 'd.supplier as source_supplier')
+            .where('cp.project_ref', proposal.project_ref)
+            .where('cp.proposal_number', acceptedProposalNumber)
+            .whereIn('cp.status', ['draft', 'sent'])
+            .whereNot('cp.id', proposalId);
+
+        const siblingIds = siblings
+            .filter(sibling => normalizeProposalSupplierKey(sibling.source_supplier || sibling.brand_id) === acceptedSupplierKey)
+            .map(sibling => sibling.id);
+
+        if (siblingIds.length > 0) {
+            await knex('custom_proposals')
+                .whereIn('id', siblingIds)
+                .update({
+                    status: 'closed_other',
+                    updated_at: new Date()
+                });
+        }
+        return;
+
+        const proposalNumber = String(proposal.proposal_number || '').trim();
+        const supplierKey = normalizeProposalSupplierKey(proposal.source_supplier || proposal.brand_id);
         const brandId = proposal.brand_id;
         const subProject = metadata.our_ref || ''; // Specific Proposal Project (displayed as "Referência")
 

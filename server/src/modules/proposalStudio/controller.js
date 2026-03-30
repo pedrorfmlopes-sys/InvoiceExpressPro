@@ -55,6 +55,69 @@ class ProposalStudioController {
         }
     }
 
+    async getWorkingCopy(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.getWorkingCopy(id);
+            if (!result) {
+                return res.status(404).json({ error: 'Proposta nÃ£o encontrada' });
+            }
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async saveWorkingCopy(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.saveWorkingCopy(id, req.body || {});
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async commitWorkingCopy(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.commitWorkingCopy(id);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async discardWorkingCopy(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.discardWorkingCopy(id);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async getProposalVersions(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.getProposalVersions(id);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async restoreProposalVersion(req, res) {
+        try {
+            const { id, versionId } = req.params;
+            const result = await service.restoreProposalVersion(id, versionId);
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
     async updateProposal(req, res) {
         try {
             const { id } = req.params;
@@ -81,6 +144,40 @@ class ProposalStudioController {
             await service.deleteProposal(id);
             res.json({ ok: true });
         } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async getSourceSyncCandidates(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.getSourceSyncCandidates(id);
+            res.json(result);
+        } catch (e) {
+            console.error(e);
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async getSourceSyncPreview(req, res) {
+        try {
+            const { id } = req.params;
+            const { sourceDocId } = req.query;
+            const result = await service.getSourceSyncPreview(id, sourceDocId || null);
+            res.json(result);
+        } catch (e) {
+            console.error(e);
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async applySourceSync(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await service.applySourceSync(id, req.body || {});
+            res.json(result);
+        } catch (e) {
+            console.error(e);
             res.status(500).json({ error: e.message });
         }
     }
