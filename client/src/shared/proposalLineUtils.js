@@ -17,6 +17,29 @@ export function toFiniteNumber(value, fallback = 0) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+export function normalizeDiscountExpression(value, fallback = '0') {
+    if (value === null || value === undefined || value === '') return fallback;
+
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? String(value) : fallback;
+    }
+
+    const parts = String(value)
+        .replace(/\s+/g, '')
+        .replace(/%/g, '')
+        .replace(/,/g, '.')
+        .split('+')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(part => {
+            const parsed = Number.parseFloat(part);
+            return Number.isFinite(parsed) && parsed >= 0 ? String(parsed) : null;
+        })
+        .filter(Boolean);
+
+    return parts.length ? parts.join('+') : fallback;
+}
+
 function normalizeHexColor(value) {
     const raw = String(value || '').trim();
     if (/^#([0-9a-f]{6})$/i.test(raw)) return raw.toUpperCase();
@@ -68,10 +91,21 @@ export function normalizeLineForUi(line) {
         : (line?.extra_attributes || {});
 
     const nextExtra = { ...extra };
+    const rawDiscount = nextExtra.discount_expression ?? line?.discount_commercial_percent ?? '0';
+    const discountExpression = lineType === 'comment' ? '0' : normalizeDiscountExpression(rawDiscount, '0');
     if (lineType === 'comment') {
         nextExtra.comment_style = normalizeCommentStyle(nextExtra.comment_style);
+        delete nextExtra.discount_expression;
     } else if (nextExtra.comment_style) {
         delete nextExtra.comment_style;
+    }
+
+    if (lineType !== 'comment') {
+        if (discountExpression.includes('+')) {
+            nextExtra.discount_expression = discountExpression;
+        } else if (nextExtra.discount_expression) {
+            delete nextExtra.discount_expression;
+        }
     }
 
     return {
@@ -81,7 +115,7 @@ export function normalizeLineForUi(line) {
         quantity: lineType === 'comment' ? 0 : toFiniteNumber(line?.quantity, 0),
         unit_price_factory: lineType === 'comment' ? 0 : toFiniteNumber(line?.unit_price_factory, 0),
         unit_price_commercial: lineType === 'comment' ? 0 : toFiniteNumber(line?.unit_price_commercial, 0),
-        discount_commercial_percent: lineType === 'comment' ? 0 : toFiniteNumber(line?.discount_commercial_percent, 0),
+        discount_commercial_percent: lineType === 'comment' ? 0 : discountExpression,
         extra_attributes: nextExtra
     };
 }

@@ -25,6 +25,51 @@ function toFiniteNumber(value, fallback = 0) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function normalizeDiscountExpression(value, fallback = '0') {
+    if (value === null || value === undefined || value === '') return fallback;
+
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? String(value) : fallback;
+    }
+
+    const parts = String(value)
+        .replace(/\s+/g, '')
+        .replace(/%/g, '')
+        .replace(/,/g, '.')
+        .split('+')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(part => {
+            const parsed = Number.parseFloat(part);
+            return Number.isFinite(parsed) && parsed >= 0 ? String(parsed) : null;
+        })
+        .filter(Boolean);
+
+    return parts.length ? parts.join('+') : fallback;
+}
+
+function getDiscountMultiplier(discountValue) {
+    if (!discountValue) return 1;
+    if (typeof discountValue === 'number') {
+        return Math.max(0, 1 - (discountValue / 100));
+    }
+
+    const normalized = normalizeDiscountExpression(discountValue, '0');
+    return normalized.split('+').reduce((acc, part) => {
+        const parsed = Number.parseFloat(part);
+        if (!Number.isFinite(parsed) || parsed < 0) return acc;
+        return acc * Math.max(0, 1 - (parsed / 100));
+    }, 1);
+}
+
+function getEffectiveDiscountPercent(discountValue) {
+    return (1 - getDiscountMultiplier(discountValue)) * 100;
+}
+
+function applyDiscount(price, discountValue) {
+    return Math.max(0, toFiniteNumber(price, 0) * getDiscountMultiplier(discountValue));
+}
+
 function normalizeHexColor(value) {
     const raw = String(value || '').trim();
     if (/^#([0-9a-f]{6})$/i.test(raw)) return raw.toUpperCase();
@@ -92,6 +137,18 @@ function normalizeProposalLineInput(line, options = {}) {
     const factoryPriceInput = line?.unit_price_factory ?? line?.price ?? line?.unitPrice ?? 0;
     const commercialPriceInput = line?.unit_price_commercial ?? line?.price ?? line?.unitPrice ?? factoryPriceInput;
     const isComment = lineType === 'comment';
+    const rawDiscount = extra.discount_expression ?? line?.discount_commercial_percent ?? '0';
+    const discountExpression = isComment ? '0' : normalizeDiscountExpression(rawDiscount, '0');
+
+    if (!isComment) {
+        if (discountExpression.includes('+')) {
+            extra.discount_expression = discountExpression;
+        } else {
+            delete extra.discount_expression;
+        }
+    } else {
+        delete extra.discount_expression;
+    }
 
     return {
         proposal_id: options.proposalId,
@@ -102,7 +159,7 @@ function normalizeProposalLineInput(line, options = {}) {
         unit_price_factory: isComment ? 0 : toFiniteNumber(factoryPriceInput, 0),
         unit_price_commercial: isComment ? 0 : toFiniteNumber(commercialPriceInput, toFiniteNumber(factoryPriceInput, 0)),
         discount_factory: String(line?.discount_factory ?? line?.discountPercent ?? line?.discountText ?? '0'),
-        discount_commercial_percent: isComment ? 0 : toFiniteNumber(line?.discount_commercial_percent, 0),
+        discount_commercial_percent: isComment ? 0 : getEffectiveDiscountPercent(discountExpression),
         vat_rate: String(line?.vat_rate ?? line?.vat ?? line?.vatRate ?? options.defaultVatRate ?? '23'),
         sort_order: options.sortOrder ?? 0,
         lead_time_weeks: isComment ? null : (line?.lead_time_weeks === '' || line?.lead_time_weeks === undefined || line?.lead_time_weeks === null ? null : toFiniteNumber(line.lead_time_weeks, null)),
@@ -117,6 +174,19 @@ function normalizeProposalLineInput(line, options = {}) {
 function normalizeStoredProposalLine(line) {
     const lineType = inferProposalLineType(line);
     const extra = normalizeExtraAttributes(line?.extra_attributes, lineType);
+    const rawDiscount = extra.discount_expression ?? line?.discount_commercial_percent ?? '0';
+    const discountExpression = lineType === 'comment' ? '0' : normalizeDiscountExpression(rawDiscount, '0');
+
+    if (lineType !== 'comment') {
+        if (discountExpression.includes('+')) {
+            extra.discount_expression = discountExpression;
+        } else {
+            delete extra.discount_expression;
+        }
+    } else {
+        delete extra.discount_expression;
+    }
+
     const normalized = {
         ...line,
         line_type: lineType,
@@ -125,7 +195,7 @@ function normalizeStoredProposalLine(line) {
         quantity: lineType === 'comment' ? 0 : toFiniteNumber(line?.quantity, 0),
         unit_price_factory: lineType === 'comment' ? 0 : toFiniteNumber(line?.unit_price_factory, 0),
         unit_price_commercial: lineType === 'comment' ? 0 : toFiniteNumber(line?.unit_price_commercial, 0),
-        discount_commercial_percent: lineType === 'comment' ? 0 : toFiniteNumber(line?.discount_commercial_percent, 0),
+        discount_commercial_percent: lineType === 'comment' ? 0 : discountExpression,
         vat_rate: String(line?.vat_rate ?? '23'),
         extra_attributes: extra
     };
@@ -145,7 +215,7 @@ function calculateProposalLineAmounts(line) {
         return { normalized, lineNet: 0, lineVat: 0, totalWithVat: 0 };
     }
 
-    const lineNet = normalized.quantity * normalized.unit_price_commercial * (1 - (normalized.discount_commercial_percent / 100));
+    const lineNet = normalized.quantity * applyDiscount(normalized.unit_price_commercial, normalized.discount_commercial_percent || '0');
     const vatRate = toFiniteNumber(normalized.vat_rate, 23);
     const lineVat = lineNet * (vatRate / 100);
     return {
@@ -178,6 +248,7 @@ module.exports = {
     safeParseJson,
     toFiniteNumber,
     normalizeCommentStyle,
+    normalizeDiscountExpression,
     inferProposalLineType,
     isCommentLine,
     normalizeProposalLineInput,
