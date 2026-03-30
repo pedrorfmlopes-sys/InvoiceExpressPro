@@ -1696,7 +1696,8 @@ const ProposalEditor = (props) => {
                                     type="text"
                                     className="bg-transparent text-right text-sm text-red-400 font-mono outline-none border-b border-white/10 w-32 focus:border-red-500"
                                     value={proposal.metadata?.global_discount || ''}
-                                    onChange={e => updateMetadata('global_discount', normalizeDiscountExpression(e.target.value, '0'))}
+                                    onChange={e => updateMetadata('global_discount', e.target.value)}
+                                    onBlur={e => updateMetadata('global_discount', normalizeDiscountExpression(e.target.value, '0'))}
                                     placeholder="0 ou 45+5+5+5"
                                 />
                                 {!!proposal.metadata?.global_discount && proposal.metadata?.global_discount !== '0' && (
