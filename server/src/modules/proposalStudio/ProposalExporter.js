@@ -430,7 +430,9 @@ class ProposalPdfEngine {
         }
 
         const globalDiscountExpression = String(this.proposal.metadata?.global_discount || '0');
-        const globalDiscountValue = (totalSiva + packagingTotal + shipping) * (1 - getDiscountMultiplier(globalDiscountExpression));
+        // Keep the global discount base aligned with ProposalEditor and the React PDF:
+        // discount commercial lines and shipping, but do not discount packaging/handling fees.
+        const globalDiscountValue = (totalSiva + shipping) * (1 - getDiscountMultiplier(globalDiscountExpression));
         if (globalDiscountValue > 0) {
             drawTotalLine('Desconto Extra', `- ${fmtEUR(globalDiscountValue)}`);
         }
