@@ -431,6 +431,21 @@ const ProposalEditor = (props) => {
             nextLine.extra_attributes = nextExtra;
         }
 
+        if (field === 'discount_commercial_percent' && !isCommentLine(nextLine)) {
+            const nextExtra = typeof currentLine.extra_attributes === 'string'
+                ? (() => {
+                    try { return JSON.parse(currentLine.extra_attributes || '{}'); } catch { return {}; }
+                })()
+                : { ...(currentLine.extra_attributes || {}) };
+            const discountExpression = normalizeDiscountExpression(value, '0');
+            if (discountExpression.includes('+')) {
+                nextExtra.discount_expression = discountExpression;
+            } else {
+                delete nextExtra.discount_expression;
+            }
+            nextLine.extra_attributes = nextExtra;
+        }
+
         const normalizedLine = normalizeLineForUi(nextLine);
         if (field === 'discount_commercial_percent' && normalizedLine.line_type !== 'comment') {
             normalizedLine.discount_commercial_percent = value;
